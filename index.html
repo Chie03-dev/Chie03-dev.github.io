@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alchie Andilab &mdash; Resume, One Layer Down</title>
+<meta name="description" content="Scroll down through five code-drawn layers to read the resume of Alchie Andilab, a Computer Science graduate building Android, POS and web apps.">
+<meta name="theme-color" content="#14181e">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="profile">
+<meta property="og:title" content="Alchie Andilab &mdash; Resume, One Layer Down">
+<meta property="og:description" content="A scroll-driven pixel-art resume: sky, dirt, stone, caves and bedrock. All art is drawn in code with a single canvas.">
+<meta name="twitter:card" content="summary">
+<link rel="canonical" href="https://chie03-dev.github.io/">
+<script>
+  /* Marks the document as script-enabled BEFORE first paint, so the CSS can
+     start panels in their hidden state without flashing them in for no-JS
+     visitors. If this never runs, panels simply stay visible. */
+  document.documentElement.className += ' js';
+</script>
+<style>
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+/* ==========================================================================
+   Tokens
+   Palette, type scale, spacing, radii and motion restored verbatim from
+   commit b3a4501 (src/styles/tokens.css). Every old hex is kept, but the light
+   "surface" band is used as an ACCENT rather than as a fill: chalk text on the
+   deep lantern background carries the whole page, so there are no light
+   surfaces anywhere.
+   ========================================================================== */
+:root{
+  color-scheme: dark;              /* dark scrollbar + form chrome on any OS */
+
+  /* Old layer palette, verbatim. --hue (below) selects one per section. */
+  --layer-surface:#f6f1e4;
+  --layer-topsoil:#c9a87c;
+  --layer-clay:#8a5a3c;
+  --layer-ore:#3d4650;
+  --layer-bedrock:#232a33;
+  --layer-lantern:#14181e;
+
+  /* Surfaces. --deep is the old "lantern" token and is the single source of
+     truth for the page, the canvas fallback, and overscroll. */
+  --deep:#14181e;
+  --panel-solid:#1b2027;
+  --hue:var(--layer-ore);
+
+  /* Ink. --chalk is the old deep-layer ink; --ink sits on the yellow accent. */
+  --chalk:#f6f1e4;
+  --text:#f6f1e4;
+  --muted:#a9b2bd;
+  --ink:#2a2520;
+  --accent:#ffd24a;
+  --accent-ink:#2a2520;
+
+  /* Type scale, verbatim from b3a4501 */
+  --step--2:clamp(0.69rem,0.66rem + 0.15vw,0.75rem);
+  --step--1:clamp(0.83rem,0.80rem + 0.18vw,0.94rem);
+  --step-0:clamp(1rem,0.96rem + 0.22vw,1.125rem);
+  --step-1:clamp(1.2rem,1.15rem + 0.26vw,1.35rem);
+  --step-2:clamp(1.44rem,1.38rem + 0.31vw,1.62rem);
+  --step-3:clamp(1.73rem,1.66rem + 0.38vw,1.94rem);
+  --step-4:clamp(2.07rem,1.99rem + 0.45vw,2.33rem);
+  --step-5:clamp(2.49rem,2.39rem + 0.55vw,2.80rem);
+
+  /* Spacing, verbatim */
+  --space-2xs:0.25rem; --space-xs:0.5rem;  --space-sm:0.75rem;
+  --space-md:1rem;     --space-lg:1.5rem;  --space-xl:2rem;
+  --space-2xl:3rem;    --space-3xl:4rem;   --space-4xl:6rem;
+
+  /* Radii, verbatim */
+  --radius-sm:4px; --radius:8px; --radius-lg:14px; --radius-round:9999px;
+
+  /* Layout + motion, verbatim */
+  --content-width:65ch; --gutter:var(--space-lg);
+  --dur-fast:150ms; --dur:300ms; --ease:cubic-bezier(0.22,1,0.36,1);
+
+  /* --- Cave layout (docs/layout-spec.md) --- */
+  --shaft-w:clamp(140px,24vw,220px);   /* spec: the shaft stays empty for the sprite */
+  --col-gap:var(--space-2xl);
+  --rail-space:0px;   /* space reserved for the fixed depth rail, when it is a side rail */
+  --door-w:22px;      /* chamber doorway opening, facing the shaft */
+  --door:#b45309;     /* warm opening; sits between the lantern accent and the clay hue */
+
+  /* Old fonts: Inter for body, Caveat for headings only. Used when installed;
+     nothing is downloaded, so the page stays a single offline file. */
+  --font-body:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-heading:Caveat,"Segoe Print","Bradley Hand","Comic Sans MS",cursive;
+}
+
+/* Per-section accent, replacing the old .layer-* background classes. The two
+   darkest hues are mixed toward chalk so their dashed edge clears 3:1. */
+.chamber[data-layer="sky"]     {--hue:var(--layer-surface)}
+.chamber[data-layer="dirt"]    {--hue:var(--layer-topsoil)}
+.chamber[data-layer="stone"]   {--hue:var(--layer-clay)}
+.chamber[data-layer="caves"]   {--hue:var(--layer-ore)}
+.chamber[data-layer="bedrock"] {--hue:var(--layer-bedrock)}
+.treasure[data-layer="bedrock"]{--hue:var(--layer-bedrock)}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+*,*::before,*::after{box-sizing:border-box}
+/* --deep on <html> is what colours the overscroll region and the area below the
+   last layer: <body> alone would leave a gap once it ends. */
+html{scroll-behavior:smooth;background:var(--deep)}
+body{
+  margin:0;color:var(--text);
+  font-family:var(--font-body);font-size:var(--step-0);line-height:1.6;
+  overflow-x:hidden;-webkit-text-size-adjust:100%;
+  /* Rock mottle, drawn with gradients only (no image file, per the old
+     base.css approach), layered on the deep background. */
+  background-color:var(--deep);
+  background-image:
+    radial-gradient(ellipse at 20% 30%,rgba(61,70,80,.35),transparent 60%),
+    radial-gradient(ellipse at 80% 70%,rgba(35,42,51,.45),transparent 60%),
+    repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.18) 3px,rgba(0,0,0,.18) 6px);
+}
+a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+a:hover{color:#ffe58a}
+/* Old focus treatment from base.css: 3px lantern ring, 2px offset. */
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:var(--radius-sm)}
+
+/* The canvas is decoration only: every word a recruiter reads lives in HTML. */
+#stage{
+  position:fixed;inset:0;z-index:0;display:block;pointer-events:none;
+  background:var(--deep);   /* fallback fill if JS is off or the loop is paused */
+  image-rendering:pixelated;
+}
+
+/* ==========================================================================
+   Skip link
+   ========================================================================== */
+.skip{
+  position:absolute;left:var(--space-sm);top:-100%;z-index:100;
+  padding:var(--space-sm) var(--space-md);
+  background:var(--accent);color:var(--accent-ink);
+  border-radius:var(--radius);font-weight:600;text-decoration:none;
+}
+.skip:focus{top:var(--space-sm)}
+
+/* ==========================================================================
+   Layout
+   ========================================================================== */
+/* ==========================================================================
+   Cave layout
+   docs/layout-spec.md: three columns, left chamber | centre shaft | right
+   chamber, one section per row alternating sides, then a full-width contact
+   room at the bottom. The shaft column is left empty for the canvas sprite.
+   ========================================================================== */
+main{position:relative;z-index:10}
+.dig{
+  display:grid;
+  grid-template-columns:1fr var(--shaft-w) 1fr;
+  column-gap:var(--col-gap);
+  row-gap:var(--space-3xl);
+  padding-block:var(--space-2xl) var(--space-2xl);
+  padding-inline:var(--rail-space);
+}
+/* One section per row, alternating sides. Rows are explicit so the two
+   chamber columns never collide, whatever order the markup is edited into. */
+#summary   {grid-area:1 / 1 / 2 / 2}
+#skills    {grid-area:2 / 3 / 3 / 4}
+#projects  {grid-area:3 / 1 / 4 / 2}
+#experience{grid-area:4 / 3 / 5 / 4}
+#education {grid-area:5 / 1 / 6 / 2}
+#contact   {grid-area:6 / 1 / 7 / -1}
+.dig__shaft{grid-area:1 / 2 / 6 / 3}
+
+/* Chamber = the old .fossil card treatment: a dark slab with a 2px dashed,
+   hue-tinted edge. The plain border-color is the fallback for engines without
+   color-mix. */
+.chamber,.treasure{
+  position:relative;
+  background:var(--panel-solid);
+  background-image:linear-gradient(180deg,
+    color-mix(in srgb,var(--hue) 12%,transparent),transparent 55%);
+  border:2px dashed rgba(246,241,228,.42);
+  border-color:color-mix(in srgb,var(--hue) 55%,var(--chalk));
+  border-radius:var(--radius-lg);
+  padding:var(--space-xl);
+  box-shadow:0 18px 44px rgba(0,0,0,.45);
+  align-self:start;
+}
+@media (max-width:1100px){
+  .chamber,.treasure{padding:var(--space-lg)}
+}
+
+/* Doorway: a small warm opening on the edge that faces the shaft. Centred on
+   the shaft's dashed border rather than on the chamber edge, so it reads as a
+   way through. */
+.chamber__door{
+  position:absolute;top:var(--space-lg);
+  width:var(--door-w);height:56px;
+  background:var(--door);
+  border-radius:calc(var(--door-w) / 2);
+  box-shadow:0 0 16px rgba(255,210,74,.30);
+}
+.chamber--left  .chamber__door{right:calc(-1 * (var(--col-gap) + var(--door-w) / 2))}
+.chamber--right .chamber__door{left:calc(-1 * (var(--col-gap) + var(--door-w) / 2))}
+
+/* Chamber header: the placeholder title from the spec, plus the section it
+   holds. Kept in the handwriting face like every other heading. */
+.chamber__name{
+  margin:0;font-family:var(--font-heading);font-size:var(--step-2);
+  line-height:1.2;color:var(--chalk);
+}
+.chamber__sub{
+  margin:.15rem 0 0;font-family:var(--font-heading);font-size:var(--step-1);
+  line-height:1.2;color:var(--muted);
+}
+
+/* The shaft: dashed rock walls, a descent spine, an arrow, and one cue. */
+.dig__shaft{
+  position:relative;
+  border-left:2px dashed rgba(246,241,228,.26);
+  border-right:2px dashed rgba(246,241,228,.26);
+}
+.dig__shaft::before{
+  content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;
+  transform:translateX(-50%);
+  background:linear-gradient(180deg,transparent,
+    rgba(246,241,228,.28) 6%,rgba(246,241,228,.28) 94%,transparent);
+}
+.dig__shaft::after{
+  content:"";position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:0;height:0;
+  border-left:8px solid transparent;border-right:8px solid transparent;
+  border-top:14px solid rgba(246,241,228,.45);
+}
+.dig__cue{
+  position:sticky;top:42vh;
+  width:max-content;max-width:92%;
+  margin-inline:auto;
+  padding:var(--space-xs) var(--space-md);
+  background:rgba(18,22,28,.94);
+  border:1px solid var(--edge);
+  border-radius:var(--radius);
+  color:var(--chalk);font-size:var(--step--2);text-align:center;
+}
+
+/* Full-width contact room at the bottom of the dig. */
+.treasure{text-align:center;margin-top:var(--space-2xl)}
+.treasure__btns{
+  display:flex;flex-wrap:wrap;gap:var(--space-md);
+  justify-content:center;margin-top:var(--space-lg);
+}
+
+/* Headings get the handwriting font ONLY; body copy stays sans (old rule). */
+h1,h2,h3,h4,.eyebrow,.kv dt,.depth__title{
+  font-family:var(--font-heading);font-weight:400;line-height:1.2;
+}
+.eyebrow{margin:0 0 var(--space-2xs);font-size:var(--step-1);color:var(--accent)}
+h1{margin:0 0 var(--space-2xs);font-size:var(--step-4)}
+h2{margin:0 0 var(--space-2xs);font-size:var(--step-3)}
+h3{margin:0;font-size:var(--step-2)}
+.chamber>p,.treasure>p{margin:var(--space-md) 0 0}
+.muted{color:var(--muted)}
+
+/* ==========================================================================
+   Reveal (driven by IntersectionObserver adding .is-visible)
+   Scoped to .js so a no-JS visitor gets every chamber, fully visible.
+   ========================================================================== */
+.js .chamber,.js .treasure{opacity:0;transform:translateY(20px);
+  transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.js .chamber.is-visible,.js .treasure.is-visible{opacity:1;transform:none}
+
+/* ==========================================================================
+   Phones: the shaft shrinks to a thin strip on one edge and the chambers
+   stack full width, each sitting under its own doorway (spec).
+   ========================================================================== */
+@media (max-width:820px){
+  .dig{
+    grid-template-columns:1fr;
+    row-gap:var(--space-2xl);
+    padding-inline:0;
+    padding-left:72px;          /* clear the fixed shaft strip */
+  }
+  .dig__shaft{
+    grid-area:1 / 1 / -1 / -1;
+    position:fixed;left:0;top:0;bottom:0;width:56px;z-index:1;
+    background:rgba(10,13,18,.55);
+    border-left:0;
+    border-right:2px dashed rgba(246,241,228,.26);
+  }
+  .dig__shaft::before,.dig__shaft::after,.dig__cue{display:none}
+  #summary,#skills,#projects,#experience,#education,#contact{grid-area:auto}
+  .chamber,.treasure{grid-column:1;max-width:none}
+  /* Doorways move to the top edge, above the chamber they open into. */
+  .chamber__door{
+    top:calc(-1 * (var(--door-w) / 2));left:var(--space-lg);right:auto;
+    width:56px;height:var(--door-w);
+    border-radius:calc(var(--door-w) / 2);
+  }
+}
+
+/* ==========================================================================
+   Content blocks
+   ========================================================================== */
+.facts{list-style:none;display:flex;flex-wrap:wrap;gap:var(--space-2xs) var(--space-lg);
+  margin:var(--space-lg) 0 0;padding:0;font-size:var(--step--1)}
+.facts li{color:var(--muted)}
+
+/* Chips: the old .vein__chip / .fossil__tag treatment. */
+.chips{list-style:none;display:flex;flex-wrap:wrap;gap:var(--space-2xs);
+  margin:var(--space-xs) 0 var(--space-lg);padding:0}
+.chips li{
+  border:1px solid rgba(246,241,228,.30);
+  border-radius:var(--radius-round);
+  padding:var(--space-2xs) var(--space-xs);
+  font-size:var(--step--1);color:var(--muted);
+}
+.group{margin:0 0 var(--space-lg)}
+.group:last-child{margin-bottom:0}
+.group h3{margin:0 0 var(--space-2xs);color:var(--accent);font-size:var(--step-1)}
+
+/* Projects: a quieter inner card so the outer dashed edge still frames it. */
+.proj{list-style:none;margin:var(--space-xl) 0 0;padding:0;display:grid;gap:var(--space-lg)}
+.proj>li{
+  background:color-mix(in srgb,var(--hue) 8%,transparent);
+  border:1px solid rgba(246,241,228,.18);
+  border-radius:var(--radius);padding:var(--space-lg);
+}
+.proj h3{font-size:var(--step-2)}
+.proj .when{margin:var(--space-2xs) 0 0;font-size:var(--step--1);color:var(--muted)}
+.proj p{margin:var(--space-sm) 0 0}
+.proj .tech{font-size:var(--step--1);color:var(--muted)}
+
+/* Experience: the old hand-drawn timeline rule, in lantern yellow. */
+.entry{list-style:none;margin:var(--space-xl) 0 0;padding:0;display:grid;gap:var(--space-xl)}
+.entry>li{border-left:2px solid var(--accent);padding-left:var(--space-lg)}
+.entry h3{font-size:var(--step-2)}
+.entry .when{margin:var(--space-2xs) 0 0;font-size:var(--step--1);color:var(--muted)}
+.entry ul{margin:var(--space-sm) 0 0;padding-left:var(--space-lg)}
+.entry li{margin-bottom:var(--space-xs)}
+
+.kv{margin:var(--space-xl) 0 0}
+.kv dt{font-size:var(--step-1);letter-spacing:.03em;text-transform:uppercase;
+  color:var(--accent);margin-top:var(--space-md)}
+.kv dd{margin:var(--space-2xs) 0 0}
+
+.btns{display:flex;flex-wrap:wrap;gap:var(--space-sm);margin:var(--space-lg) 0 0}
+
+/* Old .btn: accent fill, 2px accent-ink border, 8px radius, 44px target. */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--space-xs);
+  min-height:44px;padding:var(--space-xs) var(--space-md);
+  font:inherit;font-size:var(--step-0);font-weight:600;
+  color:var(--accent-ink);background:var(--accent);
+  border:2px solid var(--accent-ink);border-radius:var(--radius);
+  text-decoration:none;cursor:pointer;
+}
+.btn:hover{background:#ffe58a;color:var(--accent-ink)}
+.btn[disabled]{opacity:.6;cursor:default}
+.btn--ghost{background:transparent;color:var(--accent);border-color:currentColor}
+.btn--ghost:hover{background:rgba(255,210,74,.14);color:var(--accent)}
+#email-slot{font-size:var(--step-0);word-break:break-all}
+
+.hint{margin:var(--space-lg) 0 0;font-size:var(--step--1);color:var(--muted)}
+kbd{font:inherit;font-size:.8em;padding:.05em .4em;
+  border:1px solid rgba(246,241,228,.30);border-radius:var(--radius-sm);
+  background:rgba(246,241,228,.08)}
+
+/* ==========================================================================
+   Depth meter
+   Restored from b3a4501: a solid bedrock rail on the LEFT. It crosses every
+   layer, so it needs its own opaque surface rather than a tinted one. Under
+   1024px a side rail would crowd the centred 65ch column, so it becomes a
+   bottom bar, exactly as the old stylesheet did.
+   ========================================================================== */
+.depth{
+  position:fixed;left:var(--space-md);top:50%;transform:translateY(-50%);
+  z-index:30;
+  background:var(--layer-bedrock);
+  border:1px solid #3e4956;
+  border-radius:var(--radius);
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
+}
+.depth__title{
+  margin:0;padding:var(--space-2xs) var(--space-xs) 0;
+  font-family:var(--font-heading);font-size:var(--step-1);color:var(--muted);
+}
+.depth__list{list-style:none;margin:0;padding:var(--space-2xs);display:grid;gap:2px}
+.depth__list a{
+  display:grid;align-items:center;gap:0;
+  min-height:44px;padding:var(--space-2xs) var(--space-xs);
+  border-left:3px solid transparent;
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  color:var(--chalk);text-decoration:none;
+  font-size:var(--step--2);line-height:1.25;white-space:nowrap;
+  transition:background var(--dur-fast) var(--ease);
+}
+.depth__list a:hover{background:#2e3743;color:var(--chalk)}
+.depth__list a[aria-current="true"]{
+  border-left-color:var(--accent);
+  background:#2e3743;color:var(--accent);font-weight:700;
+}
+.depth__m{color:#c9a87c;font-variant-numeric:tabular-nums}
+
+/* Below 1500px the fixed side rail would sit on top of the left chambers, so it
+   becomes a bottom bar there. At 1500px+ there is room for both, and the grid
+   reserves an equal gutter on BOTH sides so the shaft stays centred in the
+   viewport (which is where the canvas draws the sprite). */
+@media (max-width:1499px){
+  /* Keep the fixed bottom bar from covering the last lines of content. */
+  main{padding-bottom:3.5rem}
+  .depth{
+    left:0;right:0;top:auto;bottom:0;transform:none;
+    border:0;border-top:2px solid var(--accent);border-radius:0;
+    box-shadow:0 -4px 14px rgba(0,0,0,.35);
+  }
+  .depth__title{display:none}
+  .depth__list{grid-auto-flow:column;grid-auto-columns:max-content;overflow-x:auto}
+  .depth__list a{
+    border-left:0;border-bottom:3px solid transparent;
+    border-radius:var(--radius-sm);
+  }
+  .depth__list a[aria-current="true"]{border-bottom-color:var(--accent)}
+  .depth__m{display:none}
+}
+@media (min-width:1500px){
+  :root{--rail-space:8.5rem}
+}
+
+/* ==========================================================================
+   Plain resume
+   Collapsed behind <details> so the same content is never on screen twice.
+   The old design made this white on screen; here it is themed like the rest of
+   the page and turns white only for printing, which is what it is for.
+   ========================================================================== */
+#plain-resume{
+  position:relative;z-index:10;
+  background:var(--deep);color:var(--text);
+  border-top:2px solid var(--accent);
+  padding:var(--space-2xl) var(--gutter) var(--space-4xl);
+}
+#plain-resume>summary{
+  cursor:pointer;list-style:none;
+  max-width:var(--content-width);margin:0 auto;
+  min-height:44px;display:flex;align-items:center;gap:var(--space-sm);
+  font-family:var(--font-heading);font-size:var(--step-2);
+  color:var(--accent);padding:var(--space-xs) 0;
+}
+#plain-resume>summary::-webkit-details-marker{display:none}
+#plain-resume>summary::after{content:"\00a0+";color:var(--muted)}
+#plain-resume[open]>summary::after{content:"\00a0\2212"}
+#plain-resume>summary:hover{color:#ffe58a}
+.plain__wrap{max-width:var(--content-width);margin:var(--space-lg) auto 0}
+.plain__name{
+  font-family:var(--font-heading);font-size:var(--step-3);
+  line-height:1.2;margin:0 0 var(--space-2xs);
+}
+#plain-resume h2{font-size:var(--step-2);margin:var(--space-2xl) 0 var(--space-sm);
+  padding-bottom:var(--space-2xs);border-bottom:1px solid rgba(246,241,228,.28)}
+#plain-resume h3{font-size:var(--step-1);margin:var(--space-lg) 0 var(--space-2xs)}
+#plain-resume p{margin:var(--space-xs) 0}
+#plain-resume ul{margin:var(--space-xs) 0;padding-left:var(--space-lg)}
+#plain-resume li{margin-bottom:var(--space-2xs)}
+#plain-resume a{color:var(--accent)}
+.plain__note{margin:0 0 var(--space-lg);color:var(--muted);font-size:var(--step--1)}
+
+/* ==========================================================================
+   Reduced motion + print
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce){
+  :root{--dur-fast:0ms;--dur:0ms}
+  html{scroll-behavior:auto}
+  *,*::before,*::after{
+    animation-duration:0ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0ms !important;
+  }
+  .js .chamber,.js .treasure{opacity:1;transform:none}
+}
+@media print{
+  /* Ctrl/Cmd-P yields the resume document, not the game. The <details> is
+     forced open by the beforeprint handler in JS; the rules below are the
+     backup path for engines that ignore that event. */
+  #stage,.depth,.skip,.btn,main{display:none !important}
+  html,body{background:#fff !important;color:#000}
+  #plain-resume{
+    display:block !important;background:#fff !important;color:#000;
+    border-top:0;padding:0;
+  }
+  #plain-resume>summary{display:none !important}
+  #plain-resume>*{display:block !important}
+  .plain__wrap{max-width:none;margin:0}
+  #plain-resume a{color:#000}
+  #plain-resume h1,#plain-resume h2,#plain-resume h3{break-after:avoid}
+  #plain-resume li,#plain-resume p{orphans:3;widows:3}
+  @page{margin:14mm}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#plain-resume">Skip to plain resume</a>
+<canvas id="stage" aria-hidden="true"></canvas>
+
+<nav class="depth" aria-label="Resume depth">
+  <p class="depth__title">Depth</p>
+  <ol class="depth__list">
+    <li><a href="#summary"><span>Sky</span><span class="depth__m"></span></a></li>
+    <li><a href="#skills"><span>Dirt</span><span class="depth__m"></span></a></li>
+    <li><a href="#projects"><span>Stone</span><span class="depth__m"></span></a></li>
+    <li><a href="#experience"><span>Caves</span><span class="depth__m"></span></a></li>
+    <li><a href="#education"><span>Bedrock</span><span class="depth__m"></span></a></li>
+  </ol>
+</nav>
+
+<main>
+ <div class="dig">
+  <!-- The shaft. It is a grid column, not a decoration: the canvas measures
+       this element to place the sprite, the walls and the ledge. Empty of
+       content on purpose, apart from one scroll cue. -->
+  <div class="dig__shaft" aria-hidden="true">
+    <p class="dig__cue">Scroll to descend</p>
+  </div>
+
+  <!-- ================= ROW 1 LEFT - Surface camp ================= -->
+  <section id="summary" class="chamber chamber--left" data-layer="sky" aria-labelledby="summary-h">
+    <p class="chamber__door" aria-hidden="true"></p>
+    <p class="chamber__name">Surface camp</p>
+    <p class="chamber__sub">Summary &middot; sky layer</p>
+    <h1 id="summary-h">Alchie O. Andilab</h1>
+    <p>
+      Computer Science graduate with experience in application development, technical
+      support, hardware/software troubleshooting, and database systems. Uses Python,
+      Java, Kotlin, JavaScript, PHP, MySQL, SQLite, RESTful API concepts, Windows/Linux
+      OS, user support, and most Microsoft applications. Built a POS inventory
+      management application and administrative systems.
+    </p>
+    <ul class="facts">
+      <li>Glendale, AZ</li>
+    </ul>
+    <p class="hint">
+      The whole page is one canvas: every pixel behind this text is drawn in code,
+      no images. Keep scrolling to dig &mdash; or press <kbd>A</kbd>/<kbd>D</kbd> to
+      walk the ledge and <kbd>W</kbd> to jump.
+    </p>
+  </section>
+
+  <!-- ================= ROW 2 RIGHT - Ore mine ================= -->
+  <section id="skills" class="chamber chamber--right" data-layer="dirt" aria-labelledby="skills-h">
+    <p class="chamber__door" aria-hidden="true"></p>
+    <p class="chamber__name">Ore mine</p>
+    <p class="chamber__sub">Skills &middot; dirt layer</p>
+    <h2 id="skills-h">Skills</h2>
+    <div class="group">
+      <h3>Languages</h3>
+      <ul class="chips">
+        <li>Python</li><li>Java</li><li>Kotlin</li><li>JavaScript</li><li>PHP</li>
+        <li>HTML/CSS</li><li>SQL</li><li>TypeScript</li>
+      </ul>
+    </div>
+    <div class="group">
+      <h3>Frameworks &amp; Tools</h3>
+      <ul class="chips">
+        <li>Android (Jetpack Compose, Android Studio, Gradle, Lock Task Mode)</li>
+        <li>React</li><li>Vite</li><li>Node.js</li><li>Prisma ORM</li>
+        <li>WebSockets/SSE</li><li>Next.js</li><li>Django</li><li>REST API</li>
+        <li>Vitest/Jest</li>
+      </ul>
+    </div>
+    <div class="group">
+      <h3>Databases</h3>
+      <ul class="chips">
+        <li>PostgreSQL</li><li>SQLite</li><li>MySQL</li><li>Cloud Firestore</li>
+      </ul>
+    </div>
+    <div class="group">
+      <h3>Systems</h3>
+      <ul class="chips">
+        <li>Windows and Linux deployment and configuration</li>
+        <li>Hardware troubleshooting and repair</li>
+        <li>PC assembly</li>
+        <li>LAN and wired network diagnostics</li>
+        <li>Active Directory</li>
+      </ul>
+    </div>
+    <div class="group">
+      <h3>Support</h3>
+      <ul class="chips">
+        <li>Application support</li><li>Issue tracking</li><li>Documentation</li>
+        <li>Inventory management applications</li>
+      </ul>
+    </div>
+    <div class="group">
+      <h3>Practices</h3>
+      <ul class="chips">
+        <li>Git/GitHub</li><li>Agile/Scrum</li><li>Unit &amp; Integration Testing</li>
+        <li>Database Migrations</li><li>Zapier</li><li>n8n</li><li>Google Workspace</li>
+        <li>Microsoft Office</li><li>AI-assisted development (Claude, Gemini, Copilot, Cline)</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================= ROW 3 LEFT - Treasure vault ================= -->
+  <section id="projects" class="chamber chamber--left" data-layer="stone" aria-labelledby="projects-h">
+    <p class="chamber__door" aria-hidden="true"></p>
+    <p class="chamber__name">Treasure vault</p>
+    <p class="chamber__sub">Projects &middot; stone layer</p>
+    <h2 id="projects-h">Projects</h2>
+    <ul class="proj">
+      <li>
+        <h3>Mobile POS &amp; Inventory System</h3>
+        <p class="when">01/2025 &ndash; 04/2026</p>
+        <p>Offline-first Android POS and inventory system with barcode checkout, inventory tracking, transaction management, sales analytics, forecasting, restock recommendations, and PDF receipt generation.</p>
+        <p class="tech">Kotlin, Java, SQLite, XML, Android Studio, Gradle, CameraX, Google ML Kit, MPAndroidChart</p>
+        <!-- TODO: add the "Source" link here once the repo URL is confirmed. -->
+      </li>
+      <li>
+        <h3>Resume Optimization Tool</h3>
+        <p class="when">09/2026 &ndash; present</p>
+        <p>Personal project: an AI resume-tailoring app that saves a master resume and hot-swaps keywords depending on the target job, and uses AI (Groq) to act as an ATS parsing scorer.</p>
+        <p class="tech">Python, Streamlit, Groq API</p>
+        <!-- TODO: add the "Source" link here once the repo URL is confirmed. -->
+      </li>
+      <li>
+        <h3>Quiz App</h3>
+        <p class="when">07/2026 &ndash; 09/2026 &middot; completed</p>
+        <p>Built an exam environment using Android Lock Task Mode and WebSocket telemetry to prevent unauthorized app-switching while enabling live instructor monitoring and remote controls. Made local draft persistence with debounced REST synchronization, guaranteeing zero data loss during network drops and enforcing a server-side timer validation. Supported 8 question types with deterministic question pool randomization.</p>
+        <p class="tech">Kotlin, Jetpack Compose, Node.js, TypeScript, PostgreSQL, WebSockets</p>
+        <!-- TODO: add the "Source" link here once the repo URL is confirmed. -->
+      </li>
+    </ul>
+  </section>
+
+  <!-- ================= ROW 4 RIGHT - Dungeon halls ================= -->
+  <section id="experience" class="chamber chamber--right" data-layer="caves" aria-labelledby="experience-h">
+    <p class="chamber__door" aria-hidden="true"></p>
+    <p class="chamber__name">Dungeon halls</p>
+    <p class="chamber__sub">Experience &middot; cave layer</p>
+    <h2 id="experience-h">Experience</h2>
+    <ul class="entry">
+      <li>
+        <h3>Freelance Developer, Web and System Applications</h3>
+        <p class="when">01/2023 &ndash; present &middot; Remote</p>
+        <ul>
+          <li>Rebuilt frontend components for a legacy School System and 2 barangay management systems across Mindanao, replacing outdated code with modern frameworks and techniques.</li>
+          <li>Addressed recurring portal downtime and slow load times, resulting in noticeably faster performance and more stable, reliable uptime post-rebuild.</li>
+          <li>Contributed to backend database integration by defining object and function naming conventions for REST API POST and GET endpoints to support frontend-database data flow.</li>
+          <li>Assisted in migrating legacy functions, methods, and UI designs from non-framework code into Node.js, React, Next.js and Django-based systems, ensuring existing functionality carried over correctly.</li>
+          <li>Collaborated with fellow freelancers and system stakeholders to scope requirements and prioritize fixes across the school system and 2 barangay systems.</li>
+        </ul>
+      </li>
+      <li>
+        <h3>Intern, Drainwiz Computer System</h3>
+        <p class="when">07/2025 &ndash; 08/2025 &middot; Dipolog City, Philippines</p>
+        <ul>
+          <li>Collaborated with senior software engineers on a client web application build, fixing bugs and implementing database connections using HTML, CSS, JavaScript, and PHP.</li>
+          <li>Diagnosed and resolved hardware and software issues across company computers (Windows and Linux), including OS installation, printer, and network equipment troubleshooting.</li>
+          <li>Worked alongside a two-person senior engineering team under close mentorship, gaining hands-on client-facing web development experience while balancing IT support.</li>
+        </ul>
+      </li>
+      <li>
+        <h3>Help Desk Technician, Virtual Buddy</h3>
+        <p class="when">03/2022 &ndash; 05/2022 &middot; Dipolog City, Philippines</p>
+        <ul>
+          <li>Provided technical and application support for customers and employees in a fast-paced call center, troubleshooting hardware, software, and system issues.</li>
+          <li>Guided users step by step through issue resolution, communicating clearly with technical and non-technical staff.</li>
+          <li>Logged and tracked reported issues for technician follow-up and escalation, maintaining accurate documentation.</li>
+        </ul>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ================= ROW 5 LEFT - Ancient library ================= -->
+  <section id="education" class="chamber chamber--left" data-layer="bedrock" aria-labelledby="education-h">
+    <p class="chamber__door" aria-hidden="true"></p>
+    <p class="chamber__name">Ancient library</p>
+    <p class="chamber__sub">Education &middot; deep layer</p>
+    <h2 id="education-h">Education</h2>
+    <dl class="kv">
+      <dt>Degree</dt>
+      <dd>Bachelor of Science in Computer Science</dd>
+      <dt>Institution</dt>
+      <dd>Andres Bonifacio College, Dipolog City, Philippines</dd>
+      <dt>Dates</dt>
+      <dd>08/2022 &ndash; 05/2026</dd>
+      <dt>Coursework</dt>
+      <dd>Software Engineering, Object-Oriented Programming, Data Structures and Algorithms, Database Systems, Computer Networks, Web Engineering, Artificial Intelligence, Information Security, Discrete Structures</dd>
+    </dl>
+  </section>
+
+  <!-- ============ ROW 6 FULL WIDTH - Bedrock treasure room ============ -->
+  <section id="contact" class="treasure" data-layer="bedrock" aria-labelledby="contact-h">
+    <h2 id="contact-h">Bedrock treasure room</h2>
+    <p class="chamber__sub">Contact me + PDF resume</p>
+    <div class="treasure__btns">
+      <button class="btn btn--ghost" type="button" id="reveal-email">Email</button>
+      <span id="email-slot"></span>
+      <!-- TODO: swap for a real hosted PDF with a download attribute, as the
+           spec asks. No PDF file exists yet, so this honest placeholder prints
+           the same document through the print stylesheet instead of linking to
+           a file that is not there. -->
+      <button class="btn" type="button" id="print-resume">Download PDF</button>
+      <a class="btn btn--ghost" href="https://linkedin.com/in/alchieandilab" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      <a class="btn btn--ghost" href="https://github.com/Chie03-dev" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </div>
+    <p class="hint">
+      <a class="btn btn--ghost" href="#summary">Back to the surface</a>
+    </p>
+  </section>
+ </div>
+</main>
+
+<!-- ==========================================================================
+     Plain resume: the same content, collapsed so it is never on screen twice.
+     The skip link and a #plain-resume hash both open it (see the script), and
+     the print stylesheet renders only this.
+     ========================================================================== -->
+<details id="plain-resume" tabindex="-1">
+  <summary>Plain resume &mdash; the whole thing as one text document</summary>
+  <div class="plain__wrap">
+    <p class="plain__name">Alchie O. Andilab</p>
+    <p>Computer Science graduate &mdash; application development &amp; technical support. Glendale, AZ.</p>
+    <p>
+      <a href="https://github.com/Chie03-dev" target="_blank" rel="noopener noreferrer">github.com/Chie03-dev</a>
+      &middot;
+      <a href="https://linkedin.com/in/alchieandilab" target="_blank" rel="noopener noreferrer">linkedin.com/in/alchieandilab</a>
+    </p>
+    <p class="plain__note">Plain text version of the page. Use your browser's print command to save this as a PDF.</p>
+
+    <h2>Summary</h2>
+    <p>Computer Science graduate with experience in application development, technical support, hardware/software troubleshooting, and database systems. Uses Python, Java, Kotlin, JavaScript, PHP, MySQL, SQLite, RESTful API concepts, Windows/Linux OS, user support, and most Microsoft applications. Built a POS inventory management application and administrative systems.</p>
+
+    <h2>Skills</h2>
+    <h3>Languages</h3>
+    <p>Python, Java, Kotlin, JavaScript, PHP, HTML/CSS, SQL, TypeScript</p>
+    <h3>Frameworks &amp; Tools</h3>
+    <p>Android (Jetpack Compose, Android Studio, Gradle, Lock Task Mode), React, Vite, Node.js, Prisma ORM, WebSockets/SSE, Next.js, Django, REST API, Vitest/Jest</p>
+    <h3>Databases</h3>
+    <p>PostgreSQL, SQLite, MySQL, Cloud Firestore</p>
+    <h3>Systems</h3>
+    <p>Windows and Linux deployment and configuration, hardware troubleshooting and repair, PC assembly, LAN and wired network diagnostics, Active Directory</p>
+    <h3>Support</h3>
+    <p>Application support, issue tracking, documentation, inventory management applications</p>
+    <h3>Practices</h3>
+    <p>Git/GitHub, Agile/Scrum, Unit &amp; Integration Testing, Database Migrations, issue ticketing, Zapier, n8n, Google Workspace, Microsoft Office, AI-assisted development (Claude, Gemini, Copilot, Cline)</p>
+
+    <h2>Projects</h2>
+    <h3>Mobile POS &amp; Inventory System (01/2025 &ndash; 04/2026)</h3>
+    <p>Kotlin, Java, SQLite, XML, Android Studio, Gradle, CameraX, Google ML Kit, MPAndroidChart</p>
+    <ul>
+      <li>Built an offline-first Android POS and inventory system using Java, Kotlin, SQLite, CameraX, Google ML Kit and MPAndroidChart.</li>
+      <li>Implemented barcode checkout, inventory tracking, transaction management, sales analytics, forecasting, restock recommendations, and PDF receipt generation.</li>
+    </ul>
+    <h3>Resume Optimization Tool (09/2026 &ndash; present)</h3>
+    <p>Python, Streamlit, Groq API</p>
+    <ul>
+      <li>Personal project: an AI resume-tailoring app that saves a master resume and hot-swaps keywords depending on the target job, and uses AI (Groq) to act as an ATS parsing scorer.</li>
+    </ul>
+    <h3>Quiz App (07/2026 &ndash; 09/2026, completed)</h3>
+    <p>Kotlin, Jetpack Compose, Node.js, TypeScript, PostgreSQL, WebSockets</p>
+    <ul>
+      <li>Built an exam environment using Android Lock Task Mode and WebSocket telemetry to prevent unauthorized app-switching while enabling live instructor monitoring and remote controls.</li>
+      <li>Made local draft persistence with debounced REST synchronization, guaranteeing zero data loss during network drops and enforcing a server-side timer validation.</li>
+      <li>Supported 8 question types with deterministic question pool randomization.</li>
+    </ul>
+
+    <h2>Experience</h2>
+    <h3>Freelance Developer, Web and System Applications &mdash; 01/2023 to Present (Remote)</h3>
+    <ul>
+      <li>Rebuilt frontend components for a legacy School System and 2 barangay management systems across Mindanao, replacing outdated code with modern frameworks and techniques.</li>
+      <li>Addressed recurring portal downtime and slow load times, resulting in noticeably faster performance and more stable, reliable uptime post-rebuild.</li>
+      <li>Contributed to backend database integration by defining object and function naming conventions for REST API POST and GET endpoints to support frontend-database data flow.</li>
+      <li>Assisted in migrating legacy functions, methods, and UI designs from non-framework code into Node.js, React, Next.js and Django-based systems, ensuring existing functionality carried over correctly.</li>
+      <li>Collaborated with fellow freelancers and system stakeholders to scope requirements and prioritize fixes across the school system and 2 barangay systems.</li>
+    </ul>
+    <h3>Intern, Drainwiz Computer System &mdash; 07/2025 to 08/2025 (Dipolog City, Philippines)</h3>
+    <ul>
+      <li>Collaborated with senior software engineers on a client web application build, fixing bugs and implementing database connections using HTML, CSS, JavaScript, and PHP.</li>
+      <li>Diagnosed and resolved hardware and software issues across company computers (Windows and Linux), including OS installation, printer, and network equipment troubleshooting.</li>
+      <li>Worked alongside a two-person senior engineering team under close mentorship, gaining hands-on client-facing web development experience while balancing IT support.</li>
+    </ul>
+    <h3>Help Desk Technician, Virtual Buddy &mdash; 03/2022 to 05/2022 (Dipolog City, Philippines)</h3>
+    <ul>
+      <li>Provided technical and application support for customers and employees in a fast-paced call center, troubleshooting hardware, software, and system issues.</li>
+      <li>Guided users step by step through issue resolution, communicating clearly with technical and non-technical staff.</li>
+      <li>Logged and tracked reported issues for technician follow-up and escalation, maintaining accurate documentation.</li>
+    </ul>
+
+    <h2>Education</h2>
+    <p>Bachelor of Science in Computer Science, Andres Bonifacio College, Dipolog City, Philippines: 08/2022 &ndash; 05/2026</p>
+    <p>Coursework: Software Engineering, Object-Oriented Programming, Data Structures and Algorithms, Database Systems, Computer Networks, Web Engineering, Artificial Intelligence, Information Security, Discrete Structures</p>
+  </div>
+</details>
+
+<script>
+/* ==========================================================================
+   Scroll-driven resume game.
+   Vanilla JS + Canvas. No libraries, no image or audio files: every pixel is a
+   fillRect. Read order:
+     1. Motion preference      5. Player sprite (baked 16x16)
+     2. Layers (from the DOM)  6. Input
+     3. Deterministic noise    7. Game loop
+     4. Baked textures         8. DOM reveals + depth meter
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  /* === 1. Motion preference ================================================
+     The OS setting is re-read on change so toggling it takes effect live; a
+     one-time read would freeze the page in the wrong mode. */
+  var motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var reduced = motionQuery.matches;
+  if (motionQuery.addEventListener) {
+    motionQuery.addEventListener('change', function (e) { reduced = e.matches; });
+  } else if (motionQuery.addListener) {
+    motionQuery.addListener(function (e) { reduced = e.matches; });
+  }
+
+  var canvas = document.getElementById('stage');
+  var ctx = canvas.getContext('2d', { alpha: false });
+  var clamp = function (v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); };
+
+  /* The page background comes from the CSS custom property --deep (the old
+     "lantern" token). Read it once from the cascade so the canvas base fill
+     can never drift out of sync with the CSS, and there is one place to change
+     the colour rather than a hex repeated in both layers. */
+  var DEEP = (function () {
+    var v = window.getComputedStyle(document.documentElement)
+              .getPropertyValue('--deep').trim();
+    return v || '#14181e';
+  })();
+
+  /* === 2. Layers ===========================================================
+     Each resume <section> IS a layer. Measuring the real elements instead of
+     hard-coding pixel offsets means the art can never drift out of sync with
+     the text when the copy reflows on a phone or a panel grows taller. */
+  var LAYER_DEFS = [
+    { id: 'summary',    name: 'Sky',     rock: 'sky'     },
+    { id: 'skills',     name: 'Dirt',    rock: 'dirt'    },
+    { id: 'projects',   name: 'Stone',   rock: 'stone'   },
+    { id: 'experience', name: 'Caves',   rock: 'caves'   },
+    { id: 'education',  name: 'Bedrock', rock: 'bedrock' }
+  ];
+
+  /* Two-stop gradient per layer, top of the band -> bottom of the band. */
+  var ROCK = {
+    sky:     { top: '#3f9fd6', bot: '#bfe7f7' },
+    dirt:    { top: '#8a5a3c', bot: '#4b2d1f' },
+    stone:   { top: '#5b6470', bot: '#2d343c' },
+    caves:   { top: '#3d4650', bot: '#141920' },
+    bedrock: { top: '#232a33', bot: '#0a0d11' }
+  };
+  /* Extra wash inside the shaft so each depth feels like a different material. */
+  var SHAFT_TINT = {
+    sky: 'rgba(255,255,255,0.10)', dirt: 'rgba(0,0,0,0.14)',
+    stone: 'rgba(0,0,0,0.22)', caves: 'rgba(0,0,0,0.34)',
+    bedrock: 'rgba(0,0,0,0.46)'
+  };
+
+  var layers = [];
+  var viewW = 0, viewH = 0, dpr = 1;
+  var maxScroll = 1;
+  var TOTAL_METRES = 32;          /* depth reading shown at the very bottom */
+  var metresPerPx = 0.01;
+  var scrollY = window.scrollY || 0;
+
+  function measure() {
+    var i, def, el, rect;
+    layers = [];
+    for (i = 0; i < LAYER_DEFS.length; i++) {
+      def = LAYER_DEFS[i];
+      el = document.getElementById(def.id);
+      if (!el) continue;
+      /* getBoundingClientRect + scrollY = absolute document position, which is
+         correct no matter which ancestor happens to be the offsetParent. */
+      rect = el.getBoundingClientRect();
+      layers.push({
+        id: def.id, name: def.name, rock: def.rock, el: el,
+        top: Math.round(rect.top + (window.scrollY || 0)),
+        height: Math.round(rect.height)
+      });
+    }
+    for (i = 0; i < layers.length; i++) layers[i].bottom = layers[i].top + layers[i].height;
+    maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    metresPerPx = TOTAL_METRES / maxScroll;
+  }
+
+  /* Which layer owns a given document-space Y. Linear over five items, so a
+     reverse scan beats rebuilding an index on every scroll frame. */
+  function layerIndexAt(worldY) {
+    for (var i = layers.length - 1; i >= 0; i--) {
+      if (worldY >= layers[i].top) return i;
+    }
+    return 0;
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);  /* cap: 3x costs a lot for no gain */
+    /* clientWidth/Height exclude the classic scrollbar, so the canvas backing
+       store matches the layout viewport exactly rather than being clipped. */
+    viewW = document.documentElement.clientWidth;
+    viewH = document.documentElement.clientHeight;
+    canvas.width = Math.round(viewW * dpr);
+    canvas.height = Math.round(viewH * dpr);
+    /* CSS size and backing-store size are kept separate: the backing store is
+       in device pixels, the CSS box stays in layout pixels. */
+    canvas.style.width = viewW + 'px';
+    canvas.style.height = viewH + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;   /* hard pixel edges when we scale up */
+    buildTextures();
+    measure();
+    measureShaft();
+    snapPlayerToGround();
+    seedMotes();
+  }
+
+  /* The shaft is a real grid column, so the canvas should not guess where it
+     is. Measure the element and use its box for the walls, the ledge, the
+     ladder, the collision walls and the sprite. Because the element is as tall
+     as the whole dig, its left/width stay valid at any scroll offset. */
+  var shaftEl = document.querySelector('.dig__shaft');
+  var shaftX = 0, shaftW = 0;
+
+  function measureShaft() {
+    if (shaftEl) {
+      var r = shaftEl.getBoundingClientRect();
+      shaftX = r.left;
+      shaftW = r.width;
+    }
+    /* Fallback keeps the game playable if the shaft element is ever removed.
+       The clamp guards the narrow case where the grid has not laid out yet. */
+    if (!shaftW) {
+      shaftW = clamp(viewW * 0.2, 120, 220);
+      shaftX = (viewW - shaftW) / 2;
+    }
+  }
+
+  /* === 3. Deterministic noise ==============================================
+     Every decoration is generated from a fixed seed, so the rock never
+     flickers between frames and looks identical on every reload. */
+  function mulberry32(seed) {
+    return function () {
+      seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  /* 1D value noise with smoothstep interpolation -> soft rolling shapes. */
+  function makeNoise(seed, cells) {
+    var rnd = mulberry32(seed);
+    var table = new Float32Array(cells + 1);
+    var i;
+    for (i = 0; i <= cells; i++) table[i] = rnd();
+    return function (x) {
+      var t = x * cells;
+      var i0 = Math.floor(t);
+      var f = t - i0;
+      var s = f * f * (3 - 2 * f);
+      var a = table[((i0 % cells) + cells) % cells];
+      var b = table[(((i0 + 1) % cells) + cells) % cells];
+      return a + (b - a) * s;
+    };
+  }
+
+  var seamNoise   = makeNoise(9001, 40);  /* jagged layer boundaries */
+  var groundNoise = makeNoise(4242, 26);  /* the ledge the player walks on */
+
+  /* === 4. Baked textures ===================================================
+     Each layer gets one small tile of pixel-block speckle, baked once at boot
+     and reused as a repeating pattern. Far cheaper than drawing thousands of
+     rects per frame, and it keeps the frame budget tiny. */
+  var TILE = 48;
+  var patterns = {};
+
+  function bakeTile(seed, count, light, dark, size) {
+    var t = document.createElement('canvas');
+    t.width = size; t.height = size;
+    var g = t.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    var rnd = mulberry32(seed);
+    for (var n = 0; n < count; n++) {
+      var x = Math.floor(rnd() * size);
+      var y = Math.floor(rnd() * size);
+      var s = rnd() < 0.75 ? 2 : 4;  /* 2px grit plus the odd 4px chunk */
+      g.fillStyle = rnd() < 0.5 ? light : dark;
+      g.fillRect(x, y, s, s);
+    }
+    return t;
+  }
+
+  function buildTextures() {
+    var i;
+    for (i = 0; i < LAYER_DEFS.length; i++) {
+      /* The sky is open air: no rock grit, so no pattern tile. */
+      patterns[LAYER_DEFS[i].id] = LAYER_DEFS[i].rock === 'sky'
+        ? null
+        : ctx.createPattern(
+            bakeTile(1000 + i * 77, 90, 'rgba(255,255,255,0.055)', 'rgba(0,0,0,0.13)', TILE),
+            'repeat');
+    }
+    patterns.far = ctx.createPattern(
+      bakeTile(555, 60, 'rgba(255,255,255,0.030)', 'rgba(0,0,0,0.045)', 96), 'repeat');
+    patterns.near = ctx.createPattern(
+      bakeTile(313, 70, 'rgba(255,255,255,0.05)',  'rgba(0,0,0,0.22)',  64), 'repeat');
+    patterns.ledge = ctx.createPattern(
+      bakeTile(808, 60, 'rgba(255,255,255,0.07)',  'rgba(0,0,0,0.20)',  48), 'repeat');
+  }
+
+  /* Tiny helper: draw one snapped, axis-aligned pixel rect. Snapping keeps
+     edges crisp on HiDPI, where a fractional fill would blur a whole pixel. */
+  function px(x, y, w, h, colour) {
+    ctx.fillStyle = colour;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  /* === 5. The player sprite =================================================
+     A 16x16 string grid baked once into an offscreen canvas, then blitted.
+     '.' is transparent. Each character maps to one palette colour. */
+  var PALETTE = {
+    '.': null,        /* transparent      */
+    'o': '#1b1a22',   /* outline          */
+    'k': '#ffd24a',   /* helmet           */
+    'l': '#fff6cf',   /* lamp glow        */
+    's': '#e8b98a',   /* skin             */
+    'e': '#2a2520',   /* eye              */
+    'b': '#3a6ea5',   /* shirt            */
+    'd': '#2b4a70',   /* shirt shadow     */
+    'p': '#2b2b3a',   /* trousers         */
+    'c': '#8a5a3c'    /* boots            */
+  };
+
+  /* Idle: standing, eyes open. */
+  var IDLE_A = [
+    '................',
+    '......oooo......',
+    '....ookkkkoo....',
+    '...okkklllkko...',
+    '...okkkkkkkko...',
+    '....ssssssss....',
+    '....ssssesss....',
+    '......oooo......',
+    '...oobbbbbboo...',
+    '...obbsbbsbbo...',
+    '...obbbbbbbbo...',
+    '...obbbbbbbbo...',
+    '...obbbbddbbo...',
+    '....oopppooo....',
+    '....occoocco....',
+    '................'
+  ];
+  /* Idle blink: same pose, eyes shut. */
+  var IDLE_B = IDLE_A.slice();
+  IDLE_B[6] = '....sssoosss....';
+
+  /* Walk A: legs split, one arm forward. */
+  var WALK_A = IDLE_A.slice();
+  WALK_A[9]  = '...obbsbbbbso...';
+  WALK_A[13] = '..oopppppooo....';
+  WALK_A[14] = '..occooccooo....';
+  /* Walk B: legs swapped, opposite arm forward. */
+  var WALK_B = IDLE_A.slice();
+  WALK_B[9]  = '...osbbbbbbbo...';
+  WALK_B[13] = '....ooppppppoo..';
+  WALK_B[14] = '....occooccooo..';
+
+  var SCALE = 4;                        /* 16px of art -> 64px on screen */
+  var SPRITE_W = 16 * SCALE;
+  var SPRITE_H = 16 * SCALE;
+  var FRAME_MS = 120;                   /* sprite frame duration */
+
+  function bake(rows) {
+    var c = document.createElement('canvas');
+    c.width = 16 * SCALE;
+    c.height = 16 * SCALE;
+    var g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    for (var y = 0; y < rows.length; y++) {
+      for (var x = 0; x < 16; x++) {
+        var col = PALETTE[rows[y].charAt(x)];
+        if (!col) continue;
+        g.fillStyle = col;
+        g.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+      }
+    }
+    return c;
+  }
+
+  /* Baked once at boot, so the per-frame cost is a single drawImage. */
+  var SPRITES = {
+    idle: [bake(IDLE_A), bake(IDLE_B)],
+    walk: [bake(WALK_A), bake(WALK_B)]
+  };
+
+  /* Physics constants, in CSS pixels and seconds. */
+  var WALK_SPEED = 95;    /* px/s    */
+  var GRAVITY    = 2400;  /* px/s^2  */
+  var JUMP_V     = 540;   /* px/s, negative = upward */
+  var MAX_STEP   = 14;    /* tallest ledge the player can walk up, px */
+
+  var player = {
+    x: 0, y: 0, w: SPRITE_W, h: SPRITE_H,
+    vx: 0, vy: 0, facing: 1, onGround: true, feetPrev: 0
+  };
+
+  /* The shaft, as measured from the real grid column (see measureShaft).
+     The player is walled into it, so rock always frames the sprite. */
+  function shaftLeft()  { return Math.round(shaftX); }
+  function shaftRight() { return Math.round(shaftX + shaftW); }
+  function shaftMid()   { return shaftX + shaftW / 2; }
+
+  /* On a phone the shaft is a narrow strip and the sprite would be wider than
+     it, so the art is drawn down. imageSmoothingEnabled is off, so a scaled
+     blit stays crisp rather than going blurry. */
+  function spriteScale() { return shaftW < 150 ? 0.6 : 1; }
+
+  /* Height field for the ledge the player stands on. The player never moves
+     vertically on its own: the terrain does, and collision sorts it out. */
+  function groundBase() { return viewH * 0.44 + SPRITE_H / 2; }
+  function groundY(x)   { return groundBase() + (groundNoise(x / 180) - 0.5) * 20; }
+
+  function snapPlayerToGround() {
+    var minX = shaftLeft() + 4;
+    var maxX = shaftRight() - 4 - player.w;
+    if (maxX < minX) { maxX = minX; }          /* shaft narrower than the sprite */
+    player.x = clamp(player.x, minX, maxX);
+    if (!isFinite(player.x) || player.x === 0) player.x = Math.round(shaftMid() - player.w / 2);
+    player.y = groundY(player.x + player.w / 2) - player.h;
+    player.feetPrev = player.y + player.h;
+    player.vx = player.vy = 0;
+  }
+
+  /* === Collision ===========================================================
+     AABB against a height field plus two vertical walls. The ground is a
+     function groundY(x) rather than a tile grid, which is the cheapest way to
+     get continuous terrain for a starter. Two rules matter:
+
+       1. If the surface is at or just above the feet (within MAX_STEP), the
+          player snaps onto it: that's a walkable step.
+       2. If the surface rose more than MAX_STEP in one frame, the ledge is a
+          wall. We push the player back to where the feet started instead of
+          letting them clip into rock, and zero horizontal motion so they do
+          not slide up the face of it.
+  */
+  function movePlayer(dt) {
+    var minX = shaftLeft() + 4;
+    var maxX = shaftRight() - 4 - player.w;
+    if (maxX < minX) maxX = minX;         /* shaft narrower than the sprite */
+    var startX = player.x;
+    var ground, feet, rise, blocked = false;
+
+    /* --- horizontal: integrate, then push out of the shaft walls --- */
+    player.x += player.vx * dt;
+    if (player.x < minX) { player.x = minX; player.vx = 0; }
+    if (player.x > maxX) { player.x = maxX; player.vx = 0; }
+
+    /* --- vertical: apply gravity, then resolve against the ground --- */
+    player.vy += GRAVITY * dt;
+    player.y += player.vy * dt;
+
+    ground = groundY(player.x + player.w / 2);
+    feet = player.y + player.h;
+
+    if (feet >= ground) {
+      rise = ground - player.feetPrev;         /* how much the surface rose */
+      if (player.vy > 0 || rise <= MAX_STEP) {
+        player.y = ground - player.h;           /* landed or stepped up */
+        player.vy = 0;
+        player.onGround = true;
+      } else {
+        player.y = player.feetPrev - player.h;  /* too tall to step: a wall */
+        player.vy = 0;
+        player.onGround = false;
+        blocked = true;
+      }
+    } else {
+      player.onGround = false;                  /* airborne */
+    }
+
+    if (blocked) {
+      player.x = startX;                        /* refuse the step, stay put */
+      player.vx = 0;
+    }
+    player.feetPrev = player.y + player.h;
+  }
+
+  /* === 6. Input ============================================================
+     Keyboard only, and deliberately narrow: A/D (or arrows) walk, W jumps.
+     Arrow keys are NOT captured, so normal page scrolling and every browser
+     shortcut keep working. Nothing here scroll-jacks. */
+  var keys = Object.create(null);
+
+  function onKeyDown(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key ? e.key.toLowerCase() : '';
+    /* Never steal keys from a focused control (buttons, links). */
+    var t = e.target;
+    if (t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'INPUT')) return;
+
+    if (k === 'a' || k === 'arrowleft')       { keys.left = true;  e.preventDefault(); }
+    else if (k === 'd' || k === 'arrowright') { keys.right = true; e.preventDefault(); }
+    else if (k === 'w' && !e.repeat)          { jump(); }
+  }
+  function onKeyUp(e) {
+    var k = e.key ? e.key.toLowerCase() : '';
+    if (k === 'a' || k === 'arrowleft')        keys.left = false;
+    else if (k === 'd' || k === 'arrowright') keys.right = false;
+  }
+  function jump() {
+    if (!player.onGround) return;
+    player.vy = -JUMP_V;
+    player.onGround = false;
+  }
+
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+  /* Losing focus mid-stride should not leave the player running. */
+  window.addEventListener('blur', function () { keys.left = keys.right = false; });
+
+  /* === Dust motes ==========================================================
+     Ambient life in the shaft. Seeded so the initial scatter is stable, then
+     wrapped (not re-randomised wholesale) to avoid a visible pop. */
+  var motes = [];
+  function seedMotes() {
+    motes = [];
+    var rnd = mulberry32(777);
+    for (var i = 0; i < 44; i++) {
+      motes.push({ x: rnd() * viewW, y: rnd() * viewH, s: rnd() < 0.8 ? 1 : 2, v: 5 + rnd() * 14 });
+    }
+  }
+  function drawMotes(dt) {
+    if (reduced) return;               /* no ambient motion under reduced motion */
+    for (var i = 0; i < motes.length; i++) {
+      var m = motes[i];
+      m.y -= m.v * dt;                 /* drift up = descending past the world */
+      if (m.y < -4) { m.y = viewH + 4; }
+      if (m.x < -4) m.x = viewW + 4; else if (m.x > viewW + 4) m.x = -4;
+      px(m.x, m.y, m.s, m.s, 'rgba(255,255,255,0.13)');
+    }
+  }
+
+  /* === World drawing =======================================================
+     Layers are painted back to front: far speckle, then each layer band with
+     its gradient + texture + motifs, then the shaft, the ledge, the player,
+     the motes, the foreground strips, and a vignette.
+
+     Parallax: a vertical scroll cannot shift a layer sideways, so depth is sold
+     with speed instead. Background texture is locked to scrollY (1.0x, so the
+     art stays welded to the copy); the far speckle drifts at 0.55x, the
+     foreground strips at 1.9x. Under reduced motion every factor becomes 1.0x
+     and the ambient bob/dust are skipped entirely. */
+  function pf(factor) { return reduced ? 1 : factor; }
+
+  function drawFar() {
+    ctx.fillStyle = DEEP;
+    ctx.fillRect(0, 0, viewW, viewH);
+    if (!patterns.far) return;
+    ctx.save();
+    ctx.translate(0, -(scrollY * pf(0.55)) % 96);
+    ctx.fillStyle = patterns.far;
+    ctx.fillRect(0, 0, viewW, viewH + 96);
+    ctx.restore();
+  }
+
+  /* Screen Y of a layer's top boundary, with a stable jagged profile. */
+  function seamY(layer, x) {
+    return layer.top - scrollY + (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 26;
+  }
+
+  function drawSky(seamScreenY) {
+    if (seamScreenY < -60) return;
+    var w = 74, h = 26, drift = reduced ? 0 : (scrollY * 0.12) % 260;
+    for (var c = -1; c * 260 < viewW + 260; c++) {
+      var r = mulberry32(c * 7919 + 31)();
+      var cx = c * 260 + r * 140 - drift;
+      var cy = 40 + r * 120;
+      px(cx, cy, w, h, 'rgba(255,255,255,0.80)');
+      px(cx + 14, cy - 10, w - 30, 10, 'rgba(255,255,255,0.80)');
+      px(cx + 8, cy + h, w - 20, 8, 'rgba(200,228,244,0.75)');
+    }
+    /* Sun: concentric squares, not a circle: it has to read as pixel art. */
+    var sx = viewW - 120, sy = 78;
+    px(sx - 10, sy - 10, 70, 70, 'rgba(255,210,74,0.22)');
+    px(sx - 4, sy - 4, 58, 58, 'rgba(255,210,74,0.45)');
+    px(sx, sy, 50, 50, '#ffd24a');
+  }
+
+  /* Per-layer rock detail. Everything is placed from a cell index in world
+     space, so a motif is stable while it scrolls and nothing flickers. */
+  var MOTIF_CELL = 110;
+  function drawMotifs(rock, i, bandTop) {
+    if (bandTop > viewH + 40 || bandTop + layers[i].height < -40) return;
+    var worldTop = bandTop + scrollY;
+    var first = Math.floor(worldTop / MOTIF_CELL) - 1;
+    var last = Math.ceil((worldTop + layers[i].height) / MOTIF_CELL) + 1;
+    var l = shaftLeft(), r = shaftRight();
+
+    for (var c = first; c <= last; c++) {
+      var y = c * MOTIF_CELL + 26 + mulberry32(c * 104729 + i * 17 + 2)() * MOTIF_CELL;
+      var sy = y - scrollY;
+      if (sy < -40 || sy > viewH + 40) continue;
+      var rnd = mulberry32(c * 7919 + i * 131 + 5);
+      for (var k = 0; k < 3; k++) {
+        var x = rnd() * (viewW + 140) - 70;
+        /* Keep the shaft clear: motifs sit in the rock walls only. */
+        if (x > l - 44 && x < r + 44) continue;
+        var sz = 5 + Math.floor(rnd() * 9);
+        if (rock === 'dirt') {
+          px(x, sy, sz, sz * 0.7, 'rgba(0,0,0,0.20)');
+          px(x + 2, sy - 2, sz * 0.6, 3, 'rgba(214,168,122,0.35)');
+        } else if (rock === 'stone') {
+          px(x, sy, sz, sz, 'rgba(0,0,0,0.22)');
+          px(x + 1, sy + 1, sz - 2, 2, 'rgba(255,255,255,0.10)');
+        } else if (rock === 'caves') {
+          px(x, sy, 3, 9, 'rgba(255,255,255,0.07)');   /* thin crystal */
+          px(x + 4, sy + 4, 2, 5, 'rgba(255,255,255,0.05)');
+        } else if (rock === 'bedrock') {
+          px(x, sy, sz * 1.8, 3, 'rgba(255,255,255,0.09)');  /* slab line */
+          if (rnd() < 0.25) px(x + 4, sy + 6, 4, 4, 'rgba(255,210,74,0.30)'); /* ore */
+        }
+      }
+    }
+  }
+
+  function drawBands() {
+    var i, layer, bandTop, bandBottom, grad, key;
+    for (i = 0; i < layers.length; i++) {
+      layer = layers[i];
+      if (layer.bottom - scrollY < -40 || layer.top - scrollY > viewH + 40) continue;
+
+      bandTop = layer.top - scrollY;
+      bandBottom = layer.bottom - scrollY;
+      key = ROCK[layer.rock];
+
+      grad = ctx.createLinearGradient(0, bandTop, 0, bandBottom);
+      grad.addColorStop(0, key.top);
+      grad.addColorStop(1, key.bot);
+      ctx.fillStyle = grad;
+      ctx.fillRect(-40, bandTop, viewW + 80, bandBottom - bandTop + 2);
+
+      if (layer.rock === 'sky') { drawSky(bandBottom); continue; }
+
+      /* Rock grit, scrolling 1:1 with the world. */
+      ctx.save();
+      ctx.translate(0, -(scrollY % TILE));
+      ctx.fillStyle = patterns[layer.id];
+      ctx.fillRect(-40, bandTop + (scrollY % TILE), viewW + 80, bandBottom - bandTop + 2);
+      ctx.restore();
+
+      /* Two-tone jagged seam along the top of the band. */
+      var x, step = 12;
+      ctx.beginPath();
+      for (x = -40; x <= viewW + 40; x += step) {
+        var y = seamY(layer, x);
+        if (x === -40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.32)'; ctx.stroke();
+      ctx.beginPath();
+      for (x = -40; x <= viewW + 40; x += step) {
+        var y2 = seamY(layer, x) - 2;
+        if (x === -40) ctx.moveTo(x, y2); else ctx.lineTo(x, y2);
+      }
+      ctx.lineWidth = 3;
+      /* Dirt is the surface layer, so its seam is the grass line. */
+      ctx.strokeStyle = (i === 1) ? 'rgba(122,186,96,0.85)' : 'rgba(255,255,255,0.14)';
+      ctx.stroke();
+
+      drawMotifs(layer.rock, i, bandTop);
+    }
+  }
+
+  function drawShaft() {
+    var l = shaftLeft(), r = shaftRight();
+    var layer = layers[layerIndexAt(scrollY + viewH * 0.5)];
+
+    /* Darken the cleared column so text and player read against the rock. */
+    ctx.fillStyle = 'rgba(8,10,14,0.55)';
+    ctx.fillRect(l, -20, r - l, viewH + 40);
+    ctx.fillStyle = SHAFT_TINT[layer ? layer.rock : 'caves'] || 'rgba(0,0,0,0.2)';
+    ctx.fillRect(l, -20, r - l, viewH + 40);
+
+    /* Wall faces. */
+    px(l - 7, -20, 7, viewH + 40, 'rgba(255,255,255,0.10)');
+    px(r, -20, 7, viewH + 40, 'rgba(0,0,0,0.38)');
+
+    /* A ladder down the shaft: the strongest cue that the world is moving. */
+    var railA = l + 12, railB = r - 15;
+    px(railA, -20, 3, viewH + 40, 'rgba(0,0,0,0.42)');
+    px(railB, -20, 3, viewH + 40, 'rgba(0,0,0,0.42)');
+    var step = 26, off = ((scrollY % step) + step) % step, y;
+    for (y = -step + off; y < viewH + step; y += step) {
+      px(railA, y, railB - railA + 3, 3, 'rgba(0,0,0,0.40)');
+      px(railA, y, railB - railA + 3, 1, 'rgba(255,255,255,0.07)');
+    }
+  }
+
+  /* The ledge is the floor of the shaft, so it is clipped to the shaft box
+     rather than running the full width of the page. */
+  function drawLedge() {
+    var x, step = 12;
+    var l = shaftLeft(), r = shaftRight();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(l - 8, 0, r - l + 16, viewH);
+    ctx.clip();
+
+    ctx.beginPath();
+    ctx.moveTo(l - 40, groundY(l - 40));
+    for (x = l - 40; x <= r + 40; x += step) ctx.lineTo(x, groundY(x));
+    ctx.lineTo(r + 40, viewH + 20);
+    ctx.lineTo(l - 40, viewH + 20);
+    ctx.closePath();
+
+    var g = ctx.createLinearGradient(0, groundBase(), 0, viewH);
+    g.addColorStop(0, 'rgba(20,24,30,0.90)');
+    g.addColorStop(1, 'rgba(9,11,15,0.98)');
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    ctx.translate(0, -(scrollY % TILE));
+    ctx.fillStyle = patterns.ledge;
+    ctx.fillRect(l - 40, 0, r - l + 80, viewH + TILE);
+    ctx.restore();
+
+    /* Lit top edge. */
+    ctx.beginPath();
+    for (x = l - 40; x <= r + 40; x += step) {
+      var y = groundY(x);
+      if (x === l - 40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255,210,74,0.22)';
+    ctx.stroke();
+    ctx.restore();          /* release the shaft clip */
+  }
+
+  function drawPlayer(now) {
+    var moving = Math.abs(player.vx) > 4 || !player.onGround;
+    var set = reduced ? [SPRITES.idle[0]] : (moving ? SPRITES.walk : SPRITES.idle);
+    var img = set[Math.floor(now / FRAME_MS) % set.length];
+    var k = spriteScale();
+    var w = img.width * k, h = img.height * k;
+    /* The sprite lives in the shaft, so it is centred on the shaft box rather
+       than on the viewport. On a desktop layout the shaft is the middle column
+       and those coincide; on a phone the shaft is a strip on the left edge. */
+    var cx = player.x + player.w / 2, cy = player.y + player.h / 2;
+
+    /* Lantern pool of light, drawn before the sprite. */
+    var glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 130);
+    glow.addColorStop(0, 'rgba(255,210,74,0.18)');
+    glow.addColorStop(1, 'rgba(255,210,74,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - 130, cy - 130, 260, 260);
+
+    var bob = reduced ? 0 : Math.sin(now / 380) * 1.5;
+    var x = Math.round(cx - w / 2);
+    var y = Math.round(player.y + bob + (player.h - h) / 2);
+
+    if (player.facing < 0) {
+      /* Flip horizontally rather than authoring a second set of frames. */
+      ctx.save();
+      ctx.translate(x + w, y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, 0, 0, w, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img, x, y, w, h);
+    }
+  }
+
+  function drawForeground() {
+    var strip = 26;
+    var off = (scrollY * pf(1.9)) % 64;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, strip, viewH);
+    ctx.fillRect(viewW - strip, 0, strip, viewH);
+    ctx.translate(0, -off);
+    ctx.fillStyle = patterns.near;
+    ctx.fillRect(0, 0, strip, viewH + 64);
+    ctx.fillRect(viewW - strip, 0, strip, viewH + 64);
+    ctx.restore();
+    px(strip, 0, 2, viewH, 'rgba(0,0,0,0.5)');
+    px(viewW - strip - 2, 0, 2, viewH, 'rgba(0,0,0,0.5)');
+  }
+
+  function render(now) {
+    ctx.fillStyle = DEEP;
+    ctx.fillRect(0, 0, viewW, viewH);
+    drawFar();
+    drawBands();
+    drawShaft();
+    drawLedge();
+    drawPlayer(now);
+    drawForeground();
+
+    /* Vignette, so panel text near the edges keeps its contrast. */
+    var v = ctx.createRadialGradient(viewW / 2, viewH / 2, viewH * 0.35,
+                                     viewW / 2, viewH / 2, viewH * 0.95);
+    v.addColorStop(0, 'rgba(0,0,0,0)');
+    v.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, viewW, viewH);
+  }
+
+  /* === 7. Game loop ========================================================
+     requestAnimationFrame with a delta time, never setInterval. dt is clamped
+     so a backgrounded tab or a long GC pause cannot teleport the player, and
+     the loop is stopped entirely while the tab is hidden. */
+  var last = 0;
+  var rafId = 0;
+  var running = false;
+
+  function update(dt) {
+    scrollY = window.scrollY || 0;
+
+    /* Horizontal input -> velocity. Friction only applies on the ground, so
+       a jump keeps its momentum. */
+    var dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    if (dir !== 0) {
+      player.vx = dir * WALK_SPEED;
+      player.facing = dir;
+    } else if (player.onGround) {
+      player.vx = 0;
+    }
+
+    movePlayer(dt);
+    drawMotes(dt);      /* motes integrate here, but draw themselves */
+    updateDepth();      /* gated internally: only touches the DOM on change */
+  }
+
+  function frame(now) {
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 1 / 20) dt = 1 / 20;   /* clamp: never step more than 50ms */
+    if (dt < 0) dt = 0;
+    update(dt);
+    render(now);
+    rafId = window.requestAnimationFrame(frame);
+  }
+
+  function start() {
+    if (running) return;
+    running = true;
+    last = (window.performance || Date).now();
+    rafId = window.requestAnimationFrame(frame);
+  }
+  function stop() {
+    running = false;
+    if (rafId) window.cancelAnimationFrame(rafId);
+    rafId = 0;
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { stop(); } else { start(); }
+  });
+  window.addEventListener('resize', function () {
+    resize();
+    if (!running) render(last);   /* keep a static frame on screen */
+  });
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
+
+  /* === 8. Panel reveals ====================================================
+     IntersectionObserver adds .is-visible, which is what the CSS transitions
+     on. No scroll maths involved, and the observer is dropped after the first
+     reveal so there is no ongoing cost once a panel has been seen. */
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].isIntersecting) {
+          entries[i].target.classList.add('is-visible');
+          io.unobserve(entries[i].target);
+        }
+      }
+    }, { threshold: 0.08, rootMargin: '0px 0px -10% 0px' });
+
+    var panels = document.querySelectorAll('.chamber, .treasure');
+    for (var p = 0; p < panels.length; p++) io.observe(panels[p]);
+  } else {
+    /* No observer support: show everything rather than hide content. */
+    var fallback = document.querySelectorAll('.chamber, .treasure');
+    for (var f = 0; f < fallback.length; f++) fallback[f].classList.add('is-visible');
+  }
+
+  /* === Depth meter =========================================================
+     The active layer comes from layerIndexAt(scrollY), which is scroll
+     bookkeeping, not panel reveal: panels still use IntersectionObserver.
+     Writes are gated on an actual change so the DOM is not touched 60x a
+     second while scrolling. */
+  var depthLinks = document.querySelectorAll('.depth__list a');
+  var activeIndex = -1;
+
+  function updateDepth() {
+    if (!layers.length || !depthLinks.length) return;
+    var i = layerIndexAt(scrollY);
+    if (i === activeIndex) return;    /* unchanged: skip the DOM write */
+    activeIndex = i;
+
+    for (var n = 0; n < depthLinks.length; n++) {
+      var link = depthLinks[n];
+      if (n === i) {
+        link.setAttribute('aria-current', 'true');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+      var slot = link.querySelector('.depth__m');
+      /* Label each rail entry with the depth where its layer starts. The active
+         layer is carried by aria-current, so there is deliberately no second
+         live readout repeating the same name. */
+      if (slot && layers[n]) {
+        slot.textContent = (Math.round(layers[n].top * metresPerPx * 10) / 10) + ' m';
+      }
+    }
+  }
+
+  /* === Buttons =============================================================
+     textContent only. No innerHTML anywhere in this file. */
+  var printBtn = document.getElementById('print-resume');
+  if (printBtn) {
+    printBtn.addEventListener('click', function () { window.print(); });
+  }
+
+  var emailBtn = document.getElementById('reveal-email');
+  var emailSlot = document.getElementById('email-slot');
+  if (emailBtn && emailSlot) {
+    emailBtn.addEventListener('click', function () {
+      if (emailBtn.dataset.done === '1') return;
+      emailBtn.dataset.done = '1';
+      emailBtn.textContent = 'Email';
+      emailBtn.disabled = true;
+      /* Assembled in JS so the address never sits in the static HTML as a
+         mailto: target for a scraper. See docs/privacy decision. */
+      var local = ['alchieandilab', '2003', 'gmail.com'];
+      var addr = local[0] + local[1] + '@' + local[2];
+      var a = document.createElement('a');
+      a.href = 'mailto:' + addr;
+      a.textContent = addr;
+      emailSlot.appendChild(a);
+    });
+  }
+
+  /* === Plain resume disclosure ===============================================
+     The plain resume deliberately duplicates the panels, so it is collapsed by
+     default and only revealed when it is actually asked for:
+       - the "Skip to plain resume" link,
+       - a #plain-resume URL hash (including a shared/bookmarked link),
+       - print, via beforeprint.
+     CSS alone cannot open a closed <details>, which is why beforeprint exists;
+     the print stylesheet is only a backup for engines that skip that event. */
+  var plainDetails = document.getElementById('plain-resume');
+  var wasOpenBeforePrint = false;
+
+  function openPlainResume() {
+    if (plainDetails) plainDetails.open = true;
+  }
+
+  var skipLink = document.querySelector('.skip');
+  if (skipLink) {
+    skipLink.addEventListener('click', function () { openPlainResume(); });
+  }
+
+  if (plainDetails && window.location.hash === '#plain-resume') {
+    openPlainResume();
+  }
+  if (window.addEventListener) {
+    window.addEventListener('hashchange', function () {
+      if (window.location.hash === '#plain-resume') openPlainResume();
+    });
+  }
+
+  /* Printing must include the document even though it is collapsed. */
+  window.addEventListener('beforeprint', function () {
+    wasOpenBeforePrint = !!(plainDetails && plainDetails.open);
+    openPlainResume();
+  });
+  window.addEventListener('afterprint', function () {
+    if (plainDetails) plainDetails.open = wasOpenBeforePrint;
+  });
+
+  /* === Boot ================================================================ */
+  resize();
+  updateDepth();
+  start();
+
+  /* Late layout shifts (font swap, scrollbar changes) need a re-measure. The
+     shaft is part of that: its width comes from clamp(140px,24vw,220px). */
+  window.addEventListener('load', function () {
+    measure();
+    measureShaft();
+    updateDepth();
+    if (!running) render(last);
+  });
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      measure();
+      measureShaft();
+      updateDepth();
+    });
+  }
+})();
+</script>
+</body>
+</html>

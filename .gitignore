@@ -1,0 +1,18 @@
+# Local agent tooling and working docs.
+# These drive Cline in this checkout; they are not part of the deployed site,
+# so they stay local instead of being pushed to GitHub Pages.
+docs/
+.clinerules/
+.cline/skills/
+.clineignore
+README.txt
+
+# Local environment files. Commit a .env.example with empty values if a
+# template is useful, but never the real thing.
+.env
+.env.*
+!.env.example
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
