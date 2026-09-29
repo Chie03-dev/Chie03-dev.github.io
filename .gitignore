@@ -6,6 +6,9 @@ node_modules/
 out/
 build/
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Environment
 .env*
 !.env.example
