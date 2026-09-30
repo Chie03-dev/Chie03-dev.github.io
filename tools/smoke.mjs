@@ -200,10 +200,26 @@ function checkGraph(files) {
   }
   for (const f of files) {
     const t = sources[f];
-    const re = /import\s*\{([\s\S]*?)\}\s*from\s*'\.\/([A-Za-z]+)\.js'/g;
+    /* Two bugs in this one regex, both found by splitting biomes.js in two.
+       `[\s\S]*?` is lazy but unbounded, so with two imports in a row it ran from
+       the first `{` to the second `}` and merged their name lists - yielding
+       "place.js does not export skyBiome" about a file never imported. And the
+       body used to start at the LAST `import` keyword rather than the end of
+       THIS statement, so every name in the first of two imports was reported
+       unused. Hence: braces stop at `}`, and the body starts where this match
+       ends. */
+    const re = /import\s*\{([^}]*)\}\s*from\s*'\.\/([A-Za-z]+)\.js'/g;
     let im;
     while ((im = re.exec(t))) {
-      const body = t.slice(t.indexOf('\n', t.lastIndexOf('import')));
+      /* The body of the module is everything AFTER this import statement, not
+         after the last `import` keyword in the file.
+         `t.lastIndexOf('import')` found the LAST one, so as soon as a module had
+         two imports - which is most of them - every name in the first was
+         searched for in the wrong slice and reported as unused. Adding a second
+         import to biomes.js during a refactor produced five failures that were
+         all artefacts of this line, including two nonsense "does not export"
+         messages seen from the other side. */
+      const body = t.slice(im.index + im[0].length);
       for (const n of im[1].split(',').map(s => s.trim()).filter(Boolean)) {
         const target = im[2] + '.js';
         if (!exports[target]) fail(f + ' imports a module that does not exist: ' + target);

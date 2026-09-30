@@ -16,3 +16,7 @@ README.txt
 # OS / editor noise
 .DS_Store
 Thumbs.db
+
+# The page the pixel test assembles from index.html + pixel-probe.html. It is
+# rewritten on every run and removed afterwards, so it should never be staged.
+.pixel-run.html

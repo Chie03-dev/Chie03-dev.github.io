@@ -18,7 +18,6 @@
 import {
   ctx, viewW, viewH, scrollY, shaftLeft, shaftRight, mulberry32
 } from './layers.js';
-import { reduced } from './deck.js';
 import { SET, px } from './sprites.js';
 
 /* === Where a biome is actually visible ===================================
@@ -41,23 +40,41 @@ import { SET, px } from './sprites.js';
 
    Returns [] when the panel is not measured, which is the honest answer: with
    no horizontal box there is no way to know what is covered. */
+/* Cut the viewport at every occluder edge and keep the surviving intervals.
+
+   The old version branched on three hand-written cases, and the case for a
+   panel sitting left of the shaft returned the outboard strip and the panel
+   gap and then STOPPED - it never added the region outboard of the shaft on
+   the far side. With the real numbers (panel 0..543, shaft 591..811, viewport
+   1401) that silently threw away 590px, 42% of the screen, which is why the
+   right half of the sky was bare blue no matter how much art was thrown at it.
+
+   Deriving the gaps arithmetically instead means a new case cannot be forgotten:
+   every interval is tested against the panel and the shaft and kept only if
+   nothing covers it. */
 function gutters(layer) {
   if (!layer || !isFinite(layer.left) || !isFinite(layer.width)) return [];
   var pl = layer.left, pr = layer.left + layer.width;
   var sl = shaftLeft(), sr = shaftRight();
-  var raw;
-  if (pr <= sl) raw = [{ x: 0, w: pl }, { x: pr, w: sl - pr }];
-  else if (pl >= sr) raw = [{ x: sr, w: pl - sr }, { x: pr, w: viewW - pr }];
-  else return [];                        /* spans the shaft: nothing visible */
 
-  /* Clip to the viewport and drop anything with no room left. Without this a
-     panel wider than a narrow window yields a NEGATIVE width, and a negative
-     width is a silent no-op in fillRect - the art would simply not appear and
-     nothing would report it. */
+  /* Slice the viewport at every occluder edge, then keep the slices that
+     neither the panel nor the shaft covers. Doing it this way means a new
+     layout cannot fall through a missing branch. */
+  var edges = [pl, pr, sl, sr], cuts = [0], i, j;
+  for (i = 0; i < edges.length; i++) {
+    if (isFinite(edges[i]) && edges[i] > 0 && edges[i] < viewW) cuts.push(edges[i]);
+  }
+  cuts.sort(function (a, b) { return a - b; });
+  cuts.push(viewW);
+
   var out = [];
-  for (var i = 0; i < raw.length; i++) {
-    var x = raw[i].x, w = Math.min(raw[i].w, viewW - x);
-    if (w > 4 && x < viewW) out.push({ x: x, w: w });
+  for (j = 0; j < cuts.length - 1; j++) {
+    var x = cuts[j], w = cuts[j + 1] - cuts[j];
+    if (w <= 4) continue;
+    var mid = x + w / 2;
+    if (mid > pl && mid < pr) continue;   /* under the panel */
+    if (mid > sl && mid < sr) continue;   /* inside the shaft */
+    out.push({ x: x, w: w });
   }
   return out;
 }
@@ -66,12 +83,17 @@ function gutters(layer) {
    still fits the gutter. Integer scaling is what keeps the pixel art crisp;
    a fractional scale would blur every edge, which is the one thing this art
    must never do. */
-function blit(spr, x, y, room) {
-  if (!spr) return;
-  var k = Math.max(1, Math.min(2, Math.floor(room / spr.width) || 1));
-  ctx.drawImage(spr, Math.round(x), Math.round(y),
-                spr.width * k, spr.height * k);
-}
+/* The integer scale blit() will use for this sprite in this much room. Callers
+   that need to position a sprite BY ITS BOTTOM EDGE must ask for the scale
+   rather than assuming it: the old sky biome wrote `spr.height * 2` while
+   blit() chose k from the gutter width, so a 30px conifer in the 48px gutter
+   was scaled by 1 but placed as if scaled by 2 - every tree on the surface
+   floated 30px above the grass it was supposed to be standing on. */
+/* The sprite-placement helpers moved to place.js and the sky painter moved to
+   biome-sky.js. Both are re-exported below, so render.js and the pixel test
+   keep importing from this one module and the refactor stays invisible. */
+import { skyBiome, sunSpot } from './biome-sky.js';
+import { scaleFor, blit, blitOn } from './place.js';
 
 
 /* === The five biomes ====================================================
@@ -109,56 +131,6 @@ function spot(gu, rnd, reserve) {
   return gu.x + ((rnd() * room) | 0);
 }
 
-/* --- 1. Sky: the surface camp ------------------------------------------
-   The only layer with weather in it. A grass line runs across the gutters at
-   a fixed fraction of the band, soil sits below it, and the trees and flowers
-   stand ON it - so a vertical slice of this gutter reads as a landscape with a
-   horizon, rather than as decoration scattered over a blue field. */
-function skyBiome(g, bandTop, bandBottom) {
-  var ground = bandTop + (bandBottom - bandTop) * 0.74;
-  var drift = reduced ? 0 : (scrollY * 0.10) % 300;
-  var n, gu, c, cy, rnd, x;
-
-  for (n = 0; n < g.length; n++) {
-    gu = g[n];
-    if (gu.w < 16) continue;
-
-    /* Soil below the horizon, so the band does not simply stop being sky. */
-    if (ground < viewH + 40) {
-      px(ctx, gu.x, ground, gu.w, Math.max(0, viewH + 40 - ground), 'rgba(74,46,28,0.55)');
-      px(ctx, gu.x, ground, gu.w, 2, '#5c8a3a');            /* the turf mat  */
-      px(ctx, gu.x, ground, gu.w, 1, '#8fd06a');            /* lit top edge */
-    }
-
-    eachCell(bandTop, bandBottom, 0, function (cell, top, r) {
-      /* Clouds drift slowly and sit well above the horizon. */
-      if (r() < 0.34) {
-        var cw = 26 + ((r() * 30) | 0), ch = 7 + ((r() * 5) | 0);
-        var cx = gu.x + ((r() * (gu.w + cw)) | 0) - cw - drift;
-        px(ctx, cx, top + 6, cw, ch, 'rgba(255,255,255,0.55)');
-        px(ctx, cx + 6, top + 3, cw - 14, 4, 'rgba(255,255,255,0.55)');
-        px(ctx, cx + 3, top + ch + 4, cw - 8, 2, 'rgba(255,255,255,0.22)');
-      }
-      /* A tree standing on the turf. */
-      if (r() < 0.62 && ground > -30 && ground < viewH + 30) {
-        var conifer = r() < 0.62;
-        var spr = conifer
-          ? SET.conifers[(r() * SET.conifers.length) | 0]
-          : SET.canopies[(r() * SET.canopies.length) | 0];
-        blit(spr, spot(gu, r, spr.width), ground - spr.height * 2 + 1, gu.w);
-      }
-      /* Grass tufts and flowers, along the same line. */
-      if (ground > -20 && ground < viewH + 20) {
-        blit(SET.tufts[(r() * SET.tufts.length) | 0], spot(gu, r, 9), ground - 6, gu.w);
-        if (r() < 0.75) {
-          var bed = SET.blooms[(r() * SET.blooms.length) | 0];
-          var f = bed[(r() * bed.length) | 0];
-          blit(f, spot(gu, r, 7), ground - f.height * 2 + 1, gu.w);
-        }
-      }
-    });
-  }
-}
 
 /* --- 2. Dirt: the ore mine ---------------------------------------------
    Soil clods, a seam of exposed gold, and roots coming down out of the turf
@@ -262,7 +234,16 @@ var PAINTERS = {
    (main is z-index:10, the canvas z-index:0) - anything painted under it would
    simply be invisible. */
 function collar(g, bandTop, bandBottom) {
-  var reach = 26;
+  /* The reach is CLAMPED to the gutter's own width. It used to be a flat 26px,
+     which is wider than the whole gutter on a phone: the panel spans 72..492
+     with the shaft at 0..56, leaving one 16px gap, so a 26px gradient starting
+     at the panel edge covered that gap completely and dimmed everything in it.
+
+     The pixel test caught it as "a sun is drawn in the open sky" reading
+     brightness 146 where it should read 252 - the sun really was painted, and
+     the collar then put a 50%-black wash over all of it. Trees were dimmed the
+     same way at every width; at 1440 the gutter is 598px so 26px was a
+     sensible vignette and nothing looked wrong. */
   for (var n = 0; n < g.length; n++) {
     var gu = g[n];
     if (gu.w < 2) continue;
@@ -270,6 +251,7 @@ function collar(g, bandTop, bandBottom) {
     var inner = isLeft ? gu.x + gu.w : gu.x;   /* the edge touching the panel */
     var outer = isLeft ? gu.x : gu.x + gu.w;
     var dir = isLeft ? -1 : 1;
+    var reach = Math.min(26, gu.w);
     var grad = ctx.createLinearGradient(inner, 0, inner + dir * reach, 0);
     grad.addColorStop(0, 'rgba(0,0,0,0.50)');
     grad.addColorStop(1, 'rgba(0,0,0,0)');
@@ -281,16 +263,24 @@ function collar(g, bandTop, bandBottom) {
 /* === Entry point =======================================================
    Called by render.js once per visible band, after the gradient, the grit and
    the seam are down. Returns the number of sprites placed, which is only used
-   by the smoke check to prove a biome actually drew something. */
-function drawBiomes(layer, i, bandTop, bandBottom) {
+   by the smoke check to prove a biome actually drew something.
+
+   `now` is the frame clock in ms, passed through to the painters so the ones
+   that animate (the sky) can. The rock painters ignore it - they are welded to
+   the world and must not swim - which is why it is an argument rather than a
+   module-level clock every painter can reach. */
+function drawBiomes(layer, i, bandTop, bandBottom, now) {
   var paint = PAINTERS[layer.rock];
   if (!paint) return 0;
   if (bandTop > viewH + 40 || bandBottom < -40) return 0;
   var g = gutters(layer);
   if (!g.length) return 0;                 /* no measured panel: cannot place */
-  paint(g, bandTop, bandBottom);
+  paint(g, bandTop, bandBottom, layer, i, now);
   collar(g, bandTop, bandBottom);
   return 1;
 }
 
-export { drawBiomes, gutters };
+/* drawBiomes and gutters are this module's own. The three are re-exported purely
+   so that callers - render.js and tools/pixel-test.mjs - do not have to know
+   which file a helper happens to live in after the split. */
+export { drawBiomes, gutters, sunSpot, scaleFor, blit, blitOn };

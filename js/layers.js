@@ -252,6 +252,17 @@ function makeNoise(seed, cells) {
 }
 
 var seamNoise = makeNoise(9001, 40);    /* jagged layer boundaries */
+
+/* Screen Y of a layer's top boundary, with a stable jagged profile.
+
+   This lives here rather than in render.js because the surface biome needs the
+   SAME curve the renderer strokes. When biomes.js guessed its own ground line
+   while render.js drew the real seam, the two drifted apart and the grass the
+   trees stood on was not the grass that was drawn - which is exactly the
+   "surface floats above the soil" bug. One function, one curve. */
+function seamY(layer, x) {
+  return layer.top - scrollY + (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 26;
+}
 /* === 4. Baked textures ===================================================
    Each layer gets one small tile of pixel-block speckle, baked once at boot
    and reused as a repeating pattern. Far cheaper than drawing thousands of
@@ -444,6 +455,7 @@ export {
   mulberry32,
   makeNoise,
   seamNoise,
+  seamY,
   TILE,
   patterns,
   buildTextures,

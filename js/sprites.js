@@ -81,18 +81,50 @@ function bakeCanopy(w, h, pal, rnd) {
   px(g, (w - tw) / 2, h - trunkH, tw, trunkH, pal.trunk);
   px(g, (w - tw) / 2, h - trunkH, 1, trunkH, pal.trunkLit);
 
+  /* The crown profile.
+     The old code measured a half-ellipse DOWN FROM THE TOP ROW, so the widest
+     part of the shape was y=0: it came out as a flat-topped wedge tapering to a
+     point at the trunk. That is what read as "the tree is cut in half" - a
+     broadleaf with its crown sheared off flat across the top.
+     A crown is a full ellipse: rounded at the top, widest a little above the
+     middle, drawing back in to meet the trunk. */
   var domeH = h - trunkH + 2;
+  var cx = (w - 1) / 2;
+  /* halfW is the distance to the last COLUMN, not w/2. A canopy 26 wide with a
+     half-width of 13 spans -0.5..25.5, so the loop drew an outside column that
+     the `x > w-1` guard then discarded - the crown was silently shaved. */
+  var halfW = (w - 1) / 2;
+  var shoulder = 0.45;              /* where the crown is widest */
   for (var y = 0; y < domeH; y++) {
     var t = y / Math.max(1, domeH - 1);
-    /* A half-ellipse, so the silhouette is round rather than rectangular. */
-    var half = Math.round((w / 2) * Math.sqrt(Math.max(0, 1 - t * t * 0.92)));
+    /* k runs 0 at the shoulder to 1 at the top and at the trunk, so half is
+       widest at the shoulder. This is one line rather than a wrapped ternary
+       only so that tools/mutation-test.ps1 can replace it wholesale with the
+       pre-fix expression, `k = t`, which is the actual regression: measuring
+       the half-ellipse straight down from the top row put the widest row at
+       y=0 and sheared the crown flat. */
+    var k = t <= shoulder ? (shoulder - t) / shoulder : (t - shoulder) / (1 - shoulder);
+    var half = Math.round(halfW * Math.sqrt(Math.max(0, 1 - k * k)));
     /* Lumps on the edge stop it reading as a perfect circle. */
     if (y % 2 === 0) half += rnd() < 0.5 ? 1 : 0;
-    for (var x = (w - 1) / 2 - half; x <= (w - 1) / 2 + half; x++) {
+    if (y > domeH * 0.35 && y < domeH * 0.8 && rnd() < 0.25) half += 1;
+    /* Where the crown meets the trunk it must stay at least trunk-wide, or the
+       two separate and the tree reads as a lollipop on a stick. */
+    if (y > domeH - 2) half = Math.max(half, Math.round(tw / 2) + 1);
+    if (half > halfW) half = halfW;   /* never past the last column */
+    for (var x = cx - half; x <= cx + half; x++) {
       if (x < 0 || x > w - 1) continue;
-      var d = (x - ((w - 1) / 2 - half)) / Math.max(1, 2 * half);
-      var col = d < 0.28 ? pal.lit : (d > 0.74 ? pal.shade :
-                (rnd() < 0.12 ? pal.lit : pal.mid));
+      /* Shade by distance from a light source up and to the LEFT, so the crown
+         turns round rather than reading as one flat panel of green with a
+         lighter strip down one side. */
+      var dx = (x - cx) / Math.max(1, halfW);
+      var lx = dx + 0.22;                 /* the lit side is the left one */
+      var ly = t - 0.30;
+      var d = Math.sqrt(lx * lx * 0.75 + ly * ly);
+      var col = d < 0.30 ? pal.lit
+              : d < 0.52 ? (rnd() < 0.16 ? pal.core || pal.lit : pal.mid)
+              : d < 0.74 ? pal.mid
+              : pal.shade;
       px(g, x, y, 1, 1, col);
     }
   }

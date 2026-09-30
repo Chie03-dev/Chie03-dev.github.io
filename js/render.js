@@ -16,7 +16,7 @@
 import {
   ctx, viewW, viewH, DEEP, ROCK, layers, scrollY, activeLayerIndex,
   shaftLeft, shaftRight, spriteScale,
-  TILE, patterns, seamNoise, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS
+  TILE, patterns, seamY, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS
 } from './layers.js';
 import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
@@ -73,12 +73,11 @@ function drawFar() {
   ctx.restore();
 }
 
-/* Screen Y of a layer's top boundary, with a stable jagged profile. */
-function seamY(layer, x) {
-  return layer.top - scrollY + (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 26;
-}
-
-function drawBands() {
+/* `now` is the frame clock. It is forwarded to the biome painters because the
+   sky animates (clouds drift, the sun arcs) and the rest of the art is welded to
+   the world. The sky used to derive its motion from scrollY, which froze it
+   solid whenever the reader stopped scrolling. */
+function drawBands(now) {
   var i, layer, bandTop, bandBottom, grad, key;
   for (i = 0; i < layers.length; i++) {
     layer = layers[i];
@@ -98,7 +97,7 @@ function drawBands() {
        vault, crystal in the caves, book shelves in the bedrock. It lives in
        biomes.js because it is a module's worth of art, and because it needs
        the panel's horizontal box to know where it can be seen at all. */
-    if (layer.rock === 'sky') { biomesDrawn += drawBiomes(layer, i, bandTop, bandBottom); continue; }
+    if (layer.rock === 'sky') { biomesDrawn += drawBiomes(layer, i, bandTop, bandBottom, now); continue; }
 
     /* Rock grit, scrolling 1:1 with the world. */
     ctx.save();
@@ -125,7 +124,7 @@ function drawBands() {
     ctx.strokeStyle = (i === 1) ? 'rgba(122,186,96,0.85)' : 'rgba(255,255,255,0.14)';
     ctx.stroke();
 
-    biomesDrawn += drawBiomes(layer, i, bandTop, bandBottom);
+    biomesDrawn += drawBiomes(layer, i, bandTop, bandBottom, now);
   }
 }
 
@@ -354,7 +353,7 @@ function render(now) {
   ctx.fillStyle = DEEP;
   ctx.fillRect(0, 0, viewW, viewH);
   drawFar();
-  drawBands();
+  drawBands(now);
   drawShaft();
   drawHoist();     /* headgear, cables, counterweight and the car itself */
   drawPlayer(now);

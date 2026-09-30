@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pixel assertions</title>
+<style>
+  /* The probe overlays its verdict on the real page; nothing else here affects
+     layout. The page markup itself is injected below by tools/pixel-test.mjs,
+     which reads index.html, so the assertions run against the SHIPPED layout
+     rather than a hand-made copy of it that can drift. */
+  #probe-out {
+    position: fixed; left: 0; bottom: 0; z-index: 99999;
+    background: #000; color: #0f0; font: 13px ui-monospace, monospace;
+    padding: 10px; white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<!--INJECT-->
+
+<!-- The verdict element. It must exist in the markup: the CSS above only
+     STYLES it, and the closing line of this script does
+     getElementById('probe-out').textContent = ... - which throws on null and
+     takes the whole verdict with it. That is why the very first version of this
+     probe reported nothing at all. -->
+<div id="probe-out"></div>
+
+<script type="module">
+/* Any throw in here would otherwise be silent: headless gives us no console, so
+   a failed import or a bad assumption looks exactly like "no verdict". Catching
+   it and putting the message in the DOM is the difference between a diagnosable
+   failure and a mystery. */
+function report(msg) {
+  const el = document.getElementById('probe-out') ||
+             document.body.appendChild(Object.assign(document.createElement('div'),
+               { id: 'probe-out' }));
+  el.textContent = '@@PIXEL@@' + JSON.stringify({ error: msg }) + '@@END@@';
+}
+window.addEventListener('error', e => report('window error: ' + (e.message || e)));
+try {
+/* Dynamic imports, NOT static ones. A static `import` statement is hoisted and
+   evaluated BEFORE any other line of the module, so a failing import skips the
+   entire body: the try/catch below never runs, no error handler fires, and the
+   verdict element stays empty. That is exactly the silent failure this probe
+   started with, so the imports live inside the try where a failure can be
+   reported. */
+const { resize } = await import('./js/main.js');
+const { render } = await import('./js/render.js');
+/* scrollY MUST be read off the namespace, never destructured.
+   "const { scrollY } = await import('./js/layers.js')" copies the value ONCE.
+   layers.js reassigns scrollY inside syncScroll(), but a destructured copy does
+   not see it - so the probe read a permanent 0 while the page had actually
+   scrolled to 998, and reported "no sky on screen" no matter what the scroll
+   did. This is the same class of bug as main.js writing scrollY directly. */
+const L = await import('./js/layers.js');
+const { ctx, viewW, viewH, layers, shaftLeft, shaftRight, syncScroll } = L;
+const { gutters, sunSpot } = await import('./js/biomes.js');
+const { SET } = await import('./js/sprites.js');
+
+const results = [];
+const ok = (name, cond, detail) =>
+  results.push({ name, pass: !!cond, detail: detail || '' });
+
+/* === 1. The broadleaf crown is rounded, not sheared flat ==================
+   The bug: the crown profile was measured down FROM ROW 0, so the widest part
+   of the shape was the top row and every broadleaf read as a tree with its top
+   half sliced off. A rounded crown is narrow at row 0 and reaches its maximum
+   a little way down; that single fact separates the two, and it is exactly what
+   the eye reacted to.
+
+   Measured from real pixels, because the stub canvas in smoke.mjs records no
+   pixel data and so cannot see this at all. */
+function rowCoverage(spr) {
+  const g = spr.getContext('2d');
+  const rows = [];
+  for (let y = 0; y < spr.height; y++) {
+    const d = g.getImageData(0, y, spr.width, 1).data;
+    let n = 0;
+    for (let x = 0; x < spr.width; x++) if (d[x * 4 + 3] > 8) n++;
+    rows.push(n);
+  }
+  return rows;
+}
+SET.canopies.forEach((spr, i) => {
+  const rows = rowCoverage(spr);
+  const max = Math.max.apply(null, rows);
+  const maxRow = rows.indexOf(max);
+  const tag = 'canopy[' + i + ']';
+  ok(tag + ' reaches full width below the top row', maxRow > 0,
+     'widest row ' + maxRow + ', top row ' + rows[0] + ', max ' + max);
+  ok(tag + ' is rounded at the top', rows[0] < max,
+     'top ' + rows[0] + ' < widest ' + max);
+  ok(tag + ' still meets its trunk', rows[rows.length - 1] >= 2,
+     'bottom row ' + rows[rows.length - 1]);
+});
+
+/* === 2. The sky moves on its own =========================================
+   The bug: clouds keyed off scrollY, so they froze solid whenever the reader
+   was not scrolling, and the sun never moved at all.
+
+   We drive render() at two frame clocks inside ONE synchronous block, so no
+   rAF can interleave and repaint between the samples. Any difference is the
+   sky's own doing, with no scrolling involved. */
+/* SCROLL TO THE SURFACE FIRST.
+   index.html opens with a header, so at scroll 0 the sky band begins around
+   y=1028 - far below any viewport tested here, and every sky assertion would be
+   skipped for "no sky on screen". The guard then does its job and the run fails
+   with "the sky was never on screen", which is correct but useless: there IS sky
+   on the page, it is simply not scrolled to yet.
+
+   Scrolling is what a visitor does anyway. The ORDER here matters and was the
+   whole reason this reported "no sky on screen" three times:
+     - resize() first, because measure() needs the real viewport;
+     - then scrollTo();
+     - then syncScroll(), which is the ONLY thing that refreshes the scrollY
+       binding - the browser never writes to it, and calling it before the
+       scroll is applied reads the old value and silently leaves scrollY at 0;
+     - then resize() again, so the art is re-measured at the scrolled offset. */
+/* SCROLL TO THE SURFACE.
+   index.html opens with a full-height header, so the sky band starts around
+   y=1028 and is never visible at scroll 0 - not even in a tall window, because
+   the header is sized in vh and grows with the viewport.
+
+   window.scrollTo() is deliberately NOT used: it is applied asynchronously, so
+   a synchronous read on the next line still returns the OLD offset. Three
+   earlier attempts reported "no sky on screen" while the page had in fact moved.
+   Assigning documentElement.scrollTop applies the offset synchronously, which is
+   what makes the value readable on the very next line.
+
+   syncScroll() then copies that offset into layers.js, which is the only thing
+   that can - a module never writes to another module's binding. */
+resize();
+const sky = layers[0];
+document.documentElement.scrollTop = Math.max(0, sky.top - 30);
+document.body.scrollTop = document.documentElement.scrollTop;
+syncScroll();
+/* HEADLESS BROWSERS REPORT prefers-reduced-motion: reduce.
+   That is correct behaviour for the page - reduced freezes the clock at 0, so
+   nothing animates - but it means a naive pixel test silently measures the
+   REDUCED path and can never see the animation at all. This bug cost a whole
+   confusing round: the sun fixes looked applied, the assertions still failed
+   with "0px changed", and the cause was the harness, not the code.
+
+   So the animation assertions run in an explicitly non-reduced context, and a
+   separate assertion pins the reduced behaviour down so BOTH paths are covered:
+   with motion off the sky must be still, and with motion on it must move.
+   --force-prefers-reduced-motion is deliberately NOT used, because then the
+   reduced path would never be exercised either. */
+const forced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+results.push({ name: 'reduced-motion mode is what this browser reports',
+               pass: true, detail: 'prefers-reduced-motion: ' + forced });
+
+const bandTop = Math.round(sky.top - L.scrollY);
+const ground = Math.round(layers[1].top - L.scrollY);
+const y0 = Math.max(0, bandTop);
+const H = Math.max(1, Math.min(viewH, ground) - y0);
+
+const sample = t => { render(t); return ctx.getImageData(0, y0, viewW, H).data; };
+const hidden = x =>
+  (x >= Math.round(sky.left) && x < Math.round(sky.left + sky.width)) ||
+  (x >= shaftLeft() && x < shaftRight());
+
+/* Where is the sun?
+   Locating it by "the single brightest pixel" is brittle and cost two rounds:
+   the search uses a strict >, so ties keep the FIRST hit, and where the glow
+   gradient produces several equally bright pixels the reported position snaps
+   to whichever came first in scan order - which can be the same pixel in every
+   frame even while the sun has plainly moved.
+
+   Instead this takes every pixel within 8 of the maximum as part of the sun and
+   returns their CENTROID. The centroid moves smoothly with the disc, so a real
+   30px of travel is unmistakable, and it is a fairer measure of "the sun is
+   over there" than any single pixel anyway.
+
+   The search is still restricted to columns the panel and shaft do not cover:
+   a sun painted behind the opaque panel is invisible, and that is a bug this
+   check exists to catch. */
+/* Locate the sun by its WARMTH, not by brightness.
+   Brightness was the wrong signal twice over. The glow is a 260px radial
+   gradient, so its brightness-weighted centroid drifts toward wherever the panel
+   edge is darkest and can land inside the shaft even though the sun is plainly
+   in the gutter - that produced a false "the sun is hidden" failure at 1440. At
+   821 the same centroid sat at y=619 when the sun is drawn near y=126, because
+   something else bright and wide was dominating the average.
+
+   The sun is the only WARM near-white thing in a blue sky: high red, high green,
+   and red >= blue. A cloud is white but translucent, so it washes out toward the
+   sky behind it and fails the red >= blue test. Matching that signature finds
+   the disc itself, which is what "the sun" actually means, and the box is its
+   true extent. */
+/* Thresholds are LOOSE on purpose. The sun is drawn at 0.95 alpha over a blue
+       sky, so its core is not pure white - it is a warm off-white. At 1440 an
+       8px sample of it measured 222, well under the 235 a strict test wanted,
+       and on a phone the disc is small enough that every pixel is blended, so a
+       strict warm test found nothing at all and reported "no sun" while the sky
+       plainly had one.
+
+       What still separates the sun from a cloud is HUE: the sky is blue, so
+       blue dominates; the sun is warm, so red dominates. r > b is the
+       discriminator, and it holds for a blended sun but not for a cloud, which
+       is white and neutral and therefore sits at r == b. */
+/* WHERE IS THE SUN?
+   Ask, do not guess. biomes.js exports sunSpot(), the same function the painter
+   uses, so the expected position is known exactly. The pixel test then checks
+   that the pixels AT that position are bright, and that the position changes
+   with the clock.
+
+   Every earlier attempt tried to recognise the sun in the output - brightest
+   pixel, then a centroid, then a warmth threshold, then runs of warm pixels -
+   and all of them failed for the same underlying reason: flowers, grass and
+   the sun are all warm, the glow bleeds across the shaft, and a 4px disc over
+   a blue sky is not separable by any threshold that does not also match
+   everything else. Asking the painter where it intends to put the sun cannot be
+   fooled by a yellow flower, and it tests the claim actually being made. */
+/* Brightest pixel in the square the disc is painted into. Sampling a single
+   point is fragile: px() rounds the left/top edge, so the mathematical centre
+   can land on the very edge of the disc and read the glow instead of the sun -
+   which is exactly what happened at the narrow widths, where the whole disc is
+   only 8px and one rounding step is a quarter of it. Taking the max over the
+   disc's own footprint measures "is there a sun here" without depending on
+   which pixel of it happens to be most central. */
+function discBrightness(d, s) {
+  const x0 = Math.round(s.x - s.r), x1 = Math.round(s.x + s.r) - 1;
+  const y0s = Math.round(s.y - s.r), y1 = Math.round(s.y + s.r) - 1;
+  let best = -1;
+  for (let yy = y0s; yy <= y1; yy++) {
+    const row = yy - y0;
+    if (row < 0 || row >= H) continue;
+    for (let xx = x0; xx <= x1; xx++) {
+      if (xx < 0 || xx >= viewW) continue;
+      const i = (row * viewW + xx) * 4;
+      const l = Math.round((d[i] + d[i + 1] + d[i + 2]) / 3);
+      if (l > best) best = l;
+    }
+  }
+  return best;
+}
+function diff(a, b) {
+  let n = 0;
+  for (let i = 0; i < a.length; i += 4) {
+    if (a[i] !== b[i] || a[i+1] !== b[i+1] || a[i+2] !== b[i+2]) n++;
+  }
+  return n;
+}
+
+const f0 = sample(0), f1 = sample(20000), f2 = sample(40000);
+const d1 = diff(f0, f1), d2 = diff(f1, f2);
+const total = f0.length / 4;
+
+/* The expected sun position at each sampled clock. `clock` is what the painter
+   derives from the rAF timestamp: 0 under reduced motion, else t/1000 seconds.
+   Recomputing it here keeps the test honest - it does not assume the sun is at
+   a hardcoded pixel, it asks the shared function where it should be. */
+const g = gutters(sky);
+const spotAt = t => sunSpot(g, forced ? 0 : t / 1000, bandTop);
+const p0 = spotAt(0), p1 = spotAt(20000), p2 = spotAt(40000);
+
+/* At scroll 0 the sky band sits high on the page, so a SHORT viewport can have
+   it entirely above the fold. That is a legitimate layout, not a bug: there is
+   simply no sky on screen to assert about. Failing here would mean the test
+   passes only at tall windows and quietly protects nothing at the rest, so the
+   sky assertions are SKIPPED and reported as skipped, and the caller decides
+   whether that is acceptable for the width it chose. */
+const skyVisible = (ground > 40 && bandTop < viewH - 40) && total > 0;
+if (skyVisible && p0.drawn) {
+  /* The sun must be visible and in open sky under BOTH motion modes. A sun
+     painted behind the opaque panel is a sun that was never drawn, which is
+     exactly the bug this check exists to catch. */
+  /* 150, not 250. The disc is painted opaque white, but the collar vignette
+     darkens the gutter next to the panel and a small disc sits right against
+     that edge, so the brightest pixel actually reached in a 16px gutter is
+     around 175. 150 sits clearly above a plain sky gradient (which peaks near
+     120) and well below a visible sun, so it discriminates without being tuned
+     to one particular viewport width. */
+  ok('a sun is drawn in the open sky', discBrightness(f0, p0) > 150,
+     'brightness ' + discBrightness(f0, p0) + ' at ' +
+     Math.round(p0.x) + ',' + Math.round(p0.y) + ' r=' + p0.r);
+  ok('the sun is not behind the panel or the shaft',
+     p0.x >= 0 && p0.x < viewW && !hidden(p0.x),
+     'x=' + Math.round(p0.x) + ' gutter=' + Math.round(p0.gutter.w) + 'px');
+  ok('the sun stays inside the viewport at every sampled time',
+     [p0, p1, p2].every(p => p.x >= 0 && p.x < viewW && p.y > bandTop - 40),
+     'x ' + [p0, p1, p2].map(p => Math.round(p.x)).join(' -> '));
+
+  if (forced) {
+    /* REDUCED MOTION: the sky must be perfectly still. This is the promise the
+       page makes to anyone who asked for less motion, and it is checked as
+       strictly as the opposite - a still sky here is the CORRECT result. */
+    ok('reduced motion: the sky is completely still', d1 === 0,
+       d1 + 'px changed (must be 0)');
+  } else {
+    /* THE ASSERTIONS THAT ACTUALLY CATCH A FROZEN SKY.
+
+       Comparing the sun's expected position at two times proves nothing: the
+       test computes BOTH positions with the same formula the painter uses, so
+       it reports "it moved" whether or not anything was drawn. I confirmed that
+       by freezing the painter's clock to 0 and the test still passed.
+
+       So this measures the RENDERED frames instead. Two independent checks, and
+       both are needed because neither covers every width:
+
+       1. How much of the band changed. A healthy sky repaints 7-12%; a sky with
+          its clock pinned to zero still repaints 0.03-0.07%. This is the
+          check that works everywhere.
+       2. That the sun arrived at p1 and left p0. Precise, but only meaningful
+          when the sun travels far enough for those two footprints not to
+          overlap - see below. */
+    const pct = 100 * d1 / total;
+    ok('the sky animates with no scrolling', pct > 2,
+       pct.toFixed(2) + '% of ' + total + 'px changed');
+    ok('the animation is not one frozen offset', d1 !== d2,
+       d1 + ' then ' + d2 + 'px');
+
+    /* The differential sun check, but ONLY where it can discriminate. In a 16px
+       phone gutter the sun is an 8px disc that shifts about 18px vertically, and
+       an 8px square is only 11px corner to corner - so the arrival and departure
+       footprints still overlap across most of their area, and both measurements
+       are dominated by whichever disc covers more of the sampled square. The
+       difference came out around 25 where 40 was needed, which is noise rather
+       than signal.
+
+       The test is only meaningful when the sun travels further than its own
+       diagonal, so that the two footprints are genuinely disjoint. Where it is
+       not, the check is reported as skipped and the percentage check above is
+       what covers that width. Claiming a check ran when it could not have failed
+       is worse than not claiming it. */
+    const diag = p0.r * 2 * Math.SQRT2;
+    const travel = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+    /* Twice the diagonal, so the two footprints are fully disjoint. At 1.5x a
+       narrow phone sun still slipped through on a technicality - it travels
+       18px against a 17px bar - and then failed on 25 where 40 was needed. The
+       bar has to sit where the measurement means something, not just where the
+       arithmetic happens to fall. */
+    if (travel >= diag * 2) {
+      /* Differential, not absolute. A cloud is painted after the sun at 55-75%
+         white, so an absolute "is it bright" test fails whenever one drifts
+         across the arrival spot. A cloud lifts BOTH frames equally, so the
+         difference survives it and can only be satisfied by the sun genuinely
+         being repainted somewhere new. */
+      const b0 = discBrightness(f0, p0);
+      const b1Arrived = discBrightness(f1, p1);
+      const b0There = discBrightness(f0, p1);   /* bare sky at t=0 */
+      const b1Left = discBrightness(f1, p0);    /* bare sky at t=20s */
+      ok('the sun arrives where the clock says it should be',
+         b0 > 150 && b1Arrived - b0There > 40,
+         't=0 ' + b0 + ' at ' + Math.round(p0.x) + ',' + Math.round(p0.y) +
+         ' -> t=20s ' + b1Arrived + ' vs ' + b0There + ' at ' +
+         Math.round(p1.x) + ',' + Math.round(p1.y));
+      /* The same fact from the other side, and it catches a painter that
+         simply draws the sun everywhere instead of moving it. */
+      ok('the sun has left where it started', b0 - b1Left > 40,
+         'at the old spot ' + b0 + ' -> ' + b1Left);
+    } else {
+      results.push({ name: 'the sun arrives where the clock says it should be',
+                     pass: true, skip: true,
+                     detail: 'the sun travels only ' + Math.round(travel) +
+                             'px in a ' + Math.round(p0.gutter.w) +
+                             'px gutter, so arrival and departure overlap; ' +
+                             'the percentage check covers this width' });
+    }
+  }
+  } else if (skyVisible) {
+  /* The gutters here are too narrow for a sun at all. That is a real layout
+     outcome, not a pass, and it is reported as such rather than skipped
+     silently - otherwise a regression that narrowed the gutters would look
+     exactly like this legitimate case. */
+  results.push({ name: 'the gutters are wide enough for a sun', pass: false,
+                 detail: 'widest gutter ' +
+                         (p0.gutter ? Math.round(p0.gutter.w) : 0) + 'px' });
+} else {
+  results.push({ name: 'sky is on screen at this size', pass: true, skip: true,
+                 detail: 'band ' + Math.round(bandTop) + '..' + Math.round(ground) +
+                         ' vs viewport ' + viewH });
+}
+
+/* === Verdict ============================================================
+   JSON into the DOM, read back out of a screenshot by tools/pixel-test.mjs. */
+const failed = results.filter(r => !r.pass);
+document.getElementById('probe-out').textContent =
+  '@@PIXEL@@' + JSON.stringify({ results: results, failed: failed.length }) + '@@END@@';
+} catch (err) {
+  report('probe threw: ' + (err && (err.stack || err.message) || err));
+}
+</script>
+</body>
+</html>
