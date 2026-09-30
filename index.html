@@ -82,7 +82,20 @@
   --col-gap:var(--space-2xl);
   --rail-space:0px;   /* space reserved for the fixed depth rail, when it is a side rail */
   --door-w:22px;      /* chamber doorway opening, facing the shaft */
-  --door:#b45309;     /* warm opening; sits between the lantern accent and the clay hue */
+  /* The doorway is the one warm accent that has to read as light coming from
+     inside the rock, so it is DERIVED from two tokens already in this file
+     rather than being a hex of its own: 45% lantern accent + 55% clay
+     resolves to #bf9042, a brass amber that sits inside the b3a4501
+     palette. The literal hex is declared first, matching the plain-then-
+     color-mix pattern used for the chamber border further down. (#b45309 -
+     a Tailwind amber-700 - was much more saturated than anything in the old
+     palette and read as a foreign default.) */
+  --door:#bf9042;
+  --door:color-mix(in srgb,var(--accent) 45%,var(--layer-clay));
+  /* The glow is driven off --door rather than a hard-coded rgba, so retuning
+     the doorway colour in one place retunes its light with it. */
+  --door-glow:rgba(255,210,74,.40);
+  --door-glow:color-mix(in srgb,var(--accent) 40%,transparent);
 
   /* Old fonts: Inter for body, Caveat for headings only. Used when installed;
      nothing is downloaded, so the page stays a single offline file. */
@@ -196,7 +209,7 @@ main{position:relative;z-index:10}
   width:var(--door-w);height:56px;
   background:var(--door);
   border-radius:calc(var(--door-w) / 2);
-  box-shadow:0 0 16px rgba(255,210,74,.30);
+  box-shadow:0 0 16px var(--door-glow);
 }
 .chamber--left  .chamber__door{right:calc(-1 * (var(--col-gap) + var(--door-w) / 2))}
 .chamber--right .chamber__door{left:calc(-1 * (var(--col-gap) + var(--door-w) / 2))}
@@ -210,6 +223,74 @@ main{position:relative;z-index:10}
 .chamber__sub{
   margin:.15rem 0 0;font-family:var(--font-heading);font-size:var(--step-1);
   line-height:1.2;color:var(--muted);
+}
+
+/* ==========================================================================
+   Chamber art - row 1 and row 2 (docs/layout-spec.md)
+   Motifs are drawn with gradients and clip-path, so the project still ships
+   ZERO image files. Three decisions shape this block:
+
+     1. The scenes are FLOW blocks, not absolute overlays. An overlay would
+        paint on top of the copy, and a negative z-index does not rescue it:
+        .js .chamber carries a transform while it is hidden, and a transform
+        creates a stacking context, which would trap the motif behind the
+        chamber background and make it pop in on reveal. Flow can never
+        overlap text, so panel contrast holds at every width.
+     2. Nothing here animates, so there is no motion to suppress and the
+        prefers-reduced-motion block does not need to know about it.
+     3. Colours come from the palette tokens via color-mix, never from a new
+        hex, so the art stays tied to the restored b3a4501 palette.
+   ========================================================================== */
+.scene{
+  display:block;position:relative;pointer-events:none;
+  margin:0 0 var(--space-md);
+}
+
+/* --- Row 1: Surface camp. A tent and a campfire on a lit horizon. ---------
+   The horizon, ground line, distant hill, log pile and firelight pool are all
+   layers of ONE background stack, so the scene is a single empty node. */
+.scene--camp{
+  height:76px;
+  background:
+    radial-gradient(60px 26px at calc(100% - 82px) 48px,
+      rgba(255,210,74,.26),transparent 72%),
+    linear-gradient(color-mix(in srgb,var(--layer-clay) 62%,transparent) 0 0)
+      right 72px bottom 18px/24px 3px no-repeat,
+    linear-gradient(180deg,transparent 56px,
+      color-mix(in srgb,var(--layer-clay) 22%,transparent) 56px,
+      color-mix(in srgb,var(--layer-clay) 22%,transparent) 58px,transparent 58px),
+    radial-gradient(96px 32px at 16% 58px,
+      color-mix(in srgb,var(--layer-ore) 34%,transparent),transparent 72%);
+}
+/* The tent, lit from the fire on its right. */
+.scene--camp::before{
+  content:"";position:absolute;bottom:18px;right:170px;
+  width:74px;height:38px;
+  background:linear-gradient(100deg,
+    color-mix(in srgb,var(--layer-topsoil) 34%,transparent),
+    color-mix(in srgb,var(--layer-clay) 44%,transparent) 70%);
+  clip-path:polygon(50% 0,100% 100%,0 100%);
+}
+/* The flame. Its glow and logs are NOT a box-shadow: clip-path clips an
+   element's own shadows as well, so those live in the stack above. */
+.scene--camp::after{
+  content:"";position:absolute;bottom:18px;right:82px;
+  width:13px;height:20px;
+  background:linear-gradient(180deg,rgba(255,210,74,.90),rgba(201,120,40,.80));
+  clip-path:polygon(50% 0,100% 60%,80% 100%,20% 100%,0 60%);
+}
+
+/* --- Row 2: Ore mine. Two rails laid over sleepers. ---------------------- */
+.scene--rail{
+  height:34px;
+  background:
+    repeating-linear-gradient(90deg,
+      color-mix(in srgb,var(--layer-clay) 46%,transparent) 0 5px,
+      transparent 5px 16px) 0 100%/100% 7px no-repeat,
+    linear-gradient(180deg,transparent 12px,
+      rgba(246,241,228,.22) 12px,rgba(246,241,228,.22) 14px,
+      transparent 14px 19px,
+      rgba(246,241,228,.22) 19px,rgba(246,241,228,.22) 21px,transparent 21px);
 }
 
 /* The shaft: dashed rock walls, a descent spine, an arrow, and one cue. */
@@ -303,15 +384,31 @@ h3{margin:0;font-size:var(--step-2)}
   margin:var(--space-lg) 0 0;padding:0;font-size:var(--step--1)}
 .facts li{color:var(--muted)}
 
-/* Chips: the old .vein__chip / .fossil__tag treatment. */
+/* Chips: the old .vein__chip / .fossil__tag treatment, re-cut as ORE CHIPS for
+   the mine layer (spec row 2). Each skill is a mined lump: a square-cut stone
+   with a coloured dot in it. Only decoration changed - the text colour, size,
+   order and markup are untouched, so contrast and copy-paste are identical. */
 .chips{list-style:none;display:flex;flex-wrap:wrap;gap:var(--space-2xs);
   margin:var(--space-xs) 0 var(--space-lg);padding:0}
 .chips li{
+  display:inline-flex;align-items:center;gap:var(--space-xs);
   border:1px solid rgba(246,241,228,.30);
-  border-radius:var(--radius-round);
-  padding:var(--space-2xs) var(--space-xs);
+  border-radius:var(--radius-sm);
+  background:color-mix(in srgb,var(--layer-clay) 12%,transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10);
+  padding:var(--space-2xs) var(--space-xs) var(--space-2xs) var(--space-2xs);
   font-size:var(--step--1);color:var(--muted);
 }
+/* The ore in the chip. --lump cycles so a long skill list reads as a mixed
+   seam rather than a row of identical pills. */
+.chips li::before{
+  content:"";flex:0 0 auto;width:9px;height:9px;
+  background:var(--lump,var(--accent));
+  box-shadow:0 0 0 1px rgba(0,0,0,.35),
+    0 0 7px color-mix(in srgb,var(--lump,var(--accent)) 40%,transparent);
+}
+.chips li:nth-child(3n+2){--lump:var(--layer-topsoil)}
+.chips li:nth-child(3n){--lump:color-mix(in srgb,var(--accent) 55%,var(--layer-clay))}
 .group{margin:0 0 var(--space-lg)}
 .group:last-child{margin-bottom:0}
 .group h3{margin:0 0 var(--space-2xs);color:var(--accent);font-size:var(--step-1)}
@@ -521,6 +618,9 @@ kbd{font:inherit;font-size:.8em;padding:.05em .4em;
   <!-- ================= ROW 1 LEFT - Surface camp ================= -->
   <section id="summary" class="chamber chamber--left" data-layer="sky" aria-labelledby="summary-h">
     <p class="chamber__door" aria-hidden="true"></p>
+    <!-- Row 1 art: tent + campfire, drawn in CSS (.scene--camp). An empty,
+         aria-hidden node, so the readable content is the text below it. -->
+    <span class="scene scene--camp" aria-hidden="true"></span>
     <p class="chamber__name">Surface camp</p>
     <p class="chamber__sub">Summary &middot; sky layer</p>
     <h1 id="summary-h">Alchie O. Andilab</h1>
@@ -544,6 +644,9 @@ kbd{font:inherit;font-size:.8em;padding:.05em .4em;
   <!-- ================= ROW 2 RIGHT - Ore mine ================= -->
   <section id="skills" class="chamber chamber--right" data-layer="dirt" aria-labelledby="skills-h">
     <p class="chamber__door" aria-hidden="true"></p>
+    <!-- Row 2 art: the mine rail (.scene--rail). The ore itself is the dot on
+         each skill chip. -->
+    <span class="scene scene--rail" aria-hidden="true"></span>
     <p class="chamber__name">Ore mine</p>
     <p class="chamber__sub">Skills &middot; dirt layer</p>
     <h2 id="skills-h">Skills</h2>
