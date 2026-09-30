@@ -30,6 +30,7 @@ Mutate '4. band pushed off centre' 'js\deck.js' 'var DECK_CENTRE = 0.5;' 'var DE
 Mutate '5. travel starts in the sky' 'js\layers.js' 'travelFrom = dirt >= 0 ? dirt :' 'travelFrom = dirt >= 0 ? 0 :'
 Mutate '6. travel runs past the treasure' 'js\layers.js' 'travelTo = treasure >= 0 ? treasure :' 'travelTo = treasure >= 0 ? treasure + 900 :'
 Mutate '7. travel window never closes' 'js\deck.js' 'if (!(end > start)) end = maxScroll + 1;' 'if (end > start) end = start;'
+Mutate '8. no barrier above the treasure room' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
 Write-Output ''
 Write-Output 'restored - confirming the tree is clean again:'
 node tools\smoke.mjs 2>&1 | Select-Object -Last 1

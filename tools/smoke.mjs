@@ -116,6 +116,12 @@ const known = {
   '[data-layer="dirt"]': box(1400, 1400, 100, 900),
   '.treasure': box(7000, 600, 100, 900)
 };
+/* The document Y of the treasure room, taken from the stub itself rather than
+   repeated as a literal, so the barrier assertion below cannot drift away from
+   the geometry that actually drives it. Read through the stub's own docTop
+   closure value, NOT via getBoundingClientRect() - that subtracts the current
+   scroll, and `window` does not exist yet at this point in the file. */
+const TREASURE_TOP = 7000;
 const stubEl = (sel) => known[sel] || {
   classList: { add: noop, remove: noop, contains: () => false },
   style: {}, dataset: {}, textContent: '', addEventListener: noop,
@@ -264,6 +270,22 @@ async function run() {
       fail(label + ' car starts moving before the dirt room');
     }
     if (!near(settle(end), band.bot)) fail(label + ' car is not at the bottom at the treasure room');
+
+    /* The invisible barrier. The treasure room is full width, so it sits UNDER
+       the shaft the sprite rides in, and the sprite must be parked at the bottom
+       of its band while that room is still entirely below the fold - otherwise
+       the car visibly descends into the room on the way down. Asserted in terms
+       of where the room's top edge lands in SCREEN space at the stopping scroll
+       position, because that is the thing the reader can actually see.
+
+       TREASURE_TOP is the document Y of the `.treasure` stub above. The room is
+       "entirely below the fold" when its top edge is at or past the bottom of
+       the viewport, hence `>= h` with a 1px tolerance for rounding. */
+    const treasureTopOnScreen = TREASURE_TOP - end;
+    if (treasureTopOnScreen < h - 1) {
+      fail(label + ' the car is fully down but the treasure room is already on screen (' +
+           'top edge at ' + treasureTopOnScreen.toFixed(0) + ', viewport ' + h + ')');
+    }
 
     /* What the page can actually reach. On a window TALLER than the content
        below the treasure room, the reader can never scroll that room's top edge

@@ -113,11 +113,34 @@ function measure() {
      art, so the same attribute names the rooms the car travels between. The
      treasure room is also data-layer="bedrock" - it is a contact room, not a
      chamber - which is exactly why it is selected by its class and not by its
-     layer: the car stops BEFORE it, at the top of that section. */
+     layer: the car stops BEFORE it, at the top of that section.
+
+     The treasure room is also the invisible barrier the sprite is stopped by,
+     and it has to be reached EARLY rather than exactly. The room spans all three
+     grid columns, so it sits underneath the shaft the sprite rides in: once it
+     fills the viewport there is nowhere on screen the sprite can stand without
+     being drawn over the room. So travelTo is pulled back by one viewport of
+     scroll, which parks the car at the bottom of its band while the room is
+     still entirely below the fold.
+
+     Why it is done in DOCUMENT space rather than by clamping the car per frame:
+     a screen-space cap at the room's top edge would DECREASE as the reader
+     scrolls down, which pulls the car back UP the band while the page descends
+     - a direction reversal, the exact defect the monotonic-travel rule and
+     smoke.mjs exist to prevent. A document-space stop is monotonic by
+     construction, so nothing about the motion model changes. The sprite is
+     still drawn over the room once you scroll into it; what this fixes is the
+     car descending INTO the room on the way down. */
   var dirt = docTopOf('[data-layer="dirt"]');
   var treasure = docTopOf('.treasure');
   travelFrom = dirt >= 0 ? dirt : (layers.length > 1 ? layers[1].top : 0);
   travelTo = treasure >= 0 ? treasure : (layers.length ? layers[layers.length - 1].bottom : 0);
+  /* One viewport of clearance. viewH rather than window.innerHeight so the
+     canvas and the barrier are measured from the same number, and Math.max(1)
+     so an unmeasured viewport cannot invert the window. The floor of 1px of
+     clearance keeps the stop strictly above the room rather than level with it,
+     so the sprite's feet never touch the room's top edge. */
+  travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);
   maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
   metresPerPx = TOTAL_METRES / maxScroll;
 }
