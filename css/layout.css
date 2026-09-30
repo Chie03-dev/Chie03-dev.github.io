@@ -160,6 +160,57 @@ main{position:relative;z-index:10}
 .js .chamber.is-visible,.js .treasure.is-visible{opacity:1;transform:none}
 
 /* ==========================================================================
+   The shaft channel through the treasure room
+   The room spans all three grid columns, so it sits UNDERNEATH the shaft the
+   sprite rides in - and `main` is z-index:10 against the canvas at z-index:0,
+   so the room's rock painted over the sprite rather than the sprite painting
+   over the room. The sprite was not crossing the room; it was buried by it.
+
+   That is why this is a full-height CHANNEL and not a notch in the room's top
+   edge. The sprite sits at a fixed SCREEN height (the band is screen space),
+   while a notch is fixed in DOCUMENT space, so the room would scroll straight
+   through the sprite and take the notch with it.
+
+   The channel is the middle grid track plus the two gaps either side of it, so
+   it is exactly the shaft column: the wings line up with the chambers above and
+   the opening lines up with the rails the car runs on. It is cut with a mask on
+   the room's ::before (see chambers.css for why the surface is on a pseudo and
+   not on #contact), which leaves the heading, the buttons and every other word
+   untouched. The shaft art behind it is real: drawShaft() paints the cleared
+   column, the guide rails and their joints for the full viewport height.
+   ========================================================================== */
+#contact{
+  /* Half the channel, as a length so the mask stops can use it. */
+  --ch:calc((var(--shaft-w) + 2 * var(--col-gap)) / 2);
+  display:grid;
+  /* The same three tracks as .dig, for the reason in the comment above. */
+  grid-template-columns:1fr var(--shaft-w) 1fr;
+  column-gap:var(--col-gap);
+  align-content:center;justify-items:center;
+}
+#contact::before{
+  /* Two stops at the same offset make the cut a hard edge rather than a fade.
+     The -webkit- prefix is not optional in practice: without it Safari clips
+     the whole pseudo and the room loses its rock. */
+  -webkit-mask-image:linear-gradient(90deg,#000 0,
+    #000 calc(50% - var(--ch)),transparent calc(50% - var(--ch)),
+    transparent calc(50% + var(--ch)),
+    #000 calc(50% + var(--ch)),#000 100%);
+  mask-image:linear-gradient(90deg,#000 0,
+    #000 calc(50% - var(--ch)),transparent calc(50% - var(--ch)),
+    transparent calc(50% + var(--ch)),
+    #000 calc(50% + var(--ch)),#000 100%);
+}
+/* Identity on the left, actions on the right, nothing at all in the channel.
+   align-self end/start on each pair is what keeps the heading tight against its
+   own sub: the two rows are shared between the wings, so without it the taller
+   side (the wrapped button row) would open a gap in the middle of the name. */
+#contact>h2{grid-column:1;grid-row:1;align-self:end}
+#contact>.chamber__sub{grid-column:1;grid-row:2;align-self:start}
+#contact>.treasure__btns{grid-column:3;grid-row:1;align-self:end}
+#contact>.hint{grid-column:3;grid-row:2;align-self:start}
+
+/* ==========================================================================
    Phones: the shaft shrinks to a thin strip on one edge and the chambers
    stack full width, each sitting under its own doorway (spec).
    ========================================================================== */
@@ -180,6 +231,15 @@ main{position:relative;z-index:10}
   .dig__shaft::before,.dig__shaft::after,.dig__cue{display:none}
   #summary,#skills,#projects,#experience,#education,#contact{grid-area:auto}
   .chamber,.treasure{grid-column:1;max-width:none}
+  /* No channel on a phone, and nothing needs cutting. The shaft is a fixed 56px
+     strip pinned to the left EDGE there, and .dig already reserves 72px of
+     padding to clear it, so the room never overlaps the sprite in the first
+     place. The channel exists only where the shaft is a CENTRED column with the
+     room spanning across it. display:block also makes the four grid-column
+     placements above inert, which is cheaper and far less fragile than
+     un-placing all four by hand. */
+  #contact{display:block}
+  #contact::before{-webkit-mask-image:none;mask-image:none}
   /* Doorways move to the top edge, above the chamber they open into.
 
      The selector is deliberately TWO classes deep, matching the desktop rules

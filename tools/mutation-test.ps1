@@ -4,8 +4,12 @@ Set-Location $root
 $bak = Join-Path $env:TEMP 'smokebak'
 New-Item -ItemType Directory -Force -Path $bak | Out-Null
 Copy-Item js\render.js, js\deck.js, js\layers.js $bak -Force
+Copy-Item css\layout.css, css\chambers.css $bak -Force
 
-function Restore { Copy-Item $bak\render.js, $bak\deck.js, $bak\layers.js js\ -Force }
+function Restore {
+  Copy-Item $bak\render.js, $bak\deck.js, $bak\layers.js js\ -Force
+  Copy-Item $bak\layout.css, $bak\chambers.css css\ -Force
+}
 
 function Mutate($name, $file, $from, $to) {
   $t = Get-Content $file -Raw
@@ -31,6 +35,10 @@ Mutate '5. travel starts in the sky' 'js\layers.js' 'travelFrom = dirt >= 0 ? di
 Mutate '6. travel runs past the treasure' 'js\layers.js' 'travelTo = treasure >= 0 ? treasure :' 'travelTo = treasure >= 0 ? treasure + 900 :'
 Mutate '7. travel window never closes' 'js\deck.js' 'if (!(end > start)) end = maxScroll + 1;' 'if (end > start) end = start;'
 Mutate '8. no barrier above the treasure room' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
+Mutate '9. shaft channel cut only in Safari-prefixed form' 'css\layout.css' '  -webkit-mask-image:linear-gradient(90deg,#000 0,' '  -webkit-mask-image:none;--gone:linear-gradient(90deg,#000 0,'
+Mutate '9b. shaft channel has no unprefixed mask' 'css\layout.css' '  mask-image:linear-gradient(90deg,#000 0,' '  mask-image:none;--gone:linear-gradient(90deg,#000 0,'
+Mutate '10. channel width hardcoded to zero' 'css\layout.css' '--ch:calc((var(--shaft-w) + 2 * var(--col-gap)) / 2);' '--ch:0px;'
+Mutate '11. room paints over its own channel' 'css\chambers.css' 'background:none;border:0;box-shadow:none;' 'background:var(--panel-solid);border:0;box-shadow:none;'
 Write-Output ''
 Write-Output 'restored - confirming the tree is clean again:'
 node tools\smoke.mjs 2>&1 | Select-Object -Last 1

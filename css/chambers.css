@@ -289,13 +289,27 @@
    0.10 / 0.09 / 0.07, which keeps --accent at 6.99:1, --muted at 4.70:1 and
    --text at 8.93:1. Do not raise these without re-running that check.
    ========================================================================== */
+/* The room's painted surface lives on a PSEUDO, not on the element, and that is
+   load-bearing rather than tidy. The shaft channel (see the #contact block in
+   layout.css) is cut with a MASK, and a mask applies to the element it is set on
+   *including its text*. Masking #contact would take the heading and the Download
+   PDF button with it. On ::before it cuts the rock and nothing else, so art can
+   be masked while every word stays real HTML. */
 #contact{
-  /* Room for the shaft mouth to hang in, above the heading. The mouth is
-     absolutely positioned, so it paints over in-flow text unless it is given
-     a band of its own. */
-  padding-top:76px;
+  /* The surface moved to ::before, so the element must not paint one itself, or
+     it would cover the very channel the mask just opened. Beats the shared
+     .chamber,.treasure slab on specificity, not on source order. */
+  background:none;border:0;box-shadow:none;
+}
+#contact::before{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-color:var(--panel-solid);
+  border:2px dashed color-mix(in srgb,var(--hue) 55%,var(--chalk));
+  border-radius:var(--radius-lg);
+  box-shadow:0 18px 44px rgba(0,0,0,.45);
   background-image:
-    /* the treasure light, centred on the button row */
+    /* the treasure light, centred on the room so it falls straight down the
+       shaft channel and pools on the car waiting at the bottom of it */
     radial-gradient(120% 88% at 50% 50%,
       color-mix(in srgb,var(--door-glow-lit) 13%,transparent),
       transparent 68%),
@@ -321,28 +335,14 @@
 }
 /* The light inner frame. Rhymes with the vault's double border in row 3
    without competing with it: one hairline, low alpha, sitting well inside the
-   chamber padding at both 32px and 24px. */
-#contact::before{
-  content:"";position:absolute;inset:12px;
+   chamber padding at both 32px and 24px. It is ::after now, because ::before
+   became the room's masked surface. Its horizontal runs cross the shaft
+   channel at the very top and bottom of the room, which reads as a threshold
+   over the opening - the same job the old shaft mouth used to do. */
+#contact::after{
+  content:"";position:absolute;inset:12px;z-index:-1;pointer-events:none;
   border:1px solid color-mix(in srgb,var(--layer-topsoil) 26%,transparent);
   border-radius:calc(var(--radius-lg) - 12px);
-  pointer-events:none;
-}
-/* The shaft mouth. Width is the shaft token itself so it lines up with the
-   column above, and on a wide screen the grid keeps that column centred, which
-   is also where this sits. The opaque top hides the frame's top edge inside
-   the mouth's width, so the frame reads as a wall with a way through it. */
-#contact::after{
-  content:"";position:absolute;
-  left:50%;transform:translateX(-50%);
-  top:10px;width:var(--shaft-w);height:38px;
-  border:1px solid color-mix(in srgb,var(--layer-ore) 55%,var(--chalk) 45%);
-  border-top:0;
-  border-radius:0 0 15px 15px;
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--deep) 92%,transparent),
-    color-mix(in srgb,var(--door-glow-lit) 14%,transparent));
-  pointer-events:none;
 }
 /* Download PDF is the focal point. It is a real element in the markup, so this
    needs no new DOM. It is the one solid button in the row, and the glow is
@@ -356,11 +356,7 @@
     0 0 18px 4px var(--door-glow-lit),
     0 0 46px 12px var(--door-glow);
 }
-/* On a phone the shaft is a fixed strip on the left edge, not a column
-   descending into this room, so there is nothing for a centred mouth to
-   continue. The glow stays; the mouth goes, and the room gives its space back
-   rather than carrying a band of empty padding. */
-@media (max-width:820px){
-  #contact{padding-top:var(--space-2xl)}
-  #contact::after{display:none}
-}
+/* The old phone rule lived here and has gone with the shaft mouth: `#contact
+   ::after{display:none}` would now hide the inner FRAME, and the padding-top it
+   trimmed was only ever making room for the mouth. layout.css restores the
+   single-column room and switches the channel off at the same breakpoint. */

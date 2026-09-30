@@ -220,6 +220,39 @@ async function run() {
   console.log('graph     ' + files.map(f => f.replace('.js', '') + '->[' +
               (deps[f] || []).map(d => d.replace('.js', '')).join(',') + ']').join('  '));
 
+  /* 2b. The shaft channel through the treasure room. This one is a check on the
+        STYLESHEET rather than on behaviour, and it is here for a specific
+        reason: the channel is what stops the sprite being buried by the room,
+        and nothing in the JS above can see a CSS mask. Without this, deleting
+        the channel would leave every other assertion in this file perfectly
+        green while the sprite went back behind the rock.
+
+        Whitespace is stripped first so a reformat cannot silently disarm it. */
+  const layoutCss = readFileSync(join(ROOT, 'css', 'layout.css'), 'utf8');
+  const chambersCss = readFileSync(join(ROOT, 'css', 'chambers.css'), 'utf8');
+  const flat = (s) => s.replace(/\s+/g, '');
+  /* Both the prefixed and unprefixed forms must be a real gradient cut, not
+     merely present. An earlier version of this check only asked whether the
+     property appeared at all, and the mutation test caught that: neutering the
+     -webkit- line still left the unprefixed one, so the check passed while
+     Safari - which needs the prefix - would have shown no channel at all. */
+  if (!/#contact::before\{[^}]*-webkit-mask-image:linear-gradient/.test(flat(layoutCss))) {
+    fail('the treasure room has no shaft channel: #contact::before carries no mask cut');
+  }
+  if (!/#contact::before\{[^}]*[^-\w]mask-image:linear-gradient/.test(flat(layoutCss))) {
+    fail('the shaft channel has no unprefixed mask, so it will not render');
+  }
+  if (!/--ch:calc\(\(var\(--shaft-w\)/.test(flat(layoutCss))) {
+    fail('the channel width --ch is not derived from the shaft token');
+  }
+  if (!/#contact\{[^}]*background:none/.test(flat(chambersCss))) {
+    fail('#contact still paints its own background, which would cover the channel');
+  }
+  const phoneCss = flat(layoutCss).slice(flat(layoutCss).indexOf('@media(max-width:820px)'));
+  if (!/#contact\{display:block/.test(phoneCss)) {
+    fail('the phone layout does not restore the single-column treasure room');
+  }
+
   /* 3. Per viewport: geometry, the two holds, and a full walk of the page. */
   for (const [w, h] of VIEWPORTS) {
     const label = String(w).padStart(4) + 'x' + String(h).padStart(4);
