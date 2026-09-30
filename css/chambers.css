@@ -224,3 +224,51 @@
   border-radius:50% 50% 42% 42%/62% 62% 38% 38%;
   box-shadow:0 0 9px 3px var(--door-glow-lit),0 0 26px 8px var(--door-glow);
 }
+
+/* ==========================================================================
+   Row 5: Ancient library. Bookshelf rows from the dashed lines.
+   The spec asks for shelf rows made from dashed lines, so every dd is a
+   shelf: the dashed border-bottom IS the plank, the dt above it is a plaque
+   fixed to the shelf edge, and the two pseudo-elements are bookends
+   straddling the plank so a shelf reads as bounded rather than underlined.
+   The four dt/dd pairs already in the markup become four shelves. No new
+   markup and no new copy.
+   ========================================================================== */
+#education .kv{margin-top:var(--space-2xl)}
+
+/* The plaque. It already renders as small uppercase accent text in the
+   handwriting face, which suits a shelf label; inline-block lets it shrink to
+   its own text so the chip hugs the word instead of spanning the column. */
+#education .kv dt{
+  display:inline-block;
+  margin-top:var(--space-lg);
+  padding:var(--space-2xs) var(--space-xs);
+  background:color-mix(in srgb,var(--layer-clay) 22%,transparent);
+  border:1px solid color-mix(in srgb,var(--layer-topsoil) 34%,transparent);
+  border-radius:var(--radius-sm);
+}
+
+/* The shelf. position:relative is what lets the bookends hang off the plank. */
+#education .kv dd{
+  position:relative;
+  margin:0;
+  padding:0 0 var(--space-md);
+  border-bottom:2px dashed color-mix(in srgb,var(--layer-topsoil) 46%,transparent);
+}
+
+/* Bookends, straddling the plank. 9px either side of it: the padding under the
+   text is 16px, so the top of a bookend lands in that gap and never reaches
+   the shelf above. On the last shelf the lower half simply hangs into the
+   chamber's bottom padding, which reads as the end of the row. */
+#education .kv dd::before,
+#education .kv dd::after{
+  content:"";position:absolute;bottom:-9px;
+  width:6px;height:18px;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--layer-topsoil) 42%,transparent),
+    color-mix(in srgb,var(--layer-clay) 46%,transparent));
+  border:1px solid color-mix(in srgb,var(--layer-topsoil) 30%,transparent);
+  border-radius:1px;
+}
+#education .kv dd::before{left:0}
+#education .kv dd::after{right:0}
