@@ -1,0 +1,128 @@
+/* ==========================================================================
+   chambers.css - the chamber art
+   The motifs from docs/layout-spec.md, drawn with gradients and clip-path
+   so the project still ships zero image files. Rows 1-2 only for now: the
+   surface camp and the ore mine. In its own file so adding rows 3-5 is an
+   edit to one place and cannot disturb the rules in layout.css.
+   ========================================================================== */
+
+/* ==========================================================================
+   Chamber art - row 1 and row 2 (docs/layout-spec.md)
+   Motifs are drawn with gradients and clip-path, so the project still ships
+   ZERO image files. Three decisions shape this block:
+
+     1. The scenes are FLOW blocks, not absolute overlays. An overlay would
+        paint on top of the copy, and a negative z-index does not rescue it:
+        .js .chamber carries a transform while it is hidden, and a transform
+        creates a stacking context, which would trap the motif behind the
+        chamber background and make it pop in on reveal. Flow can never
+        overlap text, so panel contrast holds at every width.
+     2. Nothing here animates, so there is no motion to suppress and the
+        prefers-reduced-motion block does not need to know about it.
+     3. Colours come from the palette tokens via color-mix, never from a new
+        hex, so the art stays tied to the restored b3a4501 palette.
+   ========================================================================== */
+.scene{
+  display:block;position:relative;pointer-events:none;
+  margin:0 0 var(--space-md);
+}
+
+/* --- Row 1: Surface camp. A tent and a campfire on a lit horizon. ---------
+   The horizon, ground line, distant hill, log pile and firelight pool are all
+   layers of ONE background stack, so the scene is a single empty node. */
+.scene--camp{
+  height:76px;
+  background:
+    radial-gradient(60px 26px at calc(100% - 82px) 48px,
+      rgba(255,210,74,.26),transparent 72%),
+    linear-gradient(color-mix(in srgb,var(--layer-clay) 62%,transparent) 0 0)
+      right 72px bottom 18px/24px 3px no-repeat,
+    linear-gradient(180deg,transparent 56px,
+      color-mix(in srgb,var(--layer-clay) 22%,transparent) 56px,
+      color-mix(in srgb,var(--layer-clay) 22%,transparent) 58px,transparent 58px),
+    radial-gradient(96px 32px at 16% 58px,
+      color-mix(in srgb,var(--layer-ore) 34%,transparent),transparent 72%);
+}
+/* The tent, lit from the fire on its right. */
+.scene--camp::before{
+  content:"";position:absolute;bottom:18px;right:170px;
+  width:74px;height:38px;
+  background:linear-gradient(100deg,
+    color-mix(in srgb,var(--layer-topsoil) 34%,transparent),
+    color-mix(in srgb,var(--layer-clay) 44%,transparent) 70%);
+  clip-path:polygon(50% 0,100% 100%,0 100%);
+}
+/* The flame. Its glow and logs are NOT a box-shadow: clip-path clips an
+   element's own shadows as well, so those live in the stack above. */
+.scene--camp::after{
+  content:"";position:absolute;bottom:18px;right:82px;
+  width:13px;height:20px;
+  background:linear-gradient(180deg,rgba(255,210,74,.90),rgba(201,120,40,.80));
+  clip-path:polygon(50% 0,100% 60%,80% 100%,20% 100%,0 60%);
+}
+
+/* --- Row 2: Ore mine. A mine track, not two faint lines. ------------------
+   Three background layers: rail heads on top, timber ties under them, and a
+   ballast bed at the bottom. The old version was two 22%-alpha lines with a
+   row of ticks and read as a dotted line rather than as track. */
+.scene--rail{
+  height:46px;
+  background:
+    /* Rail heads: a lit cap over a darker web, so they read as steel and sit
+       clearly in front of the ties. */
+    linear-gradient(180deg,transparent 0 12px,
+      rgba(246,241,228,.52) 12px 14px,
+      rgba(246,241,228,.12) 14px 17px,
+      transparent 17px 25px,
+      rgba(246,241,228,.52) 25px 27px,
+      rgba(246,241,228,.12) 27px 30px,
+      transparent 30px),
+    /* Ties: wide timber blocks, not hairlines. */
+    repeating-linear-gradient(90deg,
+      color-mix(in srgb,var(--layer-clay) 88%,transparent) 0 7px,
+      transparent 7px 19px) 0 28px/100% 14px no-repeat,
+    /* Ballast: the crushed bed the track is laid into. */
+    linear-gradient(180deg,transparent 27px,
+      color-mix(in srgb,var(--layer-ore) 42%,transparent) 27px,
+      color-mix(in srgb,var(--layer-ore) 66%,transparent) 100%);
+}
+
+/* Chips: the old .vein__chip / .fossil__tag treatment, re-cut as ORE CHIPS for
+   the mine layer (spec row 2). Each skill is a mined lump: a square-cut stone
+   with a coloured dot in it. Only decoration changed - the text colour, size,
+   order and markup are untouched, so contrast and copy-paste are identical. */
+.chips{list-style:none;display:flex;flex-wrap:wrap;gap:var(--space-2xs);
+  margin:var(--space-xs) 0 var(--space-lg);padding:0}
+.chips li{
+  display:inline-flex;align-items:center;gap:var(--space-xs);
+  border:1px solid rgba(246,241,228,.30);
+  border-radius:var(--radius-sm);
+  background:
+    linear-gradient(180deg,rgba(0,0,0,.22),transparent 60%),
+    color-mix(in srgb,var(--layer-clay) 16%,transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+  padding:var(--space-2xs) var(--space-xs) var(--space-2xs) var(--space-2xs);
+  font-size:var(--step--1);color:var(--muted);
+}
+/* The ore in the chip. A plain 9px square read as a bullet point at this list
+   density rather than as a mined lump, so this is a cut crystal instead:
+   corners clipped to a gem silhouette, a lit top-left facet, a dark under-edge
+   and a coloured glow.
+
+   drop-shadow rather than box-shadow on purpose: box-shadow is clipped away by
+   clip-path, whereas drop-shadow works on the already-clipped result. */
+.chips li::before{
+  content:"";flex:0 0 auto;width:13px;height:13px;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.60),rgba(255,255,255,0) 48%),
+    var(--lump,var(--accent));
+  clip-path:polygon(50% 0,100% 36%,84% 100%,16% 100%,0 36%);
+  filter:
+    drop-shadow(0 1px 0 rgba(0,0,0,.55))
+    drop-shadow(0 0 7px color-mix(in srgb,var(--lump,var(--accent)) 60%,transparent));
+}
+/* Three ores rather than one, so a long skill list reads as a mixed seam. All
+   three stay inside the restored palette; the plain topsoil and the plain
+   accent+clay mix were too close to each other and to the chip to separate. */
+.chips li:nth-child(3n+2){--lump:color-mix(in srgb,var(--layer-topsoil) 85%,var(--accent))}
+.chips li:nth-child(3n){--lump:color-mix(in srgb,var(--accent) 40%,var(--layer-clay))}

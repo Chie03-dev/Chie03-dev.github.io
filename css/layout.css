@@ -1,0 +1,233 @@
+/* ==========================================================================
+   layout.css - the cave grid, the shaft and the output modes
+   The three-column cave, the chamber box and its doorway, the shaft, the
+   content blocks, the phone breakpoint, and finally reduced-motion and
+   print. Loaded LAST on purpose: the print overrides for .plain__wrap and
+   #plain-resume a are plain declarations, not !important, so they only win
+   if they come after the rules they override.
+   ========================================================================== */
+
+/* ==========================================================================
+   Skip link
+   ========================================================================== */
+.skip{
+  position:absolute;left:var(--space-sm);top:-100%;z-index:100;
+  padding:var(--space-sm) var(--space-md);
+  background:var(--accent);color:var(--accent-ink);
+  border-radius:var(--radius);font-weight:600;text-decoration:none;
+}
+.skip:focus{top:var(--space-sm)}
+
+/* ==========================================================================
+   Layout
+   ========================================================================== */
+/* ==========================================================================
+   Cave layout
+   docs/layout-spec.md: three columns, left chamber | centre shaft | right
+   chamber, one section per row alternating sides, then a full-width contact
+   room at the bottom. The shaft column is left empty for the canvas sprite.
+   ========================================================================== */
+main{position:relative;z-index:10}
+.dig{
+  display:grid;
+  grid-template-columns:1fr var(--shaft-w) 1fr;
+  column-gap:var(--col-gap);
+  row-gap:var(--space-3xl);
+  padding-block:var(--space-2xl) var(--space-2xl);
+  padding-inline:var(--rail-space);
+}
+/* One section per row, alternating sides. Rows are explicit so the two
+   chamber columns never collide, whatever order the markup is edited into. */
+#summary   {grid-area:1 / 1 / 2 / 2}
+#skills    {grid-area:2 / 3 / 3 / 4}
+#projects  {grid-area:3 / 1 / 4 / 2}
+#experience{grid-area:4 / 3 / 5 / 4}
+#education {grid-area:5 / 1 / 6 / 2}
+#contact   {grid-area:6 / 1 / 7 / -1}
+.dig__shaft{grid-area:1 / 2 / 6 / 3}
+
+/* Chamber = the old .fossil card treatment: a dark slab with a 2px dashed,
+   hue-tinted edge. The plain border-color is the fallback for engines without
+   color-mix. */
+.chamber,.treasure{
+  position:relative;
+  background:var(--panel-solid);
+  background-image:linear-gradient(180deg,
+    color-mix(in srgb,var(--hue) 12%,transparent),transparent 55%);
+  border:2px dashed rgba(246,241,228,.42);
+  border-color:color-mix(in srgb,var(--hue) 55%,var(--chalk));
+  border-radius:var(--radius-lg);
+  padding:var(--space-xl);
+  box-shadow:0 18px 44px rgba(0,0,0,.45);
+  align-self:start;
+}
+@media (max-width:1100px){
+  .chamber,.treasure{padding:var(--space-lg)}
+}
+
+/* Doorway: a small warm opening on the edge that faces the shaft. Centred on
+   the shaft's dashed border rather than on the chamber edge, so it reads as a
+   way through. */
+.chamber__door{
+  position:absolute;top:var(--space-lg);
+  width:var(--door-w);height:56px;
+  background:var(--door);
+  border-radius:calc(var(--door-w) / 2);
+  box-shadow:0 0 16px var(--door-glow);
+}
+.chamber--left  .chamber__door{right:calc(-1 * (var(--col-gap) + var(--door-w) / 2))}
+.chamber--right .chamber__door{left:calc(-1 * (var(--col-gap) + var(--door-w) / 2))}
+
+/* Chamber header: the placeholder title from the spec, plus the section it
+   holds. Kept in the handwriting face like every other heading. */
+.chamber__name{
+  margin:0;font-family:var(--font-heading);font-size:var(--step-2);
+  line-height:1.2;color:var(--chalk);
+}
+.chamber__sub{
+  margin:.15rem 0 0;font-family:var(--font-heading);font-size:var(--step-1);
+  line-height:1.2;color:var(--muted);
+}
+
+/* The shaft: dashed rock walls, a descent spine, an arrow, and one cue. */
+.dig__shaft{
+  position:relative;
+  border-left:2px dashed rgba(246,241,228,.26);
+  border-right:2px dashed rgba(246,241,228,.26);
+}
+.dig__shaft::before{
+  content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;
+  transform:translateX(-50%);
+  background:linear-gradient(180deg,transparent,
+    rgba(246,241,228,.28) 6%,rgba(246,241,228,.28) 94%,transparent);
+}
+.dig__shaft::after{
+  content:"";position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:0;height:0;
+  border-left:8px solid transparent;border-right:8px solid transparent;
+  border-top:14px solid rgba(246,241,228,.45);
+}
+.dig__cue{
+  position:sticky;top:42vh;
+  width:max-content;max-width:92%;
+  margin-inline:auto;
+  padding:var(--space-xs) var(--space-md);
+  background:rgba(18,22,28,.94);
+  border:1px solid var(--edge);
+  border-radius:var(--radius);
+  color:var(--chalk);font-size:var(--step--2);text-align:center;
+}
+
+/* Full-width contact room at the bottom of the dig. */
+.treasure{text-align:center;margin-top:var(--space-2xl)}
+.treasure__btns{
+  display:flex;flex-wrap:wrap;gap:var(--space-md);
+  justify-content:center;margin-top:var(--space-lg);
+}
+
+/* ==========================================================================
+   Reveal (driven by IntersectionObserver adding .is-visible)
+   Scoped to .js so a no-JS visitor gets every chamber, fully visible.
+   ========================================================================== */
+.js .chamber,.js .treasure{opacity:0;transform:translateY(20px);
+  transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.js .chamber.is-visible,.js .treasure.is-visible{opacity:1;transform:none}
+
+/* ==========================================================================
+   Phones: the shaft shrinks to a thin strip on one edge and the chambers
+   stack full width, each sitting under its own doorway (spec).
+   ========================================================================== */
+@media (max-width:820px){
+  .dig{
+    grid-template-columns:1fr;
+    row-gap:var(--space-2xl);
+    padding-inline:0;
+    padding-left:72px;          /* clear the fixed shaft strip */
+  }
+  .dig__shaft{
+    grid-area:1 / 1 / -1 / -1;
+    position:fixed;left:0;top:0;bottom:0;width:56px;z-index:1;
+    background:rgba(10,13,18,.55);
+    border-left:0;
+    border-right:2px dashed rgba(246,241,228,.26);
+  }
+  .dig__shaft::before,.dig__shaft::after,.dig__cue{display:none}
+  #summary,#skills,#projects,#experience,#education,#contact{grid-area:auto}
+  .chamber,.treasure{grid-column:1;max-width:none}
+  /* Doorways move to the top edge, above the chamber they open into. */
+  .chamber__door{
+    top:calc(-1 * (var(--door-w) / 2));left:var(--space-lg);right:auto;
+    width:56px;height:var(--door-w);
+    border-radius:calc(var(--door-w) / 2);
+  }
+}
+
+/* ==========================================================================
+   Content blocks
+   ========================================================================== */
+.facts{list-style:none;display:flex;flex-wrap:wrap;gap:var(--space-2xs) var(--space-lg);
+  margin:var(--space-lg) 0 0;padding:0;font-size:var(--step--1)}
+.facts li{color:var(--muted)}
+
+.group{margin:0 0 var(--space-lg)}
+.group:last-child{margin-bottom:0}
+.group h3{margin:0 0 var(--space-2xs);color:var(--accent);font-size:var(--step-1)}
+
+/* Projects: a quieter inner card so the outer dashed edge still frames it. */
+.proj{list-style:none;margin:var(--space-xl) 0 0;padding:0;display:grid;gap:var(--space-lg)}
+.proj>li{
+  background:color-mix(in srgb,var(--hue) 8%,transparent);
+  border:1px solid rgba(246,241,228,.18);
+  border-radius:var(--radius);padding:var(--space-lg);
+}
+.proj h3{font-size:var(--step-2)}
+.proj .when{margin:var(--space-2xs) 0 0;font-size:var(--step--1);color:var(--muted)}
+.proj p{margin:var(--space-sm) 0 0}
+.proj .tech{font-size:var(--step--1);color:var(--muted)}
+
+/* Experience: the old hand-drawn timeline rule, in lantern yellow. */
+.entry{list-style:none;margin:var(--space-xl) 0 0;padding:0;display:grid;gap:var(--space-xl)}
+.entry>li{border-left:2px solid var(--accent);padding-left:var(--space-lg)}
+.entry h3{font-size:var(--step-2)}
+.entry .when{margin:var(--space-2xs) 0 0;font-size:var(--step--1);color:var(--muted)}
+.entry ul{margin:var(--space-sm) 0 0;padding-left:var(--space-lg)}
+.entry li{margin-bottom:var(--space-xs)}
+
+.kv{margin:var(--space-xl) 0 0}
+.kv dt{font-size:var(--step-1);letter-spacing:.03em;text-transform:uppercase;
+  color:var(--accent);margin-top:var(--space-md)}
+.kv dd{margin:var(--space-2xs) 0 0}
+
+.btns{display:flex;flex-wrap:wrap;gap:var(--space-sm);margin:var(--space-lg) 0 0}
+
+/* ==========================================================================
+   Reduced motion + print
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce){
+  :root{--dur-fast:0ms;--dur:0ms}
+  html{scroll-behavior:auto}
+  *,*::before,*::after{
+    animation-duration:0ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0ms !important;
+  }
+  .js .chamber,.js .treasure{opacity:1;transform:none}
+}
+@media print{
+  /* Ctrl/Cmd-P yields the resume document, not the game. The <details> is
+     forced open by the beforeprint handler in JS; the rules below are the
+     backup path for engines that ignore that event. */
+  #stage,.depth,.skip,.btn,main{display:none !important}
+  html,body{background:#fff !important;color:#000}
+  #plain-resume{
+    display:block !important;background:#fff !important;color:#000;
+    border-top:0;padding:0;
+  }
+  #plain-resume>summary{display:none !important}
+  #plain-resume>*{display:block !important}
+  .plain__wrap{max-width:none;margin:0}
+  #plain-resume a{color:#000}
+  #plain-resume h1,#plain-resume h2,#plain-resume h3{break-after:avoid}
+  #plain-resume li,#plain-resume p{orphans:3;widows:3}
+  @page{margin:14mm}
+}

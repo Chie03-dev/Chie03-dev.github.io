@@ -1,0 +1,344 @@
+/* ==========================================================================
+   render.js - every pixel of the canvas art
+   ==========================================================================
+   The motion preference, the pixel-rect helper, the ambient dust motes and
+   all of the world drawing: parallax speckle, the layer bands and their
+   motifs, the sky, the shaft, the ledge, the player, the foreground.
+
+   Reads player state from game.js and world state from layers.js, and
+   draws. It never mutates the player.
+   ========================================================================== */
+
+import {
+  ctx, viewW, viewH, DEEP, ROCK, layers, scrollY, layerIndexAt,
+  shaftLeft, shaftRight, groundBase, groundY, spriteScale,
+  TILE, patterns, seamNoise, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS
+} from './layers.js';
+import { player } from './game.js';
+
+/* === 1. Motion preference ================================================
+   The OS setting is re-read on change so toggling it takes effect live; a
+   one-time read would freeze the page in the wrong mode. */
+var motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+var reduced = motionQuery.matches;
+if (motionQuery.addEventListener) {
+  motionQuery.addEventListener('change', function (e) { reduced = e.matches; });
+} else if (motionQuery.addListener) {
+  motionQuery.addListener(function (e) { reduced = e.matches; });
+}
+/* Tiny helper: draw one snapped, axis-aligned pixel rect. Snapping keeps
+   edges crisp on HiDPI, where a fractional fill would blur a whole pixel. */
+function px(x, y, w, h, colour) {
+  ctx.fillStyle = colour;
+  ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+/* === Dust motes ==========================================================
+   Ambient life in the shaft. Seeded so the initial scatter is stable, then
+   wrapped (not re-randomised wholesale) to avoid a visible pop. */
+var motes = [];
+function seedMotes() {
+  motes = [];
+  var rnd = mulberry32(777);
+  for (var i = 0; i < 44; i++) {
+    motes.push({ x: rnd() * viewW, y: rnd() * viewH, s: rnd() < 0.8 ? 1 : 2, v: 5 + rnd() * 14 });
+  }
+}
+function drawMotes(dt) {
+  if (reduced) return;               /* no ambient motion under reduced motion */
+  for (var i = 0; i < motes.length; i++) {
+    var m = motes[i];
+    m.y -= m.v * dt;                 /* drift up = descending past the world */
+    if (m.y < -4) { m.y = viewH + 4; }
+    if (m.x < -4) m.x = viewW + 4; else if (m.x > viewW + 4) m.x = -4;
+    px(m.x, m.y, m.s, m.s, 'rgba(255,255,255,0.13)');
+  }
+}
+/* === World drawing =======================================================
+   Layers are painted back to front: far speckle, then each layer band with
+   its gradient + texture + motifs, then the shaft, the ledge, the player,
+   the motes, the foreground strips, and a vignette.
+
+   Parallax: a vertical scroll cannot shift a layer sideways, so depth is sold
+   with speed instead. Background texture is locked to scrollY (1.0x, so the
+   art stays welded to the copy); the far speckle drifts at 0.55x, the
+   foreground strips at 1.9x. Under reduced motion every factor becomes 1.0x
+   and the ambient bob/dust are skipped entirely. */
+function pf(factor) { return reduced ? 1 : factor; }
+
+function drawFar() {
+  ctx.fillStyle = DEEP;
+  ctx.fillRect(0, 0, viewW, viewH);
+  if (!patterns.far) return;
+  ctx.save();
+  ctx.translate(0, -(scrollY * pf(0.55)) % 96);
+  ctx.fillStyle = patterns.far;
+  ctx.fillRect(0, 0, viewW, viewH + 96);
+  ctx.restore();
+}
+
+/* Screen Y of a layer's top boundary, with a stable jagged profile. */
+function seamY(layer, x) {
+  return layer.top - scrollY + (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 26;
+}
+
+function drawSky(seamScreenY) {
+  if (seamScreenY < -60) return;
+  var w = 74, h = 26, drift = reduced ? 0 : (scrollY * 0.12) % 260;
+  for (var c = -1; c * 260 < viewW + 260; c++) {
+    var r = mulberry32(c * 7919 + 31)();
+    var cx = c * 260 + r * 140 - drift;
+    var cy = 40 + r * 120;
+    px(cx, cy, w, h, 'rgba(255,255,255,0.80)');
+    px(cx + 14, cy - 10, w - 30, 10, 'rgba(255,255,255,0.80)');
+    px(cx + 8, cy + h, w - 20, 8, 'rgba(200,228,244,0.75)');
+  }
+  /* Sun: concentric squares, not a circle: it has to read as pixel art. */
+  var sx = viewW - 120, sy = 78;
+  px(sx - 10, sy - 10, 70, 70, 'rgba(255,210,74,0.22)');
+  px(sx - 4, sy - 4, 58, 58, 'rgba(255,210,74,0.45)');
+  px(sx, sy, 50, 50, '#ffd24a');
+}
+
+/* Per-layer rock detail. Everything is placed from a cell index in world
+   space, so a motif is stable while it scrolls and nothing flickers. */
+var MOTIF_CELL = 110;
+function drawMotifs(rock, i, bandTop) {
+  if (bandTop > viewH + 40 || bandTop + layers[i].height < -40) return;
+  var worldTop = bandTop + scrollY;
+  var first = Math.floor(worldTop / MOTIF_CELL) - 1;
+  var last = Math.ceil((worldTop + layers[i].height) / MOTIF_CELL) + 1;
+  var l = shaftLeft(), r = shaftRight();
+
+  for (var c = first; c <= last; c++) {
+    var y = c * MOTIF_CELL + 26 + mulberry32(c * 104729 + i * 17 + 2)() * MOTIF_CELL;
+    var sy = y - scrollY;
+    if (sy < -40 || sy > viewH + 40) continue;
+    var rnd = mulberry32(c * 7919 + i * 131 + 5);
+    for (var k = 0; k < 3; k++) {
+      var x = rnd() * (viewW + 140) - 70;
+      /* Keep the shaft clear: motifs sit in the rock walls only. */
+      if (x > l - 44 && x < r + 44) continue;
+      var sz = 5 + Math.floor(rnd() * 9);
+      if (rock === 'dirt') {
+        /* Clods, plus a seam of exposed ore every so often. The mine layer
+           should look like it has something worth digging for. */
+        px(x, sy, sz, sz * 0.7, 'rgba(0,0,0,0.30)');
+        px(x + 2, sy - 2, sz * 0.6, 3, 'rgba(214,168,122,0.50)');
+        if (rnd() < 0.30) {
+          var gx = x + 3, gy = sy + 4;
+          px(gx - 1, gy - 1, 11, 7, 'rgba(0,0,0,0.28)');        /* socket */
+          px(gx, gy, 9, 5, 'rgba(255,210,74,0.45)');            /* vein */
+          px(gx + 2, gy + 1, 3, 2, 'rgba(255,243,208,0.70)');    /* lit core */
+        }
+      } else if (rock === 'stone') {
+        px(x, sy, sz, sz, 'rgba(0,0,0,0.30)');
+        px(x + 1, sy + 1, sz - 2, 2, 'rgba(255,255,255,0.16)');
+        px(x + 1, sy + sz - 2, sz - 2, 1, 'rgba(0,0,0,0.24)');
+      } else if (rock === 'caves') {
+        px(x, sy, 3, 9, 'rgba(255,255,255,0.13)');   /* thin crystal */
+        px(x + 4, sy + 4, 2, 5, 'rgba(255,255,255,0.09)');
+        px(x - 1, sy + 1, 1, 7, 'rgba(255,255,255,0.20)');  /* lit edge */
+      } else if (rock === 'bedrock') {
+        px(x, sy, sz * 1.8, 3, 'rgba(255,255,255,0.12)');  /* slab line */
+        /* A visible nugget. The old one was 4x4 at 30% alpha and simply
+           vanished into the rock; now it has a dark socket and a lit core. */
+        if (rnd() < 0.40) {
+          px(x + 3, sy + 5, 7, 7, 'rgba(0,0,0,0.32)');
+          px(x + 4, sy + 6, 5, 5, 'rgba(255,210,74,0.55)');
+          px(x + 5, sy + 7, 2, 2, 'rgba(255,243,208,0.80)');
+        }
+      }
+    }
+  }
+}
+
+function drawBands() {
+  var i, layer, bandTop, bandBottom, grad, key;
+  for (i = 0; i < layers.length; i++) {
+    layer = layers[i];
+    if (layer.bottom - scrollY < -40 || layer.top - scrollY > viewH + 40) continue;
+
+    bandTop = layer.top - scrollY;
+    bandBottom = layer.bottom - scrollY;
+    key = ROCK[layer.rock];
+
+    grad = ctx.createLinearGradient(0, bandTop, 0, bandBottom);
+    grad.addColorStop(0, key.top);
+    grad.addColorStop(1, key.bot);
+    ctx.fillStyle = grad;
+    ctx.fillRect(-40, bandTop, viewW + 80, bandBottom - bandTop + 2);
+
+    if (layer.rock === 'sky') { drawSky(bandBottom); continue; }
+
+    /* Rock grit, scrolling 1:1 with the world. */
+    ctx.save();
+    ctx.translate(0, -(scrollY % TILE));
+    ctx.fillStyle = patterns[layer.id];
+    ctx.fillRect(-40, bandTop + (scrollY % TILE), viewW + 80, bandBottom - bandTop + 2);
+    ctx.restore();
+
+    /* Two-tone jagged seam along the top of the band. */
+    var x, step = 12;
+    ctx.beginPath();
+    for (x = -40; x <= viewW + 40; x += step) {
+      var y = seamY(layer, x);
+      if (x === -40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.32)'; ctx.stroke();
+    ctx.beginPath();
+    for (x = -40; x <= viewW + 40; x += step) {
+      var y2 = seamY(layer, x) - 2;
+      if (x === -40) ctx.moveTo(x, y2); else ctx.lineTo(x, y2);
+    }
+    ctx.lineWidth = 3;
+    /* Dirt is the surface layer, so its seam is the grass line. */
+    ctx.strokeStyle = (i === 1) ? 'rgba(122,186,96,0.85)' : 'rgba(255,255,255,0.14)';
+    ctx.stroke();
+
+    drawMotifs(layer.rock, i, bandTop);
+  }
+}
+
+function drawShaft() {
+  var l = shaftLeft(), r = shaftRight();
+  var layer = layers[layerIndexAt(scrollY + viewH * 0.5)];
+
+  /* Darken the cleared column so text and player read against the rock. */
+  ctx.fillStyle = 'rgba(8,10,14,0.55)';
+  ctx.fillRect(l, -20, r - l, viewH + 40);
+  ctx.fillStyle = SHAFT_TINT[layer ? layer.rock : 'caves'] || 'rgba(0,0,0,0.2)';
+  ctx.fillRect(l, -20, r - l, viewH + 40);
+
+  /* Wall faces. */
+  px(l - 7, -20, 7, viewH + 40, 'rgba(255,255,255,0.10)');
+  px(r, -20, 7, viewH + 40, 'rgba(0,0,0,0.38)');
+
+  /* A ladder down the shaft: the strongest cue that the world is moving. */
+  var railA = l + 12, railB = r - 15;
+  px(railA, -20, 3, viewH + 40, 'rgba(0,0,0,0.42)');
+  px(railB, -20, 3, viewH + 40, 'rgba(0,0,0,0.42)');
+  var step = 26, off = ((scrollY % step) + step) % step, y;
+  for (y = -step + off; y < viewH + step; y += step) {
+    px(railA, y, railB - railA + 3, 3, 'rgba(0,0,0,0.40)');
+    px(railA, y, railB - railA + 3, 1, 'rgba(255,255,255,0.07)');
+  }
+}
+
+/* The ledge is the floor of the shaft, so it is clipped to the shaft box
+   rather than running the full width of the page. */
+function drawLedge() {
+  var x, step = 12;
+  var l = shaftLeft(), r = shaftRight();
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(l - 8, 0, r - l + 16, viewH);
+  ctx.clip();
+
+  ctx.beginPath();
+  ctx.moveTo(l - 40, groundY(l - 40));
+  for (x = l - 40; x <= r + 40; x += step) ctx.lineTo(x, groundY(x));
+  ctx.lineTo(r + 40, viewH + 20);
+  ctx.lineTo(l - 40, viewH + 20);
+  ctx.closePath();
+
+  var g = ctx.createLinearGradient(0, groundBase(), 0, viewH);
+  g.addColorStop(0, 'rgba(20,24,30,0.90)');
+  g.addColorStop(1, 'rgba(9,11,15,0.98)');
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  ctx.save();
+  ctx.clip();
+  ctx.translate(0, -(scrollY % TILE));
+  ctx.fillStyle = patterns.ledge;
+  ctx.fillRect(l - 40, 0, r - l + 80, viewH + TILE);
+  ctx.restore();
+
+  /* Lit top edge. */
+  ctx.beginPath();
+  for (x = l - 40; x <= r + 40; x += step) {
+    var y = groundY(x);
+    if (x === l - 40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(255,210,74,0.22)';
+  ctx.stroke();
+  ctx.restore();          /* release the shaft clip */
+}
+
+function drawPlayer(now) {
+  var moving = Math.abs(player.vx) > 4 || !player.onGround;
+  var set = reduced ? [SPRITES.idle[0]] : (moving ? SPRITES.walk : SPRITES.idle);
+  var img = set[Math.floor(now / FRAME_MS) % set.length];
+  var k = spriteScale();
+  var w = img.width * k, h = img.height * k;
+  /* The sprite lives in the shaft, so it is centred on the shaft box rather
+     than on the viewport. On a desktop layout the shaft is the middle column
+     and those coincide; on a phone the shaft is a strip on the left edge. */
+  var cx = player.x + player.w / 2, cy = player.y + player.h / 2;
+
+  /* Lantern pool of light, drawn before the sprite. */
+  var glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 130);
+  glow.addColorStop(0, 'rgba(255,210,74,0.18)');
+  glow.addColorStop(1, 'rgba(255,210,74,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(cx - 130, cy - 130, 260, 260);
+
+  var bob = reduced ? 0 : Math.sin(now / 380) * 1.5;
+  var x = Math.round(cx - w / 2);
+  var y = Math.round(player.y + bob + (player.h - h) / 2);
+
+  if (player.facing < 0) {
+    /* Flip horizontally rather than authoring a second set of frames. */
+    ctx.save();
+    ctx.translate(x + w, y);
+    ctx.scale(-1, 1);
+    ctx.drawImage(img, 0, 0, w, h);
+    ctx.restore();
+  } else {
+    ctx.drawImage(img, x, y, w, h);
+  }
+}
+
+function drawForeground() {
+  var strip = 26;
+  var off = (scrollY * pf(1.9)) % 64;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, 0, strip, viewH);
+  ctx.fillRect(viewW - strip, 0, strip, viewH);
+  ctx.translate(0, -off);
+  ctx.fillStyle = patterns.near;
+  ctx.fillRect(0, 0, strip, viewH + 64);
+  ctx.fillRect(viewW - strip, 0, strip, viewH + 64);
+  ctx.restore();
+  px(strip, 0, 2, viewH, 'rgba(0,0,0,0.5)');
+  px(viewW - strip - 2, 0, 2, viewH, 'rgba(0,0,0,0.5)');
+}
+
+function render(now) {
+  ctx.fillStyle = DEEP;
+  ctx.fillRect(0, 0, viewW, viewH);
+  drawFar();
+  drawBands();
+  drawShaft();
+  drawLedge();
+  drawPlayer(now);
+  drawForeground();
+
+  /* Vignette, so panel text near the edges keeps its contrast. */
+  var v = ctx.createRadialGradient(viewW / 2, viewH / 2, viewH * 0.35,
+                                   viewW / 2, viewH / 2, viewH * 0.95);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, viewW, viewH);
+}
+
+/* Public surface of this module. Collected here so that not one line of
+   the code above needed a keyword added to it. */
+export {
+  seedMotes,
+  drawMotes,
+  render
+};

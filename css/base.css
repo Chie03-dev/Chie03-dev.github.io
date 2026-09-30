@@ -1,0 +1,261 @@
+/* ==========================================================================
+   base.css - design tokens, reset and page furniture
+   Everything that is NOT the cave: the palette restored from b3a4501, the
+   type scale, the reset, the base elements, typography, the depth rail and
+   the plain-resume block. Loaded FIRST, because the :root and body rules
+   have to exist before anything that builds on them.
+   ========================================================================== */
+
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+/* ==========================================================================
+   Tokens
+   Palette, type scale, spacing, radii and motion restored verbatim from
+   commit b3a4501 (src/styles/tokens.css). Every old hex is kept, but the light
+   "surface" band is used as an ACCENT rather than as a fill: chalk text on the
+   deep lantern background carries the whole page, so there are no light
+   surfaces anywhere.
+   ========================================================================== */
+:root{
+  color-scheme: dark;              /* dark scrollbar + form chrome on any OS */
+
+  /* Old layer palette, verbatim. --hue (below) selects one per section. */
+  --layer-surface:#f6f1e4;
+  --layer-topsoil:#c9a87c;
+  --layer-clay:#8a5a3c;
+  --layer-ore:#3d4650;
+  --layer-bedrock:#232a33;
+  --layer-lantern:#14181e;
+
+  /* Surfaces. --deep is the old "lantern" token and is the single source of
+     truth for the page, the canvas fallback, and overscroll. */
+  --deep:#14181e;
+  --panel-solid:#1b2027;
+  --hue:var(--layer-ore);
+
+  /* Ink. --chalk is the old deep-layer ink; --ink sits on the yellow accent. */
+  --chalk:#f6f1e4;
+  --text:#f6f1e4;
+  --muted:#a9b2bd;
+  --ink:#2a2520;
+  --accent:#ffd24a;
+  --accent-ink:#2a2520;
+
+  /* Type scale, verbatim from b3a4501 */
+  --step--2:clamp(0.69rem,0.66rem + 0.15vw,0.75rem);
+  --step--1:clamp(0.83rem,0.80rem + 0.18vw,0.94rem);
+  --step-0:clamp(1rem,0.96rem + 0.22vw,1.125rem);
+  --step-1:clamp(1.2rem,1.15rem + 0.26vw,1.35rem);
+  --step-2:clamp(1.44rem,1.38rem + 0.31vw,1.62rem);
+  --step-3:clamp(1.73rem,1.66rem + 0.38vw,1.94rem);
+  --step-4:clamp(2.07rem,1.99rem + 0.45vw,2.33rem);
+  --step-5:clamp(2.49rem,2.39rem + 0.55vw,2.80rem);
+
+  /* Spacing, verbatim */
+  --space-2xs:0.25rem; --space-xs:0.5rem;  --space-sm:0.75rem;
+  --space-md:1rem;     --space-lg:1.5rem;  --space-xl:2rem;
+  --space-2xl:3rem;    --space-3xl:4rem;   --space-4xl:6rem;
+
+  /* Radii, verbatim */
+  --radius-sm:4px; --radius:8px; --radius-lg:14px; --radius-round:9999px;
+
+  /* Layout + motion, verbatim */
+  --content-width:65ch; --gutter:var(--space-lg);
+  --dur-fast:150ms; --dur:300ms; --ease:cubic-bezier(0.22,1,0.36,1);
+
+  /* --- Cave layout (docs/layout-spec.md) --- */
+  --shaft-w:clamp(140px,24vw,220px);   /* spec: the shaft stays empty for the sprite */
+  --col-gap:var(--space-2xl);
+  --rail-space:0px;   /* space reserved for the fixed depth rail, when it is a side rail */
+  --door-w:22px;      /* chamber doorway opening, facing the shaft */
+  /* The doorway is the one warm accent that has to read as light coming from
+     inside the rock, so it is DERIVED from two tokens already in this file
+     rather than being a hex of its own: 45% lantern accent + 55% clay
+     resolves to #bf9042, a brass amber that sits inside the b3a4501
+     palette. The literal hex is declared first, matching the plain-then-
+     color-mix pattern used for the chamber border further down. (#b45309 -
+     a Tailwind amber-700 - was much more saturated than anything in the old
+     palette and read as a foreign default.) */
+  --door:#bf9042;
+  --door:color-mix(in srgb,var(--accent) 45%,var(--layer-clay));
+  /* The glow is driven off --door rather than a hard-coded rgba, so retuning
+     the doorway colour in one place retunes its light with it. */
+  --door-glow:rgba(255,210,74,.40);
+  --door-glow:color-mix(in srgb,var(--accent) 40%,transparent);
+
+  /* Old fonts: Inter for body, Caveat for headings only. Used when installed;
+     nothing is downloaded, so the page stays a single offline file. */
+  --font-body:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-heading:Caveat,"Segoe Print","Bradley Hand","Comic Sans MS",cursive;
+}
+
+/* Per-section accent, replacing the old .layer-* background classes. The two
+   darkest hues are mixed toward chalk so their dashed edge clears 3:1. */
+.chamber[data-layer="sky"]     {--hue:var(--layer-surface)}
+.chamber[data-layer="dirt"]    {--hue:var(--layer-topsoil)}
+.chamber[data-layer="stone"]   {--hue:var(--layer-clay)}
+.chamber[data-layer="caves"]   {--hue:var(--layer-ore)}
+.chamber[data-layer="bedrock"] {--hue:var(--layer-bedrock)}
+.treasure[data-layer="bedrock"]{--hue:var(--layer-bedrock)}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+*,*::before,*::after{box-sizing:border-box}
+/* --deep on <html> is what colours the overscroll region and the area below the
+   last layer: <body> alone would leave a gap once it ends. */
+html{scroll-behavior:smooth;background:var(--deep)}
+body{
+  margin:0;color:var(--text);
+  font-family:var(--font-body);font-size:var(--step-0);line-height:1.6;
+  overflow-x:hidden;-webkit-text-size-adjust:100%;
+  /* Rock mottle, drawn with gradients only (no image file, per the old
+     base.css approach), layered on the deep background. */
+  background-color:var(--deep);
+  background-image:
+    radial-gradient(ellipse at 20% 30%,rgba(61,70,80,.35),transparent 60%),
+    radial-gradient(ellipse at 80% 70%,rgba(35,42,51,.45),transparent 60%),
+    repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.18) 3px,rgba(0,0,0,.18) 6px);
+}
+a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+a:hover{color:#ffe58a}
+/* Old focus treatment from base.css: 3px lantern ring, 2px offset. */
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:var(--radius-sm)}
+
+/* The canvas is decoration only: every word a recruiter reads lives in HTML. */
+#stage{
+  position:fixed;inset:0;z-index:0;display:block;pointer-events:none;
+  background:var(--deep);   /* fallback fill if JS is off or the loop is paused */
+  image-rendering:pixelated;
+}
+
+/* Headings get the handwriting font ONLY; body copy stays sans (old rule). */
+h1,h2,h3,h4,.eyebrow,.kv dt,.depth__title{
+  font-family:var(--font-heading);font-weight:400;line-height:1.2;
+}
+.eyebrow{margin:0 0 var(--space-2xs);font-size:var(--step-1);color:var(--accent)}
+h1{margin:0 0 var(--space-2xs);font-size:var(--step-4)}
+h2{margin:0 0 var(--space-2xs);font-size:var(--step-3)}
+h3{margin:0;font-size:var(--step-2)}
+.chamber>p,.treasure>p{margin:var(--space-md) 0 0}
+.muted{color:var(--muted)}
+
+/* Old .btn: accent fill, 2px accent-ink border, 8px radius, 44px target. */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--space-xs);
+  min-height:44px;padding:var(--space-xs) var(--space-md);
+  font:inherit;font-size:var(--step-0);font-weight:600;
+  color:var(--accent-ink);background:var(--accent);
+  border:2px solid var(--accent-ink);border-radius:var(--radius);
+  text-decoration:none;cursor:pointer;
+}
+.btn:hover{background:#ffe58a;color:var(--accent-ink)}
+.btn[disabled]{opacity:.6;cursor:default}
+.btn--ghost{background:transparent;color:var(--accent);border-color:currentColor}
+.btn--ghost:hover{background:rgba(255,210,74,.14);color:var(--accent)}
+#email-slot{font-size:var(--step-0);word-break:break-all}
+
+.hint{margin:var(--space-lg) 0 0;font-size:var(--step--1);color:var(--muted)}
+kbd{font:inherit;font-size:.8em;padding:.05em .4em;
+  border:1px solid rgba(246,241,228,.30);border-radius:var(--radius-sm);
+  background:rgba(246,241,228,.08)}
+
+/* ==========================================================================
+   Depth meter
+   Restored from b3a4501: a solid bedrock rail on the LEFT. It crosses every
+   layer, so it needs its own opaque surface rather than a tinted one. Under
+   1024px a side rail would crowd the centred 65ch column, so it becomes a
+   bottom bar, exactly as the old stylesheet did.
+   ========================================================================== */
+.depth{
+  position:fixed;left:var(--space-md);top:50%;transform:translateY(-50%);
+  z-index:30;
+  background:var(--layer-bedrock);
+  border:1px solid #3e4956;
+  border-radius:var(--radius);
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
+}
+.depth__title{
+  margin:0;padding:var(--space-2xs) var(--space-xs) 0;
+  font-family:var(--font-heading);font-size:var(--step-1);color:var(--muted);
+}
+.depth__list{list-style:none;margin:0;padding:var(--space-2xs);display:grid;gap:2px}
+.depth__list a{
+  display:grid;align-items:center;gap:0;
+  min-height:44px;padding:var(--space-2xs) var(--space-xs);
+  border-left:3px solid transparent;
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  color:var(--chalk);text-decoration:none;
+  font-size:var(--step--2);line-height:1.25;white-space:nowrap;
+  transition:background var(--dur-fast) var(--ease);
+}
+.depth__list a:hover{background:#2e3743;color:var(--chalk)}
+.depth__list a[aria-current="true"]{
+  border-left-color:var(--accent);
+  background:#2e3743;color:var(--accent);font-weight:700;
+}
+.depth__m{color:#c9a87c;font-variant-numeric:tabular-nums}
+
+/* Below 1500px the fixed side rail would sit on top of the left chambers, so it
+   becomes a bottom bar there. At 1500px+ there is room for both, and the grid
+   reserves an equal gutter on BOTH sides so the shaft stays centred in the
+   viewport (which is where the canvas draws the sprite). */
+@media (max-width:1499px){
+  /* Keep the fixed bottom bar from covering the last lines of content. */
+  main{padding-bottom:3.5rem}
+  .depth{
+    left:0;right:0;top:auto;bottom:0;transform:none;
+    border:0;border-top:2px solid var(--accent);border-radius:0;
+    box-shadow:0 -4px 14px rgba(0,0,0,.35);
+  }
+  .depth__title{display:none}
+  .depth__list{grid-auto-flow:column;grid-auto-columns:max-content;overflow-x:auto}
+  .depth__list a{
+    border-left:0;border-bottom:3px solid transparent;
+    border-radius:var(--radius-sm);
+  }
+  .depth__list a[aria-current="true"]{border-bottom-color:var(--accent)}
+  .depth__m{display:none}
+}
+@media (min-width:1500px){
+  :root{--rail-space:8.5rem}
+}
+
+/* ==========================================================================
+   Plain resume
+   Collapsed behind <details> so the same content is never on screen twice.
+   The old design made this white on screen; here it is themed like the rest of
+   the page and turns white only for printing, which is what it is for.
+   ========================================================================== */
+#plain-resume{
+  position:relative;z-index:10;
+  background:var(--deep);color:var(--text);
+  border-top:2px solid var(--accent);
+  padding:var(--space-2xl) var(--gutter) var(--space-4xl);
+}
+#plain-resume>summary{
+  cursor:pointer;list-style:none;
+  max-width:var(--content-width);margin:0 auto;
+  min-height:44px;display:flex;align-items:center;gap:var(--space-sm);
+  font-family:var(--font-heading);font-size:var(--step-2);
+  color:var(--accent);padding:var(--space-xs) 0;
+}
+#plain-resume>summary::-webkit-details-marker{display:none}
+#plain-resume>summary::after{content:"\00a0+";color:var(--muted)}
+#plain-resume[open]>summary::after{content:"\00a0\2212"}
+#plain-resume>summary:hover{color:#ffe58a}
+.plain__wrap{max-width:var(--content-width);margin:var(--space-lg) auto 0}
+.plain__name{
+  font-family:var(--font-heading);font-size:var(--step-3);
+  line-height:1.2;margin:0 0 var(--space-2xs);
+}
+#plain-resume h2{font-size:var(--step-2);margin:var(--space-2xl) 0 var(--space-sm);
+  padding-bottom:var(--space-2xs);border-bottom:1px solid rgba(246,241,228,.28)}
+#plain-resume h3{font-size:var(--step-1);margin:var(--space-lg) 0 var(--space-2xs)}
+#plain-resume p{margin:var(--space-xs) 0}
+#plain-resume ul{margin:var(--space-xs) 0;padding-left:var(--space-lg)}
+#plain-resume li{margin-bottom:var(--space-2xs)}
+#plain-resume a{color:var(--accent)}
+.plain__note{margin:0 0 var(--space-lg);color:var(--muted);font-size:var(--step--1)}
+
