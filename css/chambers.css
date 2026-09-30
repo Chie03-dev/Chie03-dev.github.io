@@ -272,3 +272,95 @@
 }
 #education .kv dd::before{left:0}
 #education .kv dd::after{right:0}
+
+/* ==========================================================================
+   Row 6: Bedrock treasure room. The full-width room at the bottom of the dig.
+   The shaft column ends directly above this room, so the shaft's mouth is
+   carried into the top of it: a hanging recess centred on the shaft, its top
+   edge open so it reads as continuous with the shaft above.
+
+   Speckle alpha is capped deliberately, and the binding constraint is not the
+   one you would guess. These dots are background decoration that can land
+   underneath text, and two colours sit over them: --accent on the ghost
+   buttons, and --muted on the "Contact me + PDF resume" sub-line and the
+   hint. --muted is the tighter of the two. Measured against panel -> bedrock
+   -> glow, a dot at 0.12 alpha already drops --muted to 4.48:1 and fails;
+   0.16 gives 4.01:1 and 0.18 gives 3.82:1. The three fields here sit at
+   0.10 / 0.09 / 0.07, which keeps --accent at 6.99:1, --muted at 4.70:1 and
+   --text at 8.93:1. Do not raise these without re-running that check.
+   ========================================================================== */
+#contact{
+  /* Room for the shaft mouth to hang in, above the heading. The mouth is
+     absolutely positioned, so it paints over in-flow text unless it is given
+     a band of its own. */
+  padding-top:76px;
+  background-image:
+    /* the treasure light, centred on the button row */
+    radial-gradient(120% 88% at 50% 50%,
+      color-mix(in srgb,var(--door-glow-lit) 13%,transparent),
+      transparent 68%),
+    /* ore veins: three interleaved dot fields. One field alone reads as a
+       regular polka-dot grid; three at incommensurate sizes and offsets break
+       the regularity so it reads as scattered ore. Alphas see the note above. */
+    radial-gradient(circle,
+      color-mix(in srgb,var(--accent) 10%,transparent) 0 1.5px,
+      transparent 1.6px),
+    radial-gradient(circle,
+      color-mix(in srgb,var(--layer-topsoil) 9%,transparent) 0 2px,
+      transparent 2.1px),
+    radial-gradient(circle,
+      color-mix(in srgb,var(--accent) 7%,transparent) 0 1px,
+      transparent 1.1px),
+    /* the bedrock the room is cut into */
+    linear-gradient(180deg,
+      color-mix(in srgb,var(--layer-bedrock) 40%,transparent),
+      color-mix(in srgb,var(--deep) 55%,transparent));
+  background-size:100% 100%, 47px 53px, 83px 71px, 29px 97px, 100% 100%;
+  background-position:0 0, 0 0, 23px 17px, 11px 41px, 0 0;
+  background-repeat:no-repeat, repeat, repeat, repeat, no-repeat;
+}
+/* The light inner frame. Rhymes with the vault's double border in row 3
+   without competing with it: one hairline, low alpha, sitting well inside the
+   chamber padding at both 32px and 24px. */
+#contact::before{
+  content:"";position:absolute;inset:12px;
+  border:1px solid color-mix(in srgb,var(--layer-topsoil) 26%,transparent);
+  border-radius:calc(var(--radius-lg) - 12px);
+  pointer-events:none;
+}
+/* The shaft mouth. Width is the shaft token itself so it lines up with the
+   column above, and on a wide screen the grid keeps that column centred, which
+   is also where this sits. The opaque top hides the frame's top edge inside
+   the mouth's width, so the frame reads as a wall with a way through it. */
+#contact::after{
+  content:"";position:absolute;
+  left:50%;transform:translateX(-50%);
+  top:10px;width:var(--shaft-w);height:38px;
+  border:1px solid color-mix(in srgb,var(--layer-ore) 55%,var(--chalk) 45%);
+  border-top:0;
+  border-radius:0 0 15px 15px;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--deep) 92%,transparent),
+    color-mix(in srgb,var(--door-glow-lit) 14%,transparent));
+  pointer-events:none;
+}
+/* Download PDF is the focal point. It is a real element in the markup, so this
+   needs no new DOM. It is the one solid button in the row, and the glow is
+   built from the same door tokens as the lit doorways and the torches, so the
+   "treasure" the room is named for is the resume itself. The button is opaque
+   accent-on-accent-ink, so the room's own glow never sits under its label. */
+#contact #print-resume{
+  position:relative;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb,var(--door-lit) 55%,transparent),
+    0 0 18px 4px var(--door-glow-lit),
+    0 0 46px 12px var(--door-glow);
+}
+/* On a phone the shaft is a fixed strip on the left edge, not a column
+   descending into this room, so there is nothing for a centred mouth to
+   continue. The glow stays; the mouth goes, and the room gives its space back
+   rather than carrying a band of empty padding. */
+@media (max-width:820px){
+  #contact{padding-top:var(--space-2xl)}
+  #contact::after{display:none}
+}
