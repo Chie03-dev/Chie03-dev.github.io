@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import {
-  layers, layerIndexAt, metresPerPx, scrollY
+  layers, activeLayerIndex, metresPerPx
 } from './layers.js';
 
 /* === 8. Panel reveals ====================================================
@@ -33,23 +33,24 @@ if ('IntersectionObserver' in window) {
   for (var f = 0; f < fallback.length; f++) fallback[f].classList.add('is-visible');
 }
 /* === Depth meter =========================================================
-   The active layer comes from layerIndexAt(scrollY), which is scroll
+   The active layer comes from activeLayerIndex(), which is scroll
    bookkeeping, not panel reveal: panels still use IntersectionObserver.
    Writes are gated on an actual change so the DOM is not touched 60x a
    second while scrolling.
 
    This is also what lights the doorways. The sprite is walled into the
-   shaft, so "the row the sprite is on" is exactly the row scrollY is in,
-   which is the same index that highlights a depth-rail entry. Reusing it
-   means the lit doorway and the active rail entry cannot drift apart, and
-   it costs one classList call per row on change rather than a second
-   scroll handler. */
+   shaft and its car travels inside whichever layer is active, so "the row
+   the sprite is on" is exactly the row activeLayerIndex() names - the same
+   index that highlights a depth-rail entry. Reusing one function for the
+   rail, the doorway and the shaft's material is what stops the lit door and
+   the active rail entry from drifting apart, and it costs one classList call
+   per row on change rather than a second scroll handler. */
 var depthLinks = document.querySelectorAll('.depth__list a');
 var activeIndex = -1;
 
 function updateDepth() {
   if (!layers.length || !depthLinks.length) return;
-  var i = layerIndexAt(scrollY);
+  var i = activeLayerIndex();
   if (i === activeIndex) return;    /* unchanged: skip the DOM write */
   activeIndex = i;
 
@@ -83,6 +84,26 @@ function updateDepth() {
     }
   }
 }
+/* === Scroll cue ===========================================================
+   "Scroll to descend" sits in the shaft, but the shaft is a grid column UNDER
+   the canvas content (main is z-index:10, the stage z-index:0), so the cue
+   paints on top of the car. That was harmless when the deck was a static line;
+   now the car travels through that space and the cue would sit on it.
+
+   So it fades out the first time the reader scrolls, and only then: it is a
+   hint, and a hint that outlives its usefulness is just an obstruction. Gated
+   on a flag so the class is written once and the element is then never touched
+   again, rather than per frame. Under prefers-reduced-motion the CSS zeroes
+   every transition, so the fade is instant for anyone who asked for that. */
+var cue = document.querySelector('.dig__cue');
+var cueGone = false;
+function updateCue() {
+  if (cueGone || !cue) return;
+  if ((window.scrollY || 0) < 8) return;    /* a nudge, not a scroll */
+  cueGone = true;
+  cue.classList.add('is-gone');
+}
+
 /* === Buttons =============================================================
    textContent only. No innerHTML anywhere in this file.
 
@@ -151,5 +172,6 @@ window.addEventListener('afterprint', function () {
 /* Public surface of this module. Collected here so that not one line of
    the code above needed a keyword added to it. */
 export {
-  updateDepth
+  updateDepth,
+  updateCue
 };

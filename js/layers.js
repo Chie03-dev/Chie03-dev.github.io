@@ -7,8 +7,13 @@
    DOM sections, the shaft geometry, the deterministic noise, the baked rock
    textures and the 16x16 player sprite.
 
+   The car floor, its travel band and the scroll mapping that drive it are NOT
+   here - see deck.js. What this module holds is measured once and then only
+   read; deck.js holds the state that changes every frame. Splitting on that
+   line is what keeps both files under the 500-line cap.
+
    Depends on nothing, so the graph stays a chain with no cycles:
-   layers <- game <- render, with ui and main sitting on top.
+   layers <- deck <- game <- render, with ui and main sitting on top.
    ========================================================================== */
 
 var canvas = document.getElementById('stage');
@@ -65,6 +70,11 @@ var scrollY = window.scrollY || 0;
    calls this instead. */
 function syncScroll() {
   scrollY = window.scrollY || 0;
+  /* Deliberately does NOT re-seat the car. It used to, and that is now
+     advanceCar()'s job in deck.js, because a module cannot import back into its
+     own dependency: deck.js reads scrollY from here, so calling into it from
+     here would close a cycle. The same clamp still happens every frame, just
+     from the side that owns the car. */
 }
 
 function measure() {
@@ -96,12 +106,36 @@ function layerIndexAt(worldY) {
   }
   return 0;
 }
+/* Which layer counts as "the one you are reading": the one at the middle of
+   the viewport, because that is the row actually filling the screen.
+
+   This used to be worked out two different ways. drawShaft() asked for the
+   viewport midpoint to pick the shaft's tinted material, while ui.js asked
+   for the viewport top edge to light the doorway and the depth rail, so the
+   material in the shaft and the lit door could disagree by a whole layer. The
+   car's travel band is scoped to the active layer as well, so all three now
+   ask one function and there is a single answer. */
+function activeLayerIndex() {
+  return layerIndexAt(scrollY + viewH * 0.5);
+}
 /* The shaft is a real grid column, so the canvas should not guess where it
-   is. Measure the element and use its box for the walls, the ledge, the
-   ladder, the collision walls and the sprite. Because the element is as tall
-   as the whole dig, its left/width stay valid at any scroll offset. */
+   is. Measure the element and use its box for the walls, the car, the guides,
+   the collision walls and the sprite. Because the element is as tall as the
+   whole dig, its left/width stay valid at any scroll offset.
+
+   Only left and width are kept. This used to also record the shaft's top and
+   bottom in document space, plus a flag for the position:fixed phone layout,
+   so it could answer shaftTopScreen()/shaftBottomScreen() per frame without a
+   layout read. Nothing needs that any more: the car's travel band is anchored
+   to the viewport rather than to the shaft, because a band that slid up the
+   screen at the scroll rate fought the travel and reversed the car's direction
+   (see deck.js). Dropping it also drops a getComputedStyle() call from every
+   re-measure. */
 var shaftEl = document.querySelector('.dig__shaft');
 var shaftX = 0, shaftW = 0;
+/* The viewport size at the last shaft measurement, so a re-measure can tell a
+   real resize from a late re-layout. */
+var lastShaftW = 0, lastShaftH = 0;
 
 function measureShaft() {
   if (shaftEl) {
@@ -115,6 +149,21 @@ function measureShaft() {
     shaftW = clamp(viewW * 0.2, 120, 220);
     shaftX = (viewW - shaftW) / 2;
   }
+  /* A genuinely new viewport means the old car position is meaningless, so
+     park it in the middle of its band. A re-measure at the same size - the
+     late layout shift from a font swap, which re-runs this on `load` and on
+     document.fonts.ready - must NOT yank the car, so that case only re-clamps
+     it back into the band and leaves it where the reader left it.
+
+     Returns whether the viewport really changed, so main.js can pass the same
+     decision on to deck.js. It cannot call seatDeck() itself: deck.js imports
+     this module, so an import back the other way would be a cycle. */
+  if (viewW !== lastShaftW || viewH !== lastShaftH) {
+    lastShaftW = viewW;
+    lastShaftH = viewH;
+    return true;
+  }
+  return false;
 }
 /* === 3. Deterministic noise ==============================================
    Every decoration is generated from a fixed seed, so the rock never
@@ -145,8 +194,7 @@ function makeNoise(seed, cells) {
   };
 }
 
-var seamNoise   = makeNoise(9001, 40);  /* jagged layer boundaries */
-var groundNoise = makeNoise(4242, 26);  /* the ledge the player walks on */
+var seamNoise = makeNoise(9001, 40);    /* jagged layer boundaries */
 /* === 4. Baked textures ===================================================
    Each layer gets one small tile of pixel-block speckle, baked once at boot
    and reused as a repeating pattern. Far cheaper than drawing thousands of
@@ -193,10 +241,10 @@ function buildTextures() {
     bakeTile(555, 60, 'rgba(255,255,255,0.030)', 'rgba(0,0,0,0.045)', 96), 'repeat');
   patterns.near = ctx.createPattern(
     bakeTile(313, 90, 'rgba(255,255,255,0.07)',  'rgba(0,0,0,0.26)',  64), 'repeat');
-  /* The ledge tile MUST stay the same size as TILE: drawLedge scrolls it with
-     `scrollY % TILE`, and a period/modulus mismatch would make it jump. */
-  patterns.ledge = ctx.createPattern(
-    bakeTile(808, 110, 'rgba(255,255,255,0.11)', 'rgba(0,0,0,0.24)',  TILE), 'repeat');
+  /* There used to be a `patterns.ledge` tile here, scrolled with
+     `scrollY % TILE` to give the old fixed floor some grit. It is gone with the
+     floor itself: the car hangs in the shaft, so there is no rock mass beneath
+     it to texture. Dropping it also removes a per-boot bake that nothing drew. */
 }
 /* === 5. The player sprite =================================================
    A 16x16 string grid baked once into an offscreen canvas, then blitted.
@@ -286,10 +334,11 @@ function shaftMid()   { return shaftX + shaftW / 2; }
    blit stays crisp rather than going blurry. */
 function spriteScale() { return shaftW < 150 ? 0.6 : 1; }
 
-/* Height field for the ledge the player stands on. The player never moves
-   vertically on its own: the terrain does, and collision sorts it out. */
-function groundBase() { return viewH * 0.44 + SPRITE_H / 2; }
-function groundY(x)   { return groundBase() + (groundNoise(x / 180) - 0.5) * 20; }
+/* === The shaft ============================================================
+   The sprite stands in a mine shaft, walled in, so rock always frames it. The
+   car floor, its travel band and the scroll mapping that drives it are NOT here:
+   they moved to deck.js, which owns them because they are simulation state that
+   changes every frame rather than world geometry that is measured once. */
 
 /* Canvas half of the old resize(): layers.js owns the viewport numbers, so
    main.js cannot assign them. Order relative to main.js is unchanged. */
@@ -328,6 +377,7 @@ export {
   metresPerPx,
   measure,
   layerIndexAt,
+  activeLayerIndex,
   shaftX,
   shaftW,
   shaftLeft,
@@ -337,7 +387,6 @@ export {
   mulberry32,
   makeNoise,
   seamNoise,
-  groundNoise,
   TILE,
   patterns,
   buildTextures,
@@ -345,8 +394,7 @@ export {
   SPRITE_H,
   FRAME_MS,
   SPRITES,
-  groundBase,
-  groundY,
+  maxScroll,
   spriteScale,
   resizeViewport
 };

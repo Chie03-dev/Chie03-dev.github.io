@@ -133,6 +133,15 @@ main{position:relative;z-index:10}
   border:1px solid var(--edge);
   border-radius:var(--radius);
   color:var(--chalk);font-size:var(--step--2);text-align:center;
+  /* Faded by ui.js on the first real scroll, because the cue paints above the
+     canvas and the car now travels through the space it occupies. visibility
+     is switched at the end so the faded box stops taking clicks, and the
+     reduced-motion block below zeroes the duration for anyone who asked. */
+  transition:opacity .5s ease,transform .5s ease,visibility 0s linear .5s;
+}
+.dig__cue.is-gone{
+  opacity:0;transform:translateY(-10px);
+  visibility:hidden;pointer-events:none;
 }
 
 /* Full-width contact room at the bottom of the dig. */

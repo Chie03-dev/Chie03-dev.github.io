@@ -2,8 +2,8 @@
    game.js - the simulation: player, collision and input
    ==========================================================================
    The part a visitor actually plays. Owns the player object, the physics
-   constants, the height-field collision resolve, the keyboard handlers and
-   the jump.
+   constants, the flat-deck collision resolve, the keyboard handlers and the
+   jump.
 
    Deliberately holds no drawing code and never touches the 2d context.
    That restraint is what keeps the modules a one-way chain rather than a
@@ -11,18 +11,18 @@
    ========================================================================== */
 
 import {
-  clamp, shaftLeft, shaftRight, shaftMid, groundY, SPRITE_W, SPRITE_H
+  clamp, shaftLeft, shaftRight, shaftMid, SPRITE_W, SPRITE_H
 } from './layers.js';
+import { groundY, deckBounds } from './deck.js';
 
 /* Physics constants, in CSS pixels and seconds. */
 var WALK_SPEED = 95;    /* px/s    */
 var GRAVITY    = 2400;  /* px/s^2  */
 var JUMP_V     = 540;   /* px/s, negative = upward */
-var MAX_STEP   = 14;    /* tallest ledge the player can walk up, px */
 
 var player = {
   x: 0, y: 0, w: SPRITE_W, h: SPRITE_H,
-  vx: 0, vy: 0, facing: 1, onGround: true, feetPrev: 0
+  vx: 0, vy: 0, facing: 1, onGround: true
 };
 function snapPlayerToGround() {
   var minX = shaftLeft() + 4;
@@ -30,67 +30,69 @@ function snapPlayerToGround() {
   if (maxX < minX) { maxX = minX; }          /* shaft narrower than the sprite */
   player.x = clamp(player.x, minX, maxX);
   if (!isFinite(player.x) || player.x === 0) player.x = Math.round(shaftMid() - player.w / 2);
-  player.y = groundY(player.x + player.w / 2) - player.h;
-  player.feetPrev = player.y + player.h;
+  player.y = groundY() - player.h;
   player.vx = player.vy = 0;
 }
 /* === Collision ===========================================================
-   AABB against a height field plus two vertical walls. The ground is a
-   function groundY(x) rather than a tile grid, which is the cheapest way to
-   get continuous terrain for a starter. Two rules matter:
+   The car floor is one flat line, so the only solid surfaces in the game are
+   that line and the two shaft walls. There is no height field and no step-up:
+   walking is horizontal only, and the only things that move the sprite
+   vertically are gravity and the car rising under it.
 
-     1. If the surface is at or just above the feet (within MAX_STEP), the
-        player snaps onto it: that's a walkable step.
-     2. If the surface rose more than MAX_STEP in one frame, the ledge is a
-        wall. We push the player back to where the feet started instead of
-        letting them clip into rock, and zero horizontal motion so they do
-        not slide up the face of it.
-*/
+   Vertical is therefore three steps: integrate gravity, land on the deck, then
+   clamp the head. That last clamp is what actually bounds the character, and
+   it is a hard bound rather than a soft one. A jump peaks at
+   JUMP_V^2 / (2 * GRAVITY) = 60.75px, and one taken at the very top of the
+   car's travel range would otherwise put the head through the shaft mouth.
+   Cutting the jump short reads as landing on an invisible ceiling, which is
+   exactly what it is, and beats the sprite leaving the shaft.
+
+   The old version of this function sampled a groundY(x) height field, compared
+   the rise against a MAX_STEP tolerance, and teleported the player back to
+   where its feet started whenever the surface moved further than that. On
+   sloping ground that meant the character was being shoved around by a
+   function of its own horizontal position. The floor is flat now, so none of
+   it is needed.
+   ======================================================================== */
 function movePlayer(dt) {
   var minX = shaftLeft() + 4;
   var maxX = shaftRight() - 4 - player.w;
   if (maxX < minX) maxX = minX;         /* shaft narrower than the sprite */
-  var startX = player.x;
-  var ground, feet, rise, blocked = false;
 
   /* --- horizontal: integrate, then push out of the shaft walls --- */
   player.x += player.vx * dt;
   if (player.x < minX) { player.x = minX; player.vx = 0; }
   if (player.x > maxX) { player.x = maxX; player.vx = 0; }
 
-  /* --- vertical: apply gravity, then resolve against the ground --- */
+  /* --- vertical: gravity, then the deck --- */
   player.vy += GRAVITY * dt;
   player.y += player.vy * dt;
 
-  ground = groundY(player.x + player.w / 2);
-  feet = player.y + player.h;
-
-  if (feet >= ground) {
-    rise = ground - player.feetPrev;         /* how much the surface rose */
-    if (player.vy > 0 || rise <= MAX_STEP) {
-      player.y = ground - player.h;           /* landed or stepped up */
-      player.vy = 0;
-      player.onGround = true;
-    } else {
-      player.y = player.feetPrev - player.h;  /* too tall to step: a wall */
-      player.vy = 0;
-      player.onGround = false;
-      blocked = true;
-    }
+  if (player.y + player.h >= groundY()) {
+    player.y = groundY() - player.h;    /* standing on the car floor */
+    player.vy = 0;
+    player.onGround = true;
   } else {
-    player.onGround = false;                  /* airborne */
+    player.onGround = false;            /* airborne */
   }
 
-  if (blocked) {
-    player.x = startX;                        /* refuse the step, stay put */
-    player.vx = 0;
+  /* --- vertical bound: the head may rise, but never out of the shaft --- */
+  var ceiling = deckBounds().top - player.h;
+  if (player.y < ceiling) {
+    player.y = ceiling;
+    if (player.vy < 0) player.vy = 0;   /* stop rising, let gravity resume */
   }
-  player.feetPrev = player.y + player.h;
 }
 /* === 6. Input ============================================================
-   Keyboard only, and deliberately narrow: A/D (or arrows) walk, W jumps.
-   Arrow keys are NOT captured, so normal page scrolling and every browser
-   shortcut keep working. Nothing here scroll-jacks. */
+   Keyboard only, and deliberately narrow: A/D (or the left/right arrows) walk,
+   W jumps. Up and down are NOT captured, and that is now load-bearing rather
+   than a nicety: scrolling is what drives the car, so swallowing the arrow
+   keys that scroll the page would fight the very mechanic they sit next to.
+   Nothing here scroll-jacks.
+
+   Space is deliberately left unbound and never preventDefault-ed, so it keeps
+   its native meaning (scrolling the page, activating a focused button) and
+   stays free for a later feature to claim. */
 var keys = Object.create(null);
 
 function onKeyDown(e) {

@@ -1,31 +1,26 @@
 /* ==========================================================================
    render.js - every pixel of the canvas art
    ==========================================================================
-   The motion preference, the pixel-rect helper, the ambient dust motes and
-   all of the world drawing: parallax speckle, the layer bands and their
-   motifs, the sky, the shaft, the ledge, the player, the foreground.
+   The pixel-rect helper, the ambient dust motes and all of the world drawing:
+   parallax speckle, the layer bands and their motifs, the sky, the shaft, the
+   hoist and the mine car, the player, the foreground.
 
-   Reads player state from game.js and world state from layers.js, and
-   draws. It never mutates the player.
+   Reads player state from game.js, world state from layers.js and car state
+   from deck.js, and draws. It never mutates the player, and it never mutates
+   the car: the motion preference is imported from deck.js as a live binding so
+   that the art and the movement cannot disagree about it.
+
+   Everything here is drawn with code. There are no image files in this project.
    ========================================================================== */
 
 import {
-  ctx, viewW, viewH, DEEP, ROCK, layers, scrollY, layerIndexAt,
-  shaftLeft, shaftRight, groundBase, groundY, spriteScale,
+  ctx, viewW, viewH, DEEP, ROCK, layers, scrollY, activeLayerIndex,
+  shaftLeft, shaftRight, spriteScale,
   TILE, patterns, seamNoise, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS
 } from './layers.js';
+import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
 
-/* === 1. Motion preference ================================================
-   The OS setting is re-read on change so toggling it takes effect live; a
-   one-time read would freeze the page in the wrong mode. */
-var motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-var reduced = motionQuery.matches;
-if (motionQuery.addEventListener) {
-  motionQuery.addEventListener('change', function (e) { reduced = e.matches; });
-} else if (motionQuery.addListener) {
-  motionQuery.addListener(function (e) { reduced = e.matches; });
-}
 /* Tiny helper: draw one snapped, axis-aligned pixel rect. Snapping keeps
    edges crisp on HiDPI, where a fractional fill would blur a whole pixel. */
 function px(x, y, w, h, colour) {
@@ -55,14 +50,15 @@ function drawMotes(dt) {
 }
 /* === World drawing =======================================================
    Layers are painted back to front: far speckle, then each layer band with
-   its gradient + texture + motifs, then the shaft, the ledge, the player,
-   the motes, the foreground strips, and a vignette.
+   its gradient + texture + motifs, then the shaft and its guide rails, the
+   hoist and car, the player, the motes, the foreground strips, and a vignette.
 
    Parallax: a vertical scroll cannot shift a layer sideways, so depth is sold
    with speed instead. Background texture is locked to scrollY (1.0x, so the
    art stays welded to the copy); the far speckle drifts at 0.55x, the
    foreground strips at 1.9x. Under reduced motion every factor becomes 1.0x
-   and the ambient bob/dust are skipped entirely. */
+   and the ambient bob/dust are skipped entirely. The car still travels under
+   reduced motion - see deck.js - because that is the mechanic, not decoration. */
 function pf(factor) { return reduced ? 1 : factor; }
 
 function drawFar() {
@@ -201,7 +197,7 @@ function drawBands() {
 
 function drawShaft() {
   var l = shaftLeft(), r = shaftRight();
-  var layer = layers[layerIndexAt(scrollY + viewH * 0.5)];
+  var layer = layers[activeLayerIndex()];
 
   /* Darken the cleared column so text and player read against the rock. */
   ctx.fillStyle = 'rgba(8,10,14,0.55)';
@@ -213,56 +209,152 @@ function drawShaft() {
   px(l - 7, -20, 7, viewH + 40, 'rgba(255,255,255,0.10)');
   px(r, -20, 7, viewH + 40, 'rgba(0,0,0,0.38)');
 
-  /* A ladder down the shaft: the strongest cue that the world is moving. */
+  /* Guide rails down the shaft, replacing the old ladder. The two vertical webs
+     are the rails; the short plates bolted across them at a fixed 26px rhythm
+     are the rail joints. They are the strongest cue that the world is moving,
+     because the car crossing a joint is the only thing in frame that moves
+     against them - and it is what makes the car read as travelling rather than
+     as a bar sliding up and down. */
   var railA = l + 12, railB = r - 15;
   px(railA, -20, 3, viewH + 40, 'rgba(0,0,0,0.42)');
   px(railB, -20, 3, viewH + 40, 'rgba(0,0,0,0.42)');
+  px(railA, -20, 1, viewH + 40, 'rgba(255,255,255,0.10)');
   var step = 26, off = ((scrollY % step) + step) % step, y;
   for (y = -step + off; y < viewH + step; y += step) {
-    px(railA, y, railB - railA + 3, 3, 'rgba(0,0,0,0.40)');
-    px(railA, y, railB - railA + 3, 1, 'rgba(255,255,255,0.07)');
+    /* Joint plate, then a bolt head so it reads as fastened metal. */
+    px(railA - 2, y, 7, 4, 'rgba(0,0,0,0.46)');
+    px(railB - 2, y, 7, 4, 'rgba(0,0,0,0.46)');
+    px(railA - 2, y, 7, 1, 'rgba(255,255,255,0.13)');
+    px(railB - 2, y, 7, 1, 'rgba(255,255,255,0.13)');
+    px(railA, y + 1, 1, 1, 'rgba(255,255,255,0.22)');
+    px(railB, y + 1, 1, 1, 'rgba(255,255,255,0.22)');
   }
 }
 
-/* The ledge is the floor of the shaft, so it is clipped to the shaft box
-   rather than running the full width of the page. */
-function drawLedge() {
-  var x, step = 12;
+/* === The hoist ============================================================
+   Everything below is what makes the thing on the deck read as a MINE CAR
+   rather than as a lit line. Three parts, drawn back to front: the headgear at
+   the top of the shaft (a sheave wheel and its bracket), the cables running
+   down to the car, and the car itself.
+
+   The cables are the load-bearing idea. A cable's length is the car's position
+   expressed as a distance from the sheave, so as the car travels the cables
+   visibly stretch and slacken. Nothing else in the frame moves vertically at
+   the same rate, so the eye reads cause and effect even though the car is the
+   only thing being animated.
+
+   The counterweight is the reason the cables exist at all. It runs the
+   opposite way in its own channel: car at the top of the band means weight at
+   the bottom, and the moment you scroll it swaps over. That inverse motion is
+   the cheapest possible way to make a mechanism look like it obeys physics
+   rather than like a tween.
+
+   The headgear is anchored to the top of the car's travel band rather than to
+   the shaft mouth. It was world-anchored first, which meant it scrolled off the
+   top of the screen a few hundred pixels into the page and the hoist was just a
+   pair of ropes running out of frame for everything below that. Pinning it to
+   the top of the band keeps the whole machine - wheel, bracket, ropes, car -
+   framed at all times, and the rope length is still honestly the distance from
+   the sheave down to the car. */
+function drawHoist() {
   var l = shaftLeft(), r = shaftRight();
+  var y = groundY();
+  var b = deckBounds();
+  var mid = (l + r) / 2;
+  var sheave = sheaveY();
+
+  /* Car parked below the foot of the screen: nothing of this is visible. */
+  if (y > viewH + 40) return;
+
+  /* --- Sheave wheel and bracket, above the top of travel ------------------- */
+  var wheelR = 9;
+  /* Bracket: two bars straddling the wheel, bolted across the shaft. */
+  px(l + 2, sheave - 4, r - l - 4, 3, 'rgba(0,0,0,0.50)');
+  px(l + 2, sheave + 1, r - l - 4, 3, 'rgba(0,0,0,0.50)');
+  /* Wheel: three stacked bars make a blocky disc, which stays pixel-aligned
+     instead of going soft and antialiased the way an arc would. */
+  px(mid - wheelR, sheave - 2, wheelR * 2, 5, 'rgba(0,0,0,0.62)');
+  px(mid - wheelR + 2, sheave - 5, wheelR * 2 - 4, 11, 'rgba(0,0,0,0.62)');
+  px(mid - wheelR + 4, sheave - 3, wheelR * 2 - 8, 7, 'rgba(255,210,74,0.16)');
+  /* Hub and spokes, so the wheel reads as something that turns. */
+  px(mid - 1, sheave - 1, 2, 2, 'rgba(255,255,255,0.30)');
+  px(mid - wheelR + 2, sheave - 1, wheelR * 2 - 4, 1, 'rgba(255,255,255,0.10)');
+  px(mid - 1, sheave - wheelR + 1, 1, wheelR * 2 - 2, 'rgba(255,255,255,0.10)');
+
+  /* --- Cables -------------------------------------------------------------
+     Two taut lines from the wheel down to the car's lifting eyes. Dotted
+     rather than solid so they read as chain at this pixel scale, and stepped
+     in 2px so the per-frame cost stays trivial. Both runs are bounded because
+     the sheave is anchored to the top of the travel band, which is on screen. */
+  var carY = y - 3;
+  for (var c = sheave + 6; c < carY; c += 2) {
+    px(mid - 3, c, 1, 1, 'rgba(255,210,74,0.20)');
+    px(mid + 3, c, 1, 1, 'rgba(255,210,74,0.20)');
+  }
+  /* Where the cables meet the car. */
+  px(l + 16, carY - 4, 5, 2, 'rgba(0,0,0,0.55)');
+  px(r - 21, carY - 4, 5, 2, 'rgba(0,0,0,0.55)');
+
+  /* --- Counterweight ------------------------------------------------------
+     Mirrored through the band: car at the top means weight at the bottom. The
+     span guard matters because a pathological viewport can invert the band, and
+     a mirrored position would then run the weight off the screen entirely. */
+  var span = b.bot - b.top;
+  var weightY = y;
+  if (isFinite(span) && span > 0) {
+    weightY = b.top + (b.bot - y);
+    if (weightY < b.top - 20 || weightY > b.bot + 20) weightY = (b.top + b.bot) / 2;
+  }
+  var wx = r - 9;
+  /* Its own short cable, so the weight is visibly hung rather than floating.
+     Bounded for the same reason as the hoist ropes: the sheave is on screen. */
+  if (weightY > sheave + 10) {
+    for (var w = sheave + 8; w < weightY - 8; w += 3) {
+      px(wx, w, 1, 1, 'rgba(255,255,255,0.13)');
+    }
+  }
+  px(wx - 3, weightY - 8, 7, 16, 'rgba(0,0,0,0.55)');
+  px(wx - 2, weightY - 7, 5, 14, 'rgba(255,255,255,0.07)');
+  px(wx - 3, weightY - 2, 7, 1, 'rgba(255,255,255,0.14)');
+  px(wx - 3, weightY + 2, 7, 1, 'rgba(255,255,255,0.14)');
+
+  drawCar(y, l, r);
+}
+
+/* The car itself: a plate the sprite stands on, with side shoes riding the
+   guides. The lit lip is drawn at EXACTLY the Y game.js resolves collision
+   against - groundY() - so the sprite can neither float above the car nor sink
+   into it. That shared number is the whole reason the two cannot drift apart.
+
+   There is no rock floor beneath it any more, and that is deliberate: a car in
+   a shaft hangs in the shaft. Painting a fixed mass of rock below the deck
+   would imply a floor to stand on, which is exactly the thing this change
+   removed. What is below is dark shaft, which is where the counterweight and
+   the cables run.
+
+   Clipped to the shaft box, so the plate and the weight never run out over the
+   rock where the panel text sits. */
+function drawCar(y, l, r) {
   ctx.save();
   ctx.beginPath();
   ctx.rect(l - 8, 0, r - l + 16, viewH);
   ctx.clip();
 
-  ctx.beginPath();
-  ctx.moveTo(l - 40, groundY(l - 40));
-  for (x = l - 40; x <= r + 40; x += step) ctx.lineTo(x, groundY(x));
-  ctx.lineTo(r + 40, viewH + 20);
-  ctx.lineTo(l - 40, viewH + 20);
-  ctx.closePath();
-
-  var g = ctx.createLinearGradient(0, groundBase(), 0, viewH);
-  g.addColorStop(0, 'rgba(20,24,30,0.90)');
-  g.addColorStop(1, 'rgba(9,11,15,0.98)');
-  ctx.fillStyle = g;
-  ctx.fill();
-
-  ctx.save();
-  ctx.clip();
-  ctx.translate(0, -(scrollY % TILE));
-  ctx.fillStyle = patterns.ledge;
-  ctx.fillRect(l - 40, 0, r - l + 80, viewH + TILE);
-  ctx.restore();
-
-  /* Lit top edge. */
-  ctx.beginPath();
-  for (x = l - 40; x <= r + 40; x += step) {
-    var y = groundY(x);
-    if (x === l - 40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  /* Underframe, drawn first so the deck plate overlaps its top edge. */
+  px(l - 6, y + 2, r - l + 12, 4, 'rgba(0,0,0,0.60)');
+  /* Side shoes: the blocks that grip the guide rails, one each side. */
+  px(l + 10, y - 3, 7, 6, 'rgba(0,0,0,0.62)');
+  px(r - 17, y - 3, 7, 6, 'rgba(0,0,0,0.62)');
+  px(l + 11, y - 2, 5, 2, 'rgba(255,255,255,0.10)');
+  px(r - 16, y - 2, 5, 2, 'rgba(255,255,255,0.10)');
+  /* The deck: a solid plate with a lit top edge and a shaded body. */
+  px(l - 8, y, r - l + 16, 2, 'rgba(255,210,74,0.28)');
+  px(l - 8, y + 2, r - l + 16, 6, 'rgba(0,0,0,0.72)');
+  px(l - 8, y + 2, r - l + 16, 1, 'rgba(255,255,255,0.12)');
+  /* Rivet line along the plate, so the car has a front face. */
+  for (var rivet = l - 4; rivet < r + 4; rivet += 9) {
+    px(rivet, y + 5, 1, 1, 'rgba(255,255,255,0.10)');
   }
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = 'rgba(255,210,74,0.22)';
-  ctx.stroke();
   ctx.restore();          /* release the shaft clip */
 }
 
@@ -322,7 +414,7 @@ function render(now) {
   drawFar();
   drawBands();
   drawShaft();
-  drawLedge();
+  drawHoist();     /* headgear, cables, counterweight and the car itself */
   drawPlayer(now);
   drawForeground();
 
