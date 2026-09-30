@@ -105,7 +105,17 @@ function measure() {
     layers.push({
       id: def.id, name: def.name, rock: def.rock, el: el,
       top: Math.round(rect.top + (window.scrollY || 0)),
-      height: Math.round(rect.height)
+      height: Math.round(rect.height),
+      /* left and width are the PANEL's horizontal box, and unlike top/height
+         they need no scroll correction - a horizontal scroll does not exist.
+         They are here for one reason: each section IS its chamber panel, so
+         without them the biome art has no idea how much of each band the panel
+         covers, and places its detail at random across the full width where the
+         panel then paints over it. With them the art can be put in the gutters
+         the panel does NOT cover, which is the only part of a biome a reader
+         ever sees. See biomes.js. */
+      left: Math.round(rect.left),
+      width: Math.round(rect.width)
     });
   }
   for (i = 0; i < layers.length; i++) layers[i].bottom = layers[i].top + layers[i].height;

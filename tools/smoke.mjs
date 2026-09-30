@@ -106,15 +106,15 @@ const box = (docTop, height, left, width) => ({
 
 const stage = { width: 0, height: 0, style: {}, getContext: makeCtx };
 const known = {
-  summary: box(0, 1400, 100, 900), skills: box(1400, 1400, 100, 900),
-  projects: box(2800, 1400, 100, 900), experience: box(4200, 1400, 100, 900),
-  education: box(5600, 1400, 100, 900), '.dig__shaft': box(0, 7600, 620, 200),
+  summary: box(0, 1400, 48, 520), skills: box(1400, 1400, 872, 520),
+  projects: box(2800, 1400, 48, 520), experience: box(4200, 1400, 872, 520),
+  education: box(5600, 1400, 48, 520), '.dig__shaft': box(0, 7600, 620, 200),
   /* The rooms the travel window is anchored to, keyed by the exact selectors
      layers.js measure() uses. The treasure room is also data-layer="bedrock",
      so selecting it by class is what distinguishes it from the Education
      chamber - and the car is specified to stop BEFORE it. */
-  '[data-layer="dirt"]': box(1400, 1400, 100, 900),
-  '.treasure': box(7000, 600, 100, 900)
+  '[data-layer="dirt"]': box(1400, 1400, 872, 520),
+  '.treasure': box(7000, 600, 48, 1344)
 };
 /* The document Y of the treasure room, taken from the stub itself rather than
    repeated as a literal, so the barrier assertion below cannot drift away from
@@ -253,7 +253,34 @@ async function run() {
     fail('the phone layout does not restore the single-column treasure room');
   }
 
+  /* 2c. The sprite registry must actually contain sprites. This check exists
+        because fault 14 in the mutation test proved the point the hard way:
+        emptying SET.tufts made every sprite lookup return undefined, blit()
+        returned early, nothing threw, and the whole biome still reported itself
+        as having drawn. A per-band counter cannot see a missing sprite - only
+        a look at the registry can.
+
+        So each set is asserted non-empty, and the flower beds are asserted to
+        have all four colours, because "vibrant flowers on the surface layer" is
+        a stated requirement and not a stylistic preference. */
+  const S = (await load('js/sprites.js'));
+  const SETS = ['conifers', 'canopies', 'tufts', 'blooms', 'soil', 'roots', 'ore',
+                'blocks', 'moss', 'crystals', 'spikesDown', 'spikesUp', 'strata',
+                'nuggets', 'shelves'];
+  for (const k of SETS) {
+    if (!Array.isArray(S.SET[k]) || !S.SET[k].length) {
+      fail('the sprite set ' + k + ' is empty, so that biome silently draws nothing');
+    }
+  }
+  if (S.FLOWERS.length < 4) {
+    fail('only ' + S.FLOWERS.length + ' flower colours baked; the surface layer needs four');
+  }
+  if (!Array.isArray(S.SET.blooms) || S.SET.blooms.length !== S.FLOWERS.length) {
+    fail('a flower colour has no baked bed');
+  }
+
   /* 3. Per viewport: geometry, the two holds, and a full walk of the page. */
+
   for (const [w, h] of VIEWPORTS) {
     const label = String(w).padStart(4) + 'x' + String(h).padStart(4);
     const before = failures;
@@ -378,6 +405,17 @@ async function run() {
         fail(label + ' non-finite drawing coordinates at scroll ' + sc + ': ' +
              [...new Set(nonFinite)].slice(0, 4).join(', '));
       }
+    }
+
+    /* The biomes must actually place art. This is the check that would have
+       caught the stub geometry being wrong: every panel sat at the same
+       left/width, so gutters() correctly returned nothing, every painter was
+       skipped, and the module looked perfectly healthy while drawing nothing.
+       A zero here is not a style complaint, it is a dead module. */
+    settle(Math.round(L.maxScroll / 2));
+    R.render(16);
+    if (!R.biomesDrawn) {
+      fail(label + ' no biome placed any art (gutters found nothing visible)');
     }
 
     const pct = (100 * band.top / h).toFixed(0) + '%..' + (100 * band.bot / h).toFixed(0) + '%';

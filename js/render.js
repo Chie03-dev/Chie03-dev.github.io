@@ -16,10 +16,11 @@
 import {
   ctx, viewW, viewH, DEEP, ROCK, layers, scrollY, activeLayerIndex,
   shaftLeft, shaftRight, spriteScale,
-  TILE, patterns, seamNoise, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS
+  TILE, patterns, seamNoise, SHAFT_TINT, SPRITES, FRAME_MS
 } from './layers.js';
 import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
+import { drawBiomes } from './biomes.js';
 
 /* Tiny helper: draw one snapped, axis-aligned pixel rect. Snapping keeps
    edges crisp on HiDPI, where a fractional fill would blur a whole pixel. */
@@ -77,77 +78,6 @@ function seamY(layer, x) {
   return layer.top - scrollY + (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 26;
 }
 
-function drawSky(seamScreenY) {
-  if (seamScreenY < -60) return;
-  var w = 74, h = 26, drift = reduced ? 0 : (scrollY * 0.12) % 260;
-  for (var c = -1; c * 260 < viewW + 260; c++) {
-    var r = mulberry32(c * 7919 + 31)();
-    var cx = c * 260 + r * 140 - drift;
-    var cy = 40 + r * 120;
-    px(cx, cy, w, h, 'rgba(255,255,255,0.80)');
-    px(cx + 14, cy - 10, w - 30, 10, 'rgba(255,255,255,0.80)');
-    px(cx + 8, cy + h, w - 20, 8, 'rgba(200,228,244,0.75)');
-  }
-  /* Sun: concentric squares, not a circle: it has to read as pixel art. */
-  var sx = viewW - 120, sy = 78;
-  px(sx - 10, sy - 10, 70, 70, 'rgba(255,210,74,0.22)');
-  px(sx - 4, sy - 4, 58, 58, 'rgba(255,210,74,0.45)');
-  px(sx, sy, 50, 50, '#ffd24a');
-}
-
-/* Per-layer rock detail. Everything is placed from a cell index in world
-   space, so a motif is stable while it scrolls and nothing flickers. */
-var MOTIF_CELL = 110;
-function drawMotifs(rock, i, bandTop) {
-  if (bandTop > viewH + 40 || bandTop + layers[i].height < -40) return;
-  var worldTop = bandTop + scrollY;
-  var first = Math.floor(worldTop / MOTIF_CELL) - 1;
-  var last = Math.ceil((worldTop + layers[i].height) / MOTIF_CELL) + 1;
-  var l = shaftLeft(), r = shaftRight();
-
-  for (var c = first; c <= last; c++) {
-    var y = c * MOTIF_CELL + 26 + mulberry32(c * 104729 + i * 17 + 2)() * MOTIF_CELL;
-    var sy = y - scrollY;
-    if (sy < -40 || sy > viewH + 40) continue;
-    var rnd = mulberry32(c * 7919 + i * 131 + 5);
-    for (var k = 0; k < 3; k++) {
-      var x = rnd() * (viewW + 140) - 70;
-      /* Keep the shaft clear: motifs sit in the rock walls only. */
-      if (x > l - 44 && x < r + 44) continue;
-      var sz = 5 + Math.floor(rnd() * 9);
-      if (rock === 'dirt') {
-        /* Clods, plus a seam of exposed ore every so often. The mine layer
-           should look like it has something worth digging for. */
-        px(x, sy, sz, sz * 0.7, 'rgba(0,0,0,0.30)');
-        px(x + 2, sy - 2, sz * 0.6, 3, 'rgba(214,168,122,0.50)');
-        if (rnd() < 0.30) {
-          var gx = x + 3, gy = sy + 4;
-          px(gx - 1, gy - 1, 11, 7, 'rgba(0,0,0,0.28)');        /* socket */
-          px(gx, gy, 9, 5, 'rgba(255,210,74,0.45)');            /* vein */
-          px(gx + 2, gy + 1, 3, 2, 'rgba(255,243,208,0.70)');    /* lit core */
-        }
-      } else if (rock === 'stone') {
-        px(x, sy, sz, sz, 'rgba(0,0,0,0.30)');
-        px(x + 1, sy + 1, sz - 2, 2, 'rgba(255,255,255,0.16)');
-        px(x + 1, sy + sz - 2, sz - 2, 1, 'rgba(0,0,0,0.24)');
-      } else if (rock === 'caves') {
-        px(x, sy, 3, 9, 'rgba(255,255,255,0.13)');   /* thin crystal */
-        px(x + 4, sy + 4, 2, 5, 'rgba(255,255,255,0.09)');
-        px(x - 1, sy + 1, 1, 7, 'rgba(255,255,255,0.20)');  /* lit edge */
-      } else if (rock === 'bedrock') {
-        px(x, sy, sz * 1.8, 3, 'rgba(255,255,255,0.12)');  /* slab line */
-        /* A visible nugget. The old one was 4x4 at 30% alpha and simply
-           vanished into the rock; now it has a dark socket and a lit core. */
-        if (rnd() < 0.40) {
-          px(x + 3, sy + 5, 7, 7, 'rgba(0,0,0,0.32)');
-          px(x + 4, sy + 6, 5, 5, 'rgba(255,210,74,0.55)');
-          px(x + 5, sy + 7, 2, 2, 'rgba(255,243,208,0.80)');
-        }
-      }
-    }
-  }
-}
-
 function drawBands() {
   var i, layer, bandTop, bandBottom, grad, key;
   for (i = 0; i < layers.length; i++) {
@@ -164,7 +94,11 @@ function drawBands() {
     ctx.fillStyle = grad;
     ctx.fillRect(-40, bandTop, viewW + 80, bandBottom - bandTop + 2);
 
-    if (layer.rock === 'sky') { drawSky(bandBottom); continue; }
+    /* The biome itself: trees and flowers on the surface, masonry in the
+       vault, crystal in the caves, book shelves in the bedrock. It lives in
+       biomes.js because it is a module's worth of art, and because it needs
+       the panel's horizontal box to know where it can be seen at all. */
+    if (layer.rock === 'sky') { biomesDrawn += drawBiomes(layer, i, bandTop, bandBottom); continue; }
 
     /* Rock grit, scrolling 1:1 with the world. */
     ctx.save();
@@ -191,7 +125,7 @@ function drawBands() {
     ctx.strokeStyle = (i === 1) ? 'rgba(122,186,96,0.85)' : 'rgba(255,255,255,0.14)';
     ctx.stroke();
 
-    drawMotifs(layer.rock, i, bandTop);
+    biomesDrawn += drawBiomes(layer, i, bandTop, bandBottom);
   }
 }
 
@@ -408,7 +342,15 @@ function drawForeground() {
   px(viewW - strip - 2, 0, 2, viewH, 'rgba(0,0,0,0.5)');
 }
 
+/* How many bands drew a biome in the last render(). Zero is the failure this
+   exists to catch: before the stub geometry was fixed, every panel sat at the
+   same left/width, gutters() correctly returned [], and every biome painter was
+   skipped - so the whole module reported perfectly healthy while drawing
+   nothing at all. */
+var biomesDrawn = 0;
+
 function render(now) {
+  biomesDrawn = 0;
   ctx.fillStyle = DEEP;
   ctx.fillRect(0, 0, viewW, viewH);
   drawFar();
@@ -432,5 +374,6 @@ function render(now) {
 export {
   seedMotes,
   drawMotes,
-  render
+  render,
+  biomesDrawn
 };

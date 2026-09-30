@@ -3,11 +3,11 @@ $root = 'd:\Developers\Projects\portfolio'
 Set-Location $root
 $bak = Join-Path $env:TEMP 'smokebak'
 New-Item -ItemType Directory -Force -Path $bak | Out-Null
-Copy-Item js\render.js, js\deck.js, js\layers.js $bak -Force
+Copy-Item js\render.js, js\deck.js, js\layers.js, js\biomes.js, js\sprites.js $bak -Force
 Copy-Item css\layout.css, css\chambers.css $bak -Force
 
 function Restore {
-  Copy-Item $bak\render.js, $bak\deck.js, $bak\layers.js js\ -Force
+  Copy-Item $bak\render.js, $bak\deck.js, $bak\layers.js, $bak\biomes.js, $bak\sprites.js js\ -Force
   Copy-Item $bak\layout.css, $bak\chambers.css css\ -Force
 }
 
@@ -39,6 +39,12 @@ Mutate '9. shaft channel cut only in Safari-prefixed form' 'css\layout.css' '  -
 Mutate '9b. shaft channel has no unprefixed mask' 'css\layout.css' '  mask-image:linear-gradient(90deg,#000 0,' '  mask-image:none;--gone:linear-gradient(90deg,#000 0,'
 Mutate '10. channel width hardcoded to zero' 'css\layout.css' '--ch:calc((var(--shaft-w) + 2 * var(--col-gap)) / 2);' '--ch:0px;'
 Mutate '11. room paints over its own channel' 'css\chambers.css' 'background:none;border:0;box-shadow:none;' 'background:var(--panel-solid);border:0;box-shadow:none;'
+Mutate '12. biomes never place art' 'js\biomes.js' 'var g = gutters(layer);' 'var g = []; var _unused = gutters(layer);'
+Mutate '13. panel geometry not measured' 'js\layers.js' 'left: Math.round(rect.left),' 'left: 0,'
+Mutate '14. no grass tufts on the surface' 'js\sprites.js' "SET.tufts = [bakeTuft(9, 6, PAL.leaf, r), bakeTuft(7, 4, PAL.leaf, r)];" "SET.tufts = [];"
+Mutate '15. flowers reduced to three colours' 'js\sprites.js' "  { petal: '#5ee0ff', petalDim: '#1f92c4', core: '#eafcff' },  /* cyan    */" ''
+Mutate '16. no trees on the surface layer' 'js\sprites.js' "SET.canopies = [bakeCanopy(21, PAL.leaf, r), bakeCanopy(26, PAL.leaf, r)];" "SET.canopies = [];"
+Mutate '17. no crystal in the caves' 'js\sprites.js' "SET.crystals = [bakeShard(15, PAL.ice, r, false), bakeShard(21, PAL.ice, r, false)];" "SET.crystals = [];"
 Write-Output ''
 Write-Output 'restored - confirming the tree is clean again:'
 node tools\smoke.mjs 2>&1 | Select-Object -Last 1
