@@ -185,41 +185,41 @@
    Static, not animated: there is no @keyframes anywhere in this file.
    ========================================================================== */
 #experience .entry{
-  /* Clearance so the first arch has room above it. */
-  margin-top:calc(var(--space-xl) + 40px);
+  margin-top:var(--space-2xl);
   gap:var(--space-xl);
 }
+/* The doorway is the card's own shape rather than a cap floating above it: the
+   elliptical top radius IS the arch, the 8px stiles are the pillars, and the
+   torch sits in the arched head. Nothing is positioned outside the box, so
+   there is no negative margin to keep in step and no seam where a separate
+   arch element met the card. The first attempt used a ::before cap 33px above
+   the card; it read as a detached tab, its gradient stepped against the card
+   face, and the torch poked out through the top of it. */
 #experience .entry > li{
   position:relative;
-  margin-top:34px;                 /* room for the arch that sits above it */
-  padding:var(--space-lg);
-  border:1px solid color-mix(in srgb,var(--layer-ore) 85%,var(--chalk) 15%);
-  border-top:0;                    /* the arch cap supplies the top edge */
-  border-left:7px solid color-mix(in srgb,var(--layer-ore) 60%,var(--chalk) 40%);
-  border-right:7px solid color-mix(in srgb,var(--layer-ore) 60%,var(--chalk) 40%);
-  border-radius:0 0 var(--radius-sm) var(--radius-sm);
+  padding:54px var(--space-lg) var(--space-lg);
+  border:1px solid color-mix(in srgb,var(--layer-ore) 88%,var(--chalk) 12%);
+  border-left:8px solid color-mix(in srgb,var(--layer-ore) 62%,var(--chalk) 38%);
+  border-right:8px solid color-mix(in srgb,var(--layer-ore) 62%,var(--chalk) 38%);
+  border-radius:84px 84px var(--radius-sm) var(--radius-sm) / 40px 40px 4px 4px;
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--layer-ore) 22%,transparent),
-    color-mix(in srgb,var(--deep) 30%,transparent));
-  box-shadow:0 12px 28px rgba(0,0,0,.38);
+    color-mix(in srgb,var(--layer-ore) 20%,transparent),
+    color-mix(in srgb,var(--deep) 34%,transparent));
+  box-shadow:0 12px 28px rgba(0,0,0,.38),inset 0 0 44px rgba(0,0,0,.30);
 }
-/* The arch, spanning the opening between the two pillars. left/right are 0 so
-   it meets the inner face of each stile. */
+/* The lintel: the stone beam across the head of the opening that the torch
+   stands on. left/right are 8px so it meets the inner face of each stile. */
 #experience .entry > li::before{
-  content:"";position:absolute;left:0;right:0;top:-33px;height:34px;
-  border:1px solid color-mix(in srgb,var(--layer-ore) 60%,var(--chalk) 40%);
-  border-bottom:0;
-  border-radius:18px 18px 0 0;
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--layer-ore) 32%,transparent),
-    color-mix(in srgb,var(--layer-ore) 12%,transparent));
+  content:"";position:absolute;left:8px;right:8px;top:42px;height:2px;
+  background:color-mix(in srgb,var(--layer-ore) 55%,var(--chalk) 45%);
+  box-shadow:0 1px 0 rgba(0,0,0,.45);
 }
-/* The torch. Sized and offset so it clears the text block: it lives entirely
-   above the card's content edge. */
+/* The torch, standing on the lintel. Only translateX, so its top really is 22
+   and its foot really is 42, flush with the beam. */
 #experience .entry > li::after{
-  content:"";position:absolute;left:50%;top:-25px;
-  transform:translate(-50%,-50%);
-  width:12px;height:18px;
+  content:"";position:absolute;left:50%;top:22px;
+  transform:translateX(-50%);
+  width:13px;height:20px;
   background:linear-gradient(180deg,var(--door-lit),var(--door));
   border-radius:50% 50% 42% 42%/62% 62% 38% 38%;
   box-shadow:0 0 9px 3px var(--door-glow-lit),0 0 26px 8px var(--door-glow);
