@@ -126,3 +126,101 @@
    accent+clay mix were too close to each other and to the chip to separate. */
 .chips li:nth-child(3n+2){--lump:color-mix(in srgb,var(--layer-topsoil) 85%,var(--accent))}
 .chips li:nth-child(3n){--lump:color-mix(in srgb,var(--accent) 40%,var(--layer-clay))}
+
+/* ==========================================================================
+   Row 3: Treasure vault. Double border, one chest per project.
+   Scoped with the section id on purpose. chambers.css loads BEFORE layout.css,
+   but an id selector outranks a class one, so these win on specificity alone
+   and the ordering of the two files never matters. Nothing here adds markup:
+   the lid and the latch are pseudo-elements on the <li> that already exists.
+   ========================================================================== */
+/* The double border. The chamber already carries the outer dashed edge; this
+   is the inner frame. inset sits well inside the chamber padding (32px on
+   desktop, 24px at phone widths), so it never crosses the text. */
+#projects::before{
+  content:"";position:absolute;inset:10px;
+  border:1px solid color-mix(in srgb,var(--layer-clay) 55%,transparent);
+  border-radius:calc(var(--radius-lg) - 10px);
+  pointer-events:none;
+}
+/* The chest. The extra padding-top clears the lid, so the title can wrap to
+   any number of lines at 360px without the lid ever cutting through it. */
+#projects .proj > li{
+  position:relative;
+  padding:calc(var(--space-lg) + 30px) var(--space-lg) var(--space-lg);
+  border:2px solid color-mix(in srgb,var(--layer-topsoil) 30%,transparent);
+  border-radius:var(--radius);
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--layer-clay) 13%,transparent),
+    color-mix(in srgb,var(--layer-ore) 15%,transparent));
+  box-shadow:0 10px 24px rgba(0,0,0,.34);
+}
+/* The lid, laid over the card's own top edge (hence the -2px, which matches
+   the 2px border) and finishing in a seam. */
+#projects .proj > li::before{
+  content:"";position:absolute;left:-2px;right:-2px;top:-2px;height:32px;
+  border-bottom:2px solid color-mix(in srgb,var(--layer-topsoil) 52%,transparent);
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--layer-topsoil) 24%,transparent),
+    color-mix(in srgb,var(--layer-clay) 15%,transparent));
+  border-radius:var(--radius) var(--radius) 0 0;
+}
+/* The latch, centred on the lid seam. */
+#projects .proj > li::after{
+  content:"";position:absolute;left:50%;top:12px;
+  width:16px;height:14px;transform:translate(-50%,-50%);
+  background:linear-gradient(180deg,var(--accent),
+    color-mix(in srgb,var(--accent) 52%,var(--layer-clay)));
+  border:1px solid color-mix(in srgb,var(--accent-ink) 65%,transparent);
+  border-radius:2px;
+  box-shadow:0 1px 3px rgba(0,0,0,.55);
+}
+
+/* ==========================================================================
+   Row 4: Dungeon halls. One arched door per job, with pillars and a torch.
+   The card IS the doorway: the thick stone stiles either side are the pillars,
+   the cap above is the arch, and the torch is mounted on the arch. The torch
+   is coloured from --door-lit and glows with --door-glow-lit / --door-glow,
+   the same tokens that light the doorways, so it can never drift off-palette.
+   Static, not animated: there is no @keyframes anywhere in this file.
+   ========================================================================== */
+#experience .entry{
+  /* Clearance so the first arch has room above it. */
+  margin-top:calc(var(--space-xl) + 40px);
+  gap:var(--space-xl);
+}
+#experience .entry > li{
+  position:relative;
+  margin-top:34px;                 /* room for the arch that sits above it */
+  padding:var(--space-lg);
+  border:1px solid color-mix(in srgb,var(--layer-ore) 85%,var(--chalk) 15%);
+  border-top:0;                    /* the arch cap supplies the top edge */
+  border-left:7px solid color-mix(in srgb,var(--layer-ore) 60%,var(--chalk) 40%);
+  border-right:7px solid color-mix(in srgb,var(--layer-ore) 60%,var(--chalk) 40%);
+  border-radius:0 0 var(--radius-sm) var(--radius-sm);
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--layer-ore) 22%,transparent),
+    color-mix(in srgb,var(--deep) 30%,transparent));
+  box-shadow:0 12px 28px rgba(0,0,0,.38);
+}
+/* The arch, spanning the opening between the two pillars. left/right are 0 so
+   it meets the inner face of each stile. */
+#experience .entry > li::before{
+  content:"";position:absolute;left:0;right:0;top:-33px;height:34px;
+  border:1px solid color-mix(in srgb,var(--layer-ore) 60%,var(--chalk) 40%);
+  border-bottom:0;
+  border-radius:18px 18px 0 0;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--layer-ore) 32%,transparent),
+    color-mix(in srgb,var(--layer-ore) 12%,transparent));
+}
+/* The torch. Sized and offset so it clears the text block: it lives entirely
+   above the card's content edge. */
+#experience .entry > li::after{
+  content:"";position:absolute;left:50%;top:-25px;
+  transform:translate(-50%,-50%);
+  width:12px;height:18px;
+  background:linear-gradient(180deg,var(--door-lit),var(--door));
+  border-radius:50% 50% 42% 42%/62% 62% 38% 38%;
+  box-shadow:0 0 9px 3px var(--door-glow-lit),0 0 26px 8px var(--door-glow);
+}
