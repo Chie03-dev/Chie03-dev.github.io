@@ -180,8 +180,17 @@ main{position:relative;z-index:10}
   .dig__shaft::before,.dig__shaft::after,.dig__cue{display:none}
   #summary,#skills,#projects,#experience,#education,#contact{grid-area:auto}
   .chamber,.treasure{grid-column:1;max-width:none}
-  /* Doorways move to the top edge, above the chamber they open into. */
-  .chamber__door{
+  /* Doorways move to the top edge, above the chamber they open into.
+
+     The selector is deliberately TWO classes deep, matching the desktop rules
+     above. A media query adds no specificity, so a plain .chamber__door here
+     would lose to .chamber--left .chamber__door and the phone layout would
+     silently never happen. That is not hypothetical: with the single-class
+     selector the left chambers kept right:-59px, which put each doorway 57px
+     past the right edge of a 360px viewport and made the whole document 57px
+     wider than the screen. */
+  .chamber--left .chamber__door,
+  .chamber--right .chamber__door{
     top:calc(-1 * (var(--door-w) / 2));left:var(--space-lg);right:auto;
     width:56px;height:var(--door-w);
     border-radius:calc(var(--door-w) / 2);
