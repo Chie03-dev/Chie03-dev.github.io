@@ -228,13 +228,26 @@ async function run() {
   /* 1. Every module must genuinely load as an ES module. This is the check
         node --check cannot do, and the one that would have caught a blank
         canvas. */
-  const L = await load('js/layers.js');
-  const D = await load('js/deck.js');
-  const G = await load('js/game.js');
-  const R = await load('js/render.js');
-  await load('js/ui.js');
-  const files = readdirSync(join(ROOT, 'js')).filter(f => f.endsWith('.js'));
-  console.log('modules   all ' + files.length + ' load as ES modules');
+  /* Load EVERY module in js/, including main.js, and count what was really
+     loaded rather than what is on disk.
+
+     This used to be a hand-picked list of six files and it printed
+     readdirSync's file count - so it cheerfully announced "all 8 load" while
+     main.js had never been imported at all. main.js is where the boot sequence
+     lives, so every ReferenceError reachable from boot was untested, and a
+     browser could die on one and show a black canvas with the harness green.
+
+     Importing main.js also runs its top-level boot - resize(), updateDepth(),
+     start() - which is exactly the point. start() only asks the stub for a
+     requestAnimationFrame id, so no frame loop runs here. */
+  const onDisk = readdirSync(join(ROOT, 'js')).filter(f => f.endsWith('.js')).sort();
+  const M = {};
+  for (const f of onDisk) M[f.replace('.js', '')] = await load('js/' + f);
+  const files = onDisk;
+  if (!M.main) fail('js/main.js is on disk but was not loaded - the boot path is untested');
+  console.log('modules   ' + Object.keys(M).length + ' of ' + files.length +
+              ' on disk loaded and booted: ' + Object.keys(M).sort().join(' '));
+  const L = M.layers, D = M.deck, G = M.game, R = M.render, S = M.sprites;
 
   /* 2. The import graph. */
   const deps = checkGraph(files);
@@ -284,7 +297,6 @@ async function run() {
         So each set is asserted non-empty, and the flower beds are asserted to
         have all four colours, because "vibrant flowers on the surface layer" is
         a stated requirement and not a stylistic preference. */
-  const S = (await load('js/sprites.js'));
   const SETS = ['conifers', 'canopies', 'tufts', 'blooms', 'soil', 'roots', 'ore',
                 'blocks', 'moss', 'crystals', 'spikesDown', 'spikesUp', 'strata',
                 'nuggets', 'shelves'];
@@ -342,7 +354,12 @@ async function run() {
     globalThis.document.documentElement.clientWidth = w;
     globalThis.document.documentElement.clientHeight = h;
     globalThis.window.innerHeight = h;
-    L.resizeViewport(); L.measure(); L.measureShaft(); G.snapPlayerToGround();
+    /* Drive the REAL boot sequence, exported from main.js. This used to be a
+       hand-rolled copy of resize() that had drifted to four of its seven
+       steps, and the step it dropped was the one that hid a browser-only
+       crash. Calling the real one means the harness can never fall behind the
+       page again. */
+    M.main.resize();
 
     const band = D.deckBounds();
     const sheave = D.sheaveY();

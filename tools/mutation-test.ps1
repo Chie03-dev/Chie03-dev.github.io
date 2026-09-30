@@ -3,11 +3,11 @@ $root = 'd:\Developers\Projects\portfolio'
 Set-Location $root
 $bak = Join-Path $env:TEMP 'smokebak'
 New-Item -ItemType Directory -Force -Path $bak | Out-Null
-Copy-Item js\render.js, js\deck.js, js\layers.js, js\biomes.js, js\sprites.js $bak -Force
+Copy-Item js\render.js, js\deck.js, js\layers.js, js\biomes.js, js\sprites.js, js\main.js $bak -Force
 Copy-Item css\layout.css, css\chambers.css $bak -Force
 
 function Restore {
-  Copy-Item $bak\render.js, $bak\deck.js, $bak\layers.js, $bak\biomes.js, $bak\sprites.js js\ -Force
+  Copy-Item $bak\render.js, $bak\deck.js, $bak\layers.js, $bak\biomes.js, $bak\sprites.js, $bak\main.js js\ -Force
   Copy-Item $bak\layout.css, $bak\chambers.css css\ -Force
 }
 
@@ -47,6 +47,7 @@ Mutate '16. no trees on the surface layer' 'js\sprites.js' "SET.canopies = [bake
 Mutate '17. no crystal in the caves' 'js\sprites.js' "SET.crystals = [bakeShard(15, PAL.ice, r, false), bakeShard(21, PAL.ice, r, false)];" "SET.crystals = [];"
 Mutate '18. baker called without its height' 'js\sprites.js' 'bakeCanopy(21, 19, PAL.leaf, r)' 'bakeCanopy(21, PAL.leaf, r)'
 Mutate '19. blit a sprite with a zero destination' 'js\biomes.js' 'var k = Math.max(1, Math.min(2, Math.floor(room / spr.width) || 1));' 'var k = 0;'
+Mutate '20. import dropped but still used (black canvas)' 'js\render.js' 'seamNoise, mulberry32, SHAFT_TINT' 'seamNoise, SHAFT_TINT'
 Write-Output ''
 Write-Output 'restored - confirming the tree is clean again:'
 node tools\smoke.mjs 2>&1 | Select-Object -Last 1

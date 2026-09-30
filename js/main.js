@@ -112,3 +112,12 @@ function resize() {
   snapPlayerToGround();
   seedMotes();
 }
+
+/* Public surface. main.js is the entry point that index.html loads, so it has no
+   consumers - but resize() is exported so tools/smoke.mjs can drive the REAL
+   boot sequence instead of re-implementing it. It used to re-implement it, and
+   it drifted: the copy called four of resize()'s seven steps and silently
+   skipped seedMotes(), so a ReferenceError inside that one function was
+   invisible to the harness while a browser died on it and showed a black
+   canvas. */
+export { resize };

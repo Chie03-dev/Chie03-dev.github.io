@@ -16,7 +16,7 @@
 import {
   ctx, viewW, viewH, DEEP, ROCK, layers, scrollY, activeLayerIndex,
   shaftLeft, shaftRight, spriteScale,
-  TILE, patterns, seamNoise, SHAFT_TINT, SPRITES, FRAME_MS
+  TILE, patterns, seamNoise, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS
 } from './layers.js';
 import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
