@@ -7,6 +7,36 @@
    ========================================================================== */
 
 /* ==========================================================================
+   Self-hosted Caveat
+   Caveat is the old heading face, now served from this repo instead of being
+   hoped for on the visitor's machine. It is a VARIABLE font covering weights
+   400-700 in one file; Google's API returns that same 73 KB file for any
+   single weight, so there is no smaller static pair to fetch. Only the latin
+   subset is shipped, which is all the copy on this page needs.
+
+   font-display:swap means the headings paint immediately in the fallback
+   stack and re-flow once the file lands, rather than sitting invisible. The
+   path is relative, so the site works from a subdirectory as well as from
+   Pages, and nothing here reaches a third-party origin at runtime.
+
+   Licence: SIL Open Font License 1.1, in assets/fonts/OFL.txt.
+   ========================================================================== */
+@font-face{
+  font-family:"Caveat";
+  /* Variable font: one file, the whole 400-700 range. The weight axis is
+     declared as a range, not a single value, so the browser interpolates
+     instead of synthesising a bold. */
+  font-weight:400 700;
+  font-style:normal;
+  font-display:swap;
+  src:url("../assets/fonts/caveat-latin-wght.woff2") format("woff2");
+  /* The latin subset, matching the unicode-range Google serves for it. */
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,
+    U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,
+    U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* ==========================================================================
    Tokens
    ========================================================================== */
 /* ==========================================================================
@@ -91,10 +121,13 @@
   --door-glow-lit:rgba(255,210,74,.72);
   --door-glow-lit:color-mix(in srgb,var(--accent) 64%,transparent);
 
-  /* Old fonts: Inter for body, Caveat for headings only. Used when installed;
-     nothing is downloaded, so the page stays a single offline file. */
-  --font-body:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  --font-heading:Caveat,"Segoe Print","Bradley Hand","Comic Sans MS",cursive;
+  /* Body copy is a pure system stack: no webfont, so no download and no
+     layout shift for the text a recruiter actually reads. Caveat is the
+     heading face and is self-hosted above; the rest of its stack is what a
+     Windows machine reaches for when the file has not arrived yet, which is
+     why the swap is not very visible. */
+  --font-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-heading:Caveat,"Segoe Print","Comic Sans MS",cursive;
 }
 
 /* Per-section accent, replacing the old .layer-* background classes. The two
