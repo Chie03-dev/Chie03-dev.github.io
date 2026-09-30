@@ -84,11 +84,13 @@ function updateDepth() {
   }
 }
 /* === Buttons =============================================================
-   textContent only. No innerHTML anywhere in this file. */
-var printBtn = document.getElementById('print-resume');
-if (printBtn) {
-  printBtn.addEventListener('click', function () { window.print(); });
-}
+   textContent only. No innerHTML anywhere in this file.
+
+   Download PDF is a plain <a download> in the markup now, so there is no print
+   handler left in this module. Printing the resume is still fully supported:
+   Ctrl/Cmd-P fires the beforeprint hook below, which opens the plain resume,
+   and the @media print block in layout.css renders only that. Nothing about the
+   printed output depended on the button. */
 
 var emailBtn = document.getElementById('reveal-email');
 var emailSlot = document.getElementById('email-slot');

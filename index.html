@@ -225,11 +225,11 @@
     <div class="treasure__btns">
       <button class="btn btn--ghost" type="button" id="reveal-email">Email</button>
       <span id="email-slot"></span>
-      <!-- TODO: swap for a real hosted PDF with a download attribute, as the
-           spec asks. No PDF file exists yet, so this honest placeholder prints
-           the same document through the print stylesheet instead of linking to
-           a file that is not there. -->
-      <button class="btn" type="button" id="print-resume">Download PDF</button>
+      <!-- The real PDF, as the spec asks: a same-origin link carrying a download
+           attribute, so it saves the file rather than opening the print dialog.
+           Printing is still fully supported by Ctrl/Cmd-P, which the beforeprint
+           hook and the print stylesheet in layout.css still handle. -->
+      <a class="btn" href="assets/Alchie-Andilab-Resume.pdf" download id="print-resume">Download PDF</a>
       <a class="btn btn--ghost" href="https://linkedin.com/in/alchieandilab" target="_blank" rel="noopener noreferrer">LinkedIn</a>
       <a class="btn btn--ghost" href="https://github.com/Chie03-dev" target="_blank" rel="noopener noreferrer">GitHub</a>
     </div>
