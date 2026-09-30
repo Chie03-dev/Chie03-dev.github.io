@@ -74,6 +74,23 @@ main{position:relative;z-index:10}
   background:var(--door);
   border-radius:calc(var(--door-w) / 2);
   box-shadow:0 0 16px var(--door-glow);
+  /* The lit state is a transition, not a keyframe animation. The global
+     prefers-reduced-motion block forces transition-duration:0ms !important on
+     every element, so under that setting the door snaps straight to lit with
+     no motion at all. */
+  transition:background var(--dur) var(--ease),box-shadow var(--dur) var(--ease);
+}
+/* The doorway the sprite is standing at lights up: a brighter slab plus a wide
+   warm pool cast into the shaft. .is-current is toggled in ui.js from the same
+   layer index that drives the depth rail, so the lit doorway and the
+   highlighted rail entry can never disagree. The class sits on the chamber
+   rather than on the <p>, because the phone layout moves the door onto the
+   top edge and this selector has to keep working there too. */
+.chamber.is-current .chamber__door{
+  background:var(--door-lit);
+  box-shadow:
+    0 0 20px 5px var(--door-glow-lit),
+    0 0 58px 14px var(--door-glow);
 }
 .chamber--left  .chamber__door{right:calc(-1 * (var(--col-gap) + var(--door-w) / 2))}
 .chamber--right .chamber__door{left:calc(-1 * (var(--col-gap) + var(--door-w) / 2))}

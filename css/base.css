@@ -83,6 +83,13 @@
      the doorway colour in one place retunes its light with it. */
   --door-glow:rgba(255,210,74,.40);
   --door-glow:color-mix(in srgb,var(--accent) 40%,transparent);
+  /* The "lit" pair, used only while the sprite stands on this row (see the
+     .is-current rule in layout.css). A brighter slab and a denser glow, still
+     built from the same accent so a lit doorway never drifts off-palette. */
+  --door-lit:#ffe3a0;
+  --door-lit:color-mix(in srgb,var(--accent) 75%,var(--layer-topsoil));
+  --door-glow-lit:rgba(255,210,74,.72);
+  --door-glow-lit:color-mix(in srgb,var(--accent) 64%,transparent);
 
   /* Old fonts: Inter for body, Caveat for headings only. Used when installed;
      nothing is downloaded, so the page stays a single offline file. */

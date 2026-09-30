@@ -36,7 +36,14 @@ if ('IntersectionObserver' in window) {
    The active layer comes from layerIndexAt(scrollY), which is scroll
    bookkeeping, not panel reveal: panels still use IntersectionObserver.
    Writes are gated on an actual change so the DOM is not touched 60x a
-   second while scrolling. */
+   second while scrolling.
+
+   This is also what lights the doorways. The sprite is walled into the
+   shaft, so "the row the sprite is on" is exactly the row scrollY is in,
+   which is the same index that highlights a depth-rail entry. Reusing it
+   means the lit doorway and the active rail entry cannot drift apart, and
+   it costs one classList call per row on change rather than a second
+   scroll handler. */
 var depthLinks = document.querySelectorAll('.depth__list a');
 var activeIndex = -1;
 
@@ -59,6 +66,20 @@ function updateDepth() {
        live readout repeating the same name. */
     if (slot && layers[n]) {
       slot.textContent = (Math.round(layers[n].top * metresPerPx * 10) / 10) + ' m';
+    }
+  }
+
+  /* Light the doorway of the row the sprite is standing at. The gate above
+     means this only runs when the row actually changes. Guarded because a
+     layer whose element is missing must not take the rest of the rail down
+     with it. */
+  for (var c = 0; c < layers.length; c++) {
+    var chamber = layers[c].el;
+    if (!chamber || !chamber.classList) continue;
+    if (c === i) {
+      chamber.classList.add('is-current');
+    } else {
+      chamber.classList.remove('is-current');
     }
   }
 }
