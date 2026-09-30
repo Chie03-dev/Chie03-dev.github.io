@@ -58,6 +58,21 @@ var SHAFT_TINT = {
 var layers = [];
 var viewW = 0, viewH = 0, dpr = 1;
 var maxScroll = 1;
+/* Document-space anchors for the car's travel window, measured from the MARKUP
+   rather than from layer indices, because the rule is written in terms of the
+   rooms themselves: the car sets off at the DIRT and stops just before the
+   Bedrock treasure room. Naming the rooms means reordering the sections, or
+   inserting one, cannot silently move the stops - a layer index would. */
+var travelFrom = 0, travelTo = 0;
+
+/* Document-space Y of the first element matching `sel`, or -1 if there is none.
+   The -1 matters: it is how the caller tells "not found" from "found at 0",
+   which a falsy check would conflate. */
+function docTopOf(sel) {
+  var el = document.querySelector(sel);
+  if (!el) return -1;
+  return Math.round(el.getBoundingClientRect().top + (window.scrollY || 0));
+}
 var TOTAL_METRES = 32;          /* depth reading shown at the very bottom */
 var metresPerPx = 0.01;
 var scrollY = window.scrollY || 0;
@@ -94,6 +109,15 @@ function measure() {
     });
   }
   for (i = 0; i < layers.length; i++) layers[i].bottom = layers[i].top + layers[i].height;
+  /* The travel window. `data-layer` is already on every section for the band
+     art, so the same attribute names the rooms the car travels between. The
+     treasure room is also data-layer="bedrock" - it is a contact room, not a
+     chamber - which is exactly why it is selected by its class and not by its
+     layer: the car stops BEFORE it, at the top of that section. */
+  var dirt = docTopOf('[data-layer="dirt"]');
+  var treasure = docTopOf('.treasure');
+  travelFrom = dirt >= 0 ? dirt : (layers.length > 1 ? layers[1].top : 0);
+  travelTo = treasure >= 0 ? treasure : (layers.length ? layers[layers.length - 1].bottom : 0);
   maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
   metresPerPx = TOTAL_METRES / maxScroll;
 }
@@ -395,6 +419,8 @@ export {
   FRAME_MS,
   SPRITES,
   maxScroll,
+  travelFrom,
+  travelTo,
   spriteScale,
   resizeViewport
 };

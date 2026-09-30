@@ -108,7 +108,13 @@ const stage = { width: 0, height: 0, style: {}, getContext: makeCtx };
 const known = {
   summary: box(0, 1400, 100, 900), skills: box(1400, 1400, 100, 900),
   projects: box(2800, 1400, 100, 900), experience: box(4200, 1400, 100, 900),
-  education: box(5600, 1400, 100, 900), '.dig__shaft': box(0, 7000, 620, 200)
+  education: box(5600, 1400, 100, 900), '.dig__shaft': box(0, 7600, 620, 200),
+  /* The rooms the travel window is anchored to, keyed by the exact selectors
+     layers.js measure() uses. The treasure room is also data-layer="bedrock",
+     so selecting it by class is what distinguishes it from the Education
+     chamber - and the car is specified to stop BEFORE it. */
+  '[data-layer="dirt"]': box(1400, 1400, 100, 900),
+  '.treasure': box(7000, 600, 100, 900)
 };
 const stubEl = (sel) => known[sel] || {
   classList: { add: noop, remove: noop, contains: () => false },
@@ -232,10 +238,11 @@ async function run() {
            ', head at ' + headAtTop.toFixed(0) + ')');
     }
 
-    /* The travel window: hold at the top through the sky, move only across the
-       middle layers, hold at the bottom from the bedrock down. */
-    const skyEnd = L.layers[1] ? L.layers[1].top : 0;
-    const cavesEnd = L.layers[3] ? L.layers[3].bottom : 0;
+    /* The travel window: the car sets off at the dirt room and stops just before
+       the Bedrock treasure room, and is stationary everywhere else. These
+       anchors come from layers.js, which measures them out of the markup. */
+    const start = L.travelFrom;
+    const end = L.travelTo;
     const settle = (sc) => {
       globalThis.window.scrollY = sc;
       L.syncScroll();
@@ -244,19 +251,42 @@ async function run() {
       return D.groundY();
     };
 
+    if (!(end > start)) fail(label + ' travel window is empty or inverted: ' + start + '..' + end);
+    if (L.layers[0] && start < L.layers[0].bottom) {
+      fail(label + ' travel starts inside the sky section, not at the dirt');
+    }
+    if (L.layers[4] && end > L.layers[4].bottom) {
+      fail(label + ' travel runs past the end of the bedrock chamber');
+    }
+
     if (!near(settle(0), band.top)) fail(label + ' car is not held at the top through the sky');
-    if (!near(settle(Math.max(0, skyEnd - 1)), band.top)) {
-      fail(label + ' car starts moving before the sky has ended');
+    if (!near(settle(Math.max(0, start - 1)), band.top)) {
+      fail(label + ' car starts moving before the dirt room');
     }
-    if (!near(settle(cavesEnd), band.bot)) fail(label + ' car is not at the bottom by the end of the caves');
+    if (!near(settle(end), band.bot)) fail(label + ' car is not at the bottom at the treasure room');
+
+    /* What the page can actually reach. On a window TALLER than the content
+       below the treasure room, the reader can never scroll that room's top edge
+       to the top of the viewport, so the car cannot complete its travel - and
+       that is correct, not a fault. Asserting "at the bottom of the band by the
+       end of the page" would assert something unreachable, which is how this
+       check first reported four confident failures that were all geometry rather
+       than behaviour. So assert the two things that must hold either way: the
+       car never passes its bottom stop, and it is never fully down while the
+       treasure room is still below the fold. */
     const atEnd = settle(L.maxScroll);
-    if (!near(atEnd, band.bot)) {
-      fail(label + ' car is not held at the bottom through the treasure room' +
-           ' (scroll ' + L.maxScroll + ' -> y ' + atEnd.toFixed(1) + ', expected ' + band.bot.toFixed(1) + ')');
+    if (atEnd > band.bot + 0.01) {
+      fail(label + ' car descends past its bottom stop (' + atEnd.toFixed(1) + ' > ' + band.bot.toFixed(1) + ')');
     }
-    const midY = settle((skyEnd + cavesEnd) / 2);
+    if (L.maxScroll >= end) {
+      if (!near(atEnd, band.bot)) fail(label + ' car is not at the bottom stop at the end of the page');
+    } else if (atEnd >= band.bot - 0.01) {
+      fail(label + ' car is already fully down but the treasure room is still below the fold');
+    }
+
+    const midY = settle((start + end) / 2);
     if (!(midY > band.top + 1 && midY < band.bot - 1)) {
-      fail(label + ' car does not actually travel across the middle layers');
+      fail(label + ' car does not actually travel between the dirt and the treasure room');
     }
 
 
@@ -310,8 +340,8 @@ async function run() {
   console.log('SMOKE PASSED:');
   console.log('  modules load; graph acyclic; every import resolves and is used');
   console.log('  band centred and inside the viewport at all ' + VIEWPORTS.length + ' sizes');
-  console.log('  car holds at the top through the sky, travels the middle layers only,');
-  console.log('  and holds at the bottom through the treasure room');
+  console.log('  car waits at the top through the sky, sets off at the dirt room,');
+  console.log('  stops just before the Bedrock treasure room, and never passes that stop');
   console.log('  no direction reversals; character never sinks; no non-finite coordinates');
 }
 

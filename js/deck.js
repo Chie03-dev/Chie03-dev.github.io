@@ -21,7 +21,7 @@
    ========================================================================== */
 
 import {
-  clamp, layers, scrollY, viewH, maxScroll, SPRITE_H
+  clamp, scrollY, viewH, maxScroll, travelFrom, travelTo, SPRITE_H
 } from './layers.js';
 
 /* === Motion preference ====================================================
@@ -134,23 +134,20 @@ function deckBounds() {
    lit doorway of the active layer is, so the two still read together. */
 var TRAVEL_EASE = 9;   /* how hard the car is pulled to target, per second */
 
-/* Which layers the car actually travels across: the three middle ones - dirt,
-   stone and caves. Everywhere else it is stationary. It waits at the top of its
-   band through the sky, so it never drifts up past the opening panel, and it
-   sits at the bottom of its band from the bedrock onward, so it stops on top of
-   the treasure room rather than sinking through it.
+/* The stretch of page the car travels over, in document pixels: it sets off at
+   the DIRT room and stops just before the Bedrock treasure room. Both anchors are
+   measured from the markup by layers.js (see travelFrom / travelTo there), so the
+   stops follow the rooms rather than a list of indexes.
 
-   Outside the window p clamps to 0 or 1, so the car genuinely holds still
-   instead of easing toward a target it can never reach. If either layer is
-   missing the fallback lets the whole page drive it, so the car still moves on a
-   page that has not finished laying out. */
-var TRAVEL_FIRST = 1;   /* dirt  */
-var TRAVEL_LAST = 3;    /* caves */
+   Everywhere else the car is stationary: it waits at the top of its band through
+   the sky, and it sits at the bottom of its band from the treasure room onward.
+   Outside the window p clamps to 0 or 1, so it genuinely holds still instead of
+   easing toward a target it can never reach. If the anchors are missing or
+   inverted the fallback lets the whole page drive it, so the car still moves on
+   a page that has not finished laying out. */
 function travelWindow() {
-  var first = layers[TRAVEL_FIRST];
-  var last = layers[TRAVEL_LAST];
-  var start = first ? first.top : 0;
-  var end = last ? last.bottom : 0;
+  var start = travelFrom;
+  var end = travelTo;
   if (!(end > start)) end = maxScroll + 1;    /* unmeasured: use the whole page */
   return { start: start, end: end };
 }
