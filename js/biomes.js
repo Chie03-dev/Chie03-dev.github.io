@@ -86,9 +86,14 @@ var CELL = 74;   /* vertical rhythm of the placement grid, in document px */
    along with a seeded rng. Scoped per biome so two biomes sharing a cell
    boundary cannot place on top of each other. */
 function eachCell(bandTop, bandBottom, i, place) {
-  var worldTop = bandTop + scrollY;
+  var worldTop = bandTop + scrollY;                 /* document Y of the band */
+  /* bandBottom - bandTop is the band HEIGHT in screen space, and scrollY has
+     already been added once into worldTop. Adding it a second time here
+     inflated `last` by scrollY/CELL - about 95 extra cells per band per frame
+     on a long page, so it quietly multiplied the per-frame sprite count. */
+  var bandH = bandBottom - bandTop;
   var first = Math.floor(worldTop / CELL) - 1;
-  var last = Math.ceil((worldTop + bandBottom - bandTop + scrollY) / CELL) + 1;
+  var last = Math.ceil((worldTop + bandH) / CELL) + 1;
   for (var c = first; c <= last; c++) {
     var cy = c * CELL - scrollY;                 /* cell top, screen space */
     if (cy > viewH + 60 || cy + CELL < -60) continue;

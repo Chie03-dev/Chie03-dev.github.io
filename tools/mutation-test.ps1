@@ -43,8 +43,10 @@ Mutate '12. biomes never place art' 'js\biomes.js' 'var g = gutters(layer);' 'va
 Mutate '13. panel geometry not measured' 'js\layers.js' 'left: Math.round(rect.left),' 'left: 0,'
 Mutate '14. no grass tufts on the surface' 'js\sprites.js' "SET.tufts = [bakeTuft(9, 6, PAL.leaf, r), bakeTuft(7, 4, PAL.leaf, r)];" "SET.tufts = [];"
 Mutate '15. flowers reduced to three colours' 'js\sprites.js' "  { petal: '#5ee0ff', petalDim: '#1f92c4', core: '#eafcff' },  /* cyan    */" ''
-Mutate '16. no trees on the surface layer' 'js\sprites.js' "SET.canopies = [bakeCanopy(21, PAL.leaf, r), bakeCanopy(26, PAL.leaf, r)];" "SET.canopies = [];"
+Mutate '16. no trees on the surface layer' 'js\sprites.js' "SET.canopies = [bakeCanopy(21, 19, PAL.leaf, r), bakeCanopy(26, 23, PAL.leaf, r)];" "SET.canopies = [];"
 Mutate '17. no crystal in the caves' 'js\sprites.js' "SET.crystals = [bakeShard(15, PAL.ice, r, false), bakeShard(21, PAL.ice, r, false)];" "SET.crystals = [];"
+Mutate '18. baker called without its height' 'js\sprites.js' 'bakeCanopy(21, 19, PAL.leaf, r)' 'bakeCanopy(21, PAL.leaf, r)'
+Mutate '19. blit a sprite with a zero destination' 'js\biomes.js' 'var k = Math.max(1, Math.min(2, Math.floor(room / spr.width) || 1));' 'var k = 0;'
 Write-Output ''
 Write-Output 'restored - confirming the tree is clean again:'
 node tools\smoke.mjs 2>&1 | Select-Object -Last 1

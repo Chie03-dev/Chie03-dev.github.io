@@ -259,7 +259,15 @@ function bakeSet() {
   var r = mulberry32(20260930);
   SET.conifers = [bakeConifer(22, PAL.leaf, r), bakeConifer(30, PAL.leaf, r),
                   bakeConifer(17, PAL.leaf, r)];
-  SET.canopies = [bakeCanopy(21, PAL.leaf, r), bakeCanopy(26, PAL.leaf, r)];
+  /* bakeCanopy takes BOTH a width and a height - a broadleaf is wider than it
+     is tall, which is the whole difference from a conifer - so the call has to
+     pass both. It used to be called as bakeCanopy(26, PAL.leaf, r), which fed
+     the palette in as `h`: trunkH became NaN, the dome loop never ran (so
+     nothing threw at bake time), and the sprite was created with height NaN.
+     That NaN reached drawImage as the destination height, where a real browser
+     throws IndexSizeError, render() died on the first frame, and the page was
+     left with nothing but the base fill - a black background and no sprite. */
+  SET.canopies = [bakeCanopy(21, 19, PAL.leaf, r), bakeCanopy(26, 23, PAL.leaf, r)];
   SET.tufts = [bakeTuft(9, 6, PAL.leaf, r), bakeTuft(7, 4, PAL.leaf, r)];
   SET.blooms = FLOWERS.map(function (petals) {
     var pal = { stem: PAL.leaf.stem, leaf: PAL.leaf.mid,

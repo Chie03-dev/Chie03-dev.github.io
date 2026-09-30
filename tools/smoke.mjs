@@ -64,7 +64,28 @@ function makeCtx() {
     imageSmoothingEnabled: false,
     save: noop, restore: noop, beginPath: noop, closePath: noop, moveTo: noop,
     lineTo: noop, rect: noop, clip: noop, fill: noop, stroke: noop,
-    clearRect: noop, strokeRect: noop, drawImage: noop, rotate: noop, scale: noop,
+    clearRect: noop, strokeRect: noop, rotate: noop, scale: noop,
+    /* drawImage is the one call that used to be a bare noop, and that is a
+       hole big enough to hide a real crash. A browser THROWS on this: an
+       IndexSizeError for a zero or negative destination width or height, and
+       an InvalidStateError for a source that is not an image at all. A biome
+       module that blits sprites is exactly where such a mistake lives, and a
+       noop stub reports nothing while the page renders a black canvas and the
+       frame loop dies on the first call.
+
+       So this validates what the spec makes mandatory, and the arguments the
+       real overload requires: finite dx/dy, finite and strictly positive
+       dw/dh, and a source with positive dimensions. */
+    drawImage: (src, dx, dy, dw, dh) => {
+      finite(dx, 'drawImage.dx'); finite(dy, 'drawImage.dy');
+      finite(dw, 'drawImage.dw'); finite(dh, 'drawImage.dh');
+      if (!(dw > 0) || !(dh > 0)) {
+        throw new Error('IndexSizeError: drawImage destination ' + dw + 'x' + dh);
+      }
+      if (!src || !(src.width > 0) || !(src.height > 0)) {
+        throw new Error('InvalidStateError: drawImage source has no pixels');
+      }
+    },
     setTransform: noop, ellipse: noop, quadraticCurveTo: noop, bezierCurveTo: noop,
     createPattern: () => ({}),
     measureText: () => ({ width: 0 }),
@@ -270,7 +291,40 @@ async function run() {
   for (const k of SETS) {
     if (!Array.isArray(S.SET[k]) || !S.SET[k].length) {
       fail('the sprite set ' + k + ' is empty, so that biome silently draws nothing');
+      continue;
     }
+    /* blooms is one level deeper - an array of arrays, one per flower colour -
+       so it is checked separately below rather than here. */
+    if (k === 'blooms') continue;
+    /* Every baked sprite must have real, finite, positive dimensions. This is
+       the check that would have caught the bakeCanopy() call that passed the
+       palette where the height belonged: NaN height, the dome loop silently
+       never ran, nothing threw at bake time, and the sprite was only found out
+       at drawImage - where a real browser throws and takes the whole frame loop
+       with it, leaving a black canvas. The stub used to no-op drawImage and
+       reported nothing. */
+    S.SET[k].forEach((spr, i) => {
+      if (!spr || !isFinite(spr.width) || !isFinite(spr.height) ||
+          !(spr.width > 0) || !(spr.height > 0)) {
+        fail('sprite ' + k + '[' + i + '] has bad dimensions ' +
+             (spr ? spr.width + 'x' + spr.height : '(missing)') +
+             ' - a baker was probably called with the wrong arguments');
+      }
+    });
+  }
+  /* The flower beds are one level deeper: an array of arrays. */
+  if (Array.isArray(S.SET.blooms)) {
+    S.SET.blooms.forEach((bed, i) => {
+      if (!Array.isArray(bed) || !bed.length) {
+        fail('flower bed ' + i + ' is empty');
+        return;
+      }
+      bed.forEach((spr, j) => {
+        if (!spr || !isFinite(spr.height) || !(spr.height > 0)) {
+          fail('flower bed ' + i + '[' + j + '] has bad dimensions');
+        }
+      });
+    });
   }
   if (S.FLOWERS.length < 4) {
     fail('only ' + S.FLOWERS.length + ' flower colours baked; the surface layer needs four');
