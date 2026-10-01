@@ -77,6 +77,20 @@ function drawFar() {
    sky animates (clouds drift, the sun arcs) and the rest of the art is welded to
    the world. The sky used to derive its motion from scrollY, which froze it
    solid whenever the reader stopped scrolling. */
+/* Trace a layer's seam curve across the viewport, as a path ready for clip() or
+   stroke(). The x step matches the one the seam is stroked at, so the clip edge
+   and the drawn line are the same polyline and cannot disagree by a pixel.
+
+   The curve is the layer's TOP boundary, jagged by +/-13px. Everything that is
+   soil has to be clipped to below it; see drawBands. */
+function seamPath(layer, step) {
+  ctx.beginPath();
+  for (var x = -40; x <= viewW + 40; x += step) {
+    var y = seamY(layer, x);
+    if (x === -40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+}
+
 function drawBands(now) {
   var i, layer, bandTop, bandBottom, grad, key;
   for (i = 0; i < layers.length; i++) {
@@ -87,17 +101,49 @@ function drawBands(now) {
     bandBottom = layer.bottom - scrollY;
     key = ROCK[layer.rock];
 
+    var step = 1;
+    var isSky = layer.rock === 'sky';
+
+    /* The sky is open air: its wash is not soil, so it is not clipped to the
+       seam - the surface biome owns everything down to the soil line, and the
+       dirt band below paints its own clipped soil over the top of it. */
+    if (isSky) {
+      grad = ctx.createLinearGradient(0, bandTop, 0, bandBottom);
+      grad.addColorStop(0, key.top);
+      grad.addColorStop(1, key.bot);
+      ctx.fillStyle = grad;
+      ctx.fillRect(-40, bandTop, viewW + 80, bandBottom - bandTop + 2);
+      biomesDrawn += drawBiomes(layer, i, bandTop, bandBottom, now);
+      continue;
+    }
+
+    /* Everything below this point is SOIL, and all of it is clipped to below
+       the seam curve.
+
+       The bug this fixes: the gradient and the grit both filled from bandTop,
+       which is a STRAIGHT line, while the seam that is stroked along the top of
+       the band is a jagged curve +/-13px around it. So wherever the curve dipped
+       below bandTop, soil was painted over the band edge and the grass line was
+       drawn on top of the dirt rather than under it - a strip of soil sitting
+       ABOVE the green line, most obvious on the surface layer where that line
+       is the grass. The surface read as a green rule with dirt hanging over it.
+
+       Clipping to the curve makes the seam the top of the soil everywhere, so
+       the line is always the boundary. The dirt band is the one that matters -
+       it is the only band with a coloured seam - but the clip is applied to
+       every rock band so no band can show its own grit above its own edge. */
+    ctx.save();
+    seamPath(layer, step);
+    ctx.lineTo(viewW + 40, bandBottom + 4);
+    ctx.lineTo(-40, bandBottom + 4);
+    ctx.closePath();
+    ctx.clip();
+
     grad = ctx.createLinearGradient(0, bandTop, 0, bandBottom);
     grad.addColorStop(0, key.top);
     grad.addColorStop(1, key.bot);
     ctx.fillStyle = grad;
     ctx.fillRect(-40, bandTop, viewW + 80, bandBottom - bandTop + 2);
-
-    /* The biome itself: trees and flowers on the surface, masonry in the
-       vault, crystal in the caves, book shelves in the bedrock. It lives in
-       biomes.js because it is a module's worth of art, and because it needs
-       the panel's horizontal box to know where it can be seen at all. */
-    if (layer.rock === 'sky') { biomesDrawn += drawBiomes(layer, i, bandTop, bandBottom, now); continue; }
 
     /* Rock grit, scrolling 1:1 with the world. */
     ctx.save();
@@ -106,20 +152,19 @@ function drawBands(now) {
     ctx.fillRect(-40, bandTop + (scrollY % TILE), viewW + 80, bandBottom - bandTop + 2);
     ctx.restore();
 
-    /* Two-tone jagged seam along the top of the band. */
-    var x, step = 12;
-    ctx.beginPath();
-    for (x = -40; x <= viewW + 40; x += step) {
-      var y = seamY(layer, x);
-      if (x === -40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
+    ctx.restore();          /* release the soil clip */
+
+    /* Two-tone jagged seam along the top of the band, drawn AFTER the clip is
+       released so the line itself is never cut in half by its own curve. */
+    seamPath(layer, step);
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.32)'; ctx.stroke();
-    ctx.beginPath();
-    for (x = -40; x <= viewW + 40; x += step) {
-      var y2 = seamY(layer, x) - 2;
-      if (x === -40) ctx.moveTo(x, y2); else ctx.lineTo(x, y2);
+    seamPath(layer, step);
+    var x2;
+    for (x2 = -40; x2 <= viewW + 40; x2 += step) {
+      var y2 = seamY(layer, x2) - -10;
+      if (x2 === -40) ctx.moveTo(x2, y2); else ctx.lineTo(x2, y2);
     }
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 10;
     /* Dirt is the surface layer, so its seam is the grass line. */
     ctx.strokeStyle = (i === 1) ? 'rgba(122,186,96,0.85)' : 'rgba(255,255,255,0.14)';
     ctx.stroke();

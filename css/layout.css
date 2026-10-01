@@ -28,11 +28,25 @@
    room at the bottom. The shaft column is left empty for the canvas sprite.
    ========================================================================== */
 main{position:relative;z-index:10}
+/* The row-gap is the layer headroom, and it is deliberately large.
+
+   Bands are derived from the gaps between panels (see js/bands.js): each band
+   runs from the midpoint of the gap above its panel to the midpoint of the gap
+   below, so HALF the row-gap ends up as visible rock above every chamber and
+   half as visible rock below it, with the jagged seam running through the top
+   of that headroom. At the old 4rem the headroom was 32px - technically taller
+   than the panel and practically invisible, so the layers still read as flat
+   washes with a card on top.
+
+   Viewport-relative so a tall window gets a tall stage and a short one still
+   gets enough to see the seam, and clamped so it cannot eat the whole page on
+   a very wide display. The seam's own jitter is +/-13px, so anything under
+   about 6rem starts clipping the panel edge. */
 .dig{
   display:grid;
   grid-template-columns:1fr var(--shaft-w) 1fr;
   column-gap:var(--col-gap);
-  row-gap:var(--space-3xl);
+  row-gap:clamp(14rem, 46vh, 34rem);
   padding-block:var(--space-2xl) var(--space-2xl);
   padding-inline:var(--rail-space);
 }
@@ -223,7 +237,11 @@ main{position:relative;z-index:10}
 @media (max-width:820px){
   .dig{
     grid-template-columns:1fr;
-    row-gap:var(--space-2xl);
+    /* Same headroom as desktop, only smaller: the seam jitter is +/-13px, so a
+       gap under about 6rem starts clipping the panel edge. The override used to
+       drop this to --space-2xl (3rem), which put the seam right on top of the
+       chamber on every phone. */
+    row-gap:clamp(9rem, 30vh, 18rem);
     padding-inline:0;
     padding-left:72px;          /* clear the fixed shaft strip */
   }

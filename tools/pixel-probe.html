@@ -55,7 +55,30 @@ const { render } = await import('./js/render.js');
 const L = await import('./js/layers.js');
 const { ctx, viewW, viewH, layers, shaftLeft, shaftRight, syncScroll } = L;
 const { gutters, sunSpot } = await import('./js/biomes.js');
-const { SET } = await import('./js/sprites.js');
+const { SET, whenSheets } = await import('./js/sprites.js');
+
+/* WAIT FOR THE SHEETS BEFORE ASSERTING ON SET. This is a race, and it is not
+   hypothetical: it made this suite report a DIFFERENT VERDICT FOR IDENTICAL
+   CODE ACROSS RUNS.
+
+   main.js is imported above, and its boot calls whenSheets(), whose callback
+   runs applySheets() - which REPLACES SET.conifers and SET.canopies with the
+   slices cut from tree.png. If that lands before the assertions below read SET,
+   the canopy checks are measuring the SHEET CROP; if it lands after, they are
+   measuring the drawn bakeCanopy() fallback. The two sprites are different
+   shapes, so `rows[0] < max` is true for one and false for the other, and the
+   suite passed or failed according to which won.
+
+   The visible symptom was mutation 21 (the sheared broadleaf crown) reporting
+   NOT CAUGHT on some runs and caught on others - a mutation test that flips
+   verdict on identical input is worse than no mutation test, because it reads
+   as coverage.
+
+   Settling first makes SET a settled value rather than a race, and it also
+   means the check is honest about WHICH sprite it measured: after this, the
+   sheets have landed, so a mutation to bakeCanopy() is genuinely being
+   exercised rather than being masked by the sheet that replaces it. */
+await new Promise((resolve) => whenSheets(resolve));
 
 const results = [];
 const ok = (name, cond, detail) =>
@@ -81,11 +104,39 @@ function rowCoverage(spr) {
   }
   return rows;
 }
+/* The crown shape is asserted on the BAKED sprites, not on SET.canopies.
+
+   SET.canopies is REPLACED by applySheets() with the crop cut from tree.png, so
+   iterating SET measures whichever sprite won a race - and the baked broadleaf
+   that this check exists for is not it. That is why mutation 21 (the sheared
+   crown, `k = t`) reported NOT CAUGHT: with the sheet in place the assertion
+   passed while the broken baker sat unmeasured in the file.
+
+   bakeCanopy() is therefore called directly, so the check is bound to the code
+   under test rather than to what the loader happened to substitute. SET is
+   checked too, under a different name, because the sprite that actually reaches
+   the screen is still worth asserting. */
+const { PAL, bakeCanopy } = await import('./js/sprites.js');
+const baked = [
+  ['baked canopy 21x19', bakeCanopy(21, 19, PAL.leaf, Math.random)],
+  ['baked canopy 26x23', bakeCanopy(26, 23, PAL.leaf, Math.random)]
+];
+baked.forEach(([tag, spr]) => {
+  const rows = rowCoverage(spr);
+  const max = Math.max.apply(null, rows);
+  const maxRow = rows.indexOf(max);
+  ok(tag + ' reaches full width below the top row', maxRow > 0,
+     'widest row ' + maxRow + ', top row ' + rows[0] + ', max ' + max);
+  ok(tag + ' is rounded at the top', rows[0] < max,
+     'top ' + rows[0] + ' < widest ' + max);
+  ok(tag + ' still meets its trunk', rows[rows.length - 1] >= 2,
+     'bottom row ' + rows[rows.length - 1]);
+});
 SET.canopies.forEach((spr, i) => {
   const rows = rowCoverage(spr);
   const max = Math.max.apply(null, rows);
   const maxRow = rows.indexOf(max);
-  const tag = 'canopy[' + i + ']';
+  const tag = 'live canopy[' + i + ']';
   ok(tag + ' reaches full width below the top row', maxRow > 0,
      'widest row ' + maxRow + ', top row ' + rows[0] + ', max ' + max);
   ok(tag + ' is rounded at the top', rows[0] < max,

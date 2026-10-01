@@ -34,36 +34,48 @@ var DIR = 'assets/PixelArt/';
    rest are pixel rectangles. turf = a grass-topped dirt tile for the surface
    band, dirt = a plain dirt tile for the repeating rock texture.
 
-   dirt is (2,1) rather than (4,2). Both are dirt, but the sheet's cells are not
-   interchangeable: most have a hard vertical split - a lit rocky column down one
-   side, shadow down the other. Mirrored into a 2x2 block (see mirrored()) that
-   split lands on both axes at once and becomes a bold symmetric motif, and
-   because every motif is the same shape the eye locks onto the 64px period
-   immediately - the band read as a row of identical arches.
+   Every cut is now either a plain rectangle (tree.png) or a grid-cell strip
+   (tilesetgrass.png). The bush, the grass tuft and the dirt tile are gone; what
+   replaced the dirt tile is bakeTile() in layers.js, and the tuft and bush art
+   is procedural.
 
-   (2,1) is the most evenly distributed cell: no edge split, just scattered
-   pebbles, so mirroring it does not manufacture a shape out of nothing.
+   The reasoning that picked the dirt cell is worth keeping, because it is why
+   the sheet cannot tile the rock at all and the dirt tile was dropped for a tiled
+   band rather than merely restyled: dirt is (2,1) rather than (4,2), and the
+   sheet's cells are not interchangeable. Most have a hard vertical split - a lit
+   rocky column down one side, shadow down the other - and no 32px tile in the
+   sheet satisfies the wrap test (an edge column equal to its opposite
+   neighbour) except five flat single-colour ones. So the sheet cannot be tiled
+   directly, and the 2x2 mirrored version that fixed it made the split land on
+   both axes at once as a bold symmetric motif - every motif the same shape, so
+   the eye locked onto the 64px period immediately and the band read as a row of
+   identical arches. bakeTile() in layers.js avoids all of it. */
+/* Only the trees are sliced now.
 
-   The two cuts differ on purpose, because they are consumed differently:
+   Everything else this file used to read has been removed, one repetition at a
+   time, because each was a visible tile:
 
-     turf is SLICED, not mirrored, and stays 32px. Only the top 32px of it is
-       ever visible - biome-sky.js draws a band exactly one cell tall - so the
-       mirrored half below is never seen, while its effect on the visible half is
-       real: mirroring flipped the sheet's wavy grass line onto itself and turned
-       it into a hard chevron that repeated every 64px down the whole surface.
-     dirt is MIRRORED to 64px, because it tiles a deep band vertically and its
-       opposite edges genuinely have to meet. */
+     - the bush and the grass tuft were small sprites, tiled sparsely, so their
+       repeat was hidden by distance between copies;
+     - the dirt tile covered a whole rock band and put a 64px period in front of
+       the reader, with a symmetric motif that made the period obvious;
+     - the grass cap is the worst of them, and the LAST one standing. It is
+       32px wide and repeats across the full width of the surface at eye level,
+       right where the eye rests. Its motif - a dark blob with a lighter rim -
+       is identical in every copy, so the band read as a chain of the same shape
+       rather than as ground. Nothing about it tiles invisibly: at this width
+       the tile is ~45 repeats across, which is far more than enough for the
+       eye to resolve the period.
+
+   The replacement is the three stacked rects in skySurface(), which were
+   already here as the fallback and paint the grass as bands clipped to the
+   seam. A flat band can also be repetitive, but it has no motif to lock onto,
+   so there is nothing for the eye to count. */
+
 var CELLS = {
   tree:    { unit: false, cuts: [
     { key: 'tall',  x: 6,   y: 0,  w: 83, h: 96 },
-    { key: 'small', x: 109, y: 24, w: 62, h: 72 } ] },
-  bush:    { unit: false, cuts: [
-    { key: 'bush',  x: 1, y: 16, w: 31, h: 16 } ] },
-  grass:   { unit: false, cuts: [
-    { key: 'tuft',  x: 8, y: 21, w: 16, h: 11 } ] },
-  tileset: { unit: true, size: 32, cuts: [
-    { key: 'turf', col: 0, row: 0, mirror: false },
-    { key: 'dirt', col: 2, row: 1, mirror: true } ] }
+    { key: 'small', x: 109, y: 24, w: 62, h: 72 } ] }
 };
 
 /* Multiply tints, one per key. Each is chosen by eye against the ROCK table in
@@ -72,19 +84,11 @@ var CELLS = {
    difference between the art matching the backdrop and popping out of it. */
 var TINT = {
   tall:  '#a8b184',   /* foliage -> the olive of a canopy in shadow   */
-  small: '#a8b184',
-  bush:  '#9fb07d',
-  tuft:  '#9fb07d',
-  turf:  '#b9ad7e',   /* grass + dirt -> desaturated, cooled          */
-  dirt:  '#a08a80'
+  small: '#a8b184'
 };
 
 var assets = {
   trees: [],        /* sliced tree canvases                            */
-  bushes: [],       /* sliced bush canvases                           */
-  tufts: [],        /* sliced grass-tuft canvases                     */
-  turf: null,       /* one 32px grass-topped tile, for the surface    */
-  dirt: null,       /* one 64px seamless tile, for the rock pattern   */
   loaded: false,
   ok: false
 };
@@ -135,36 +139,6 @@ function slice(img, cut) {
   raw.g.drawImage(img, cut.x, cut.y, cut.w, cut.h, 0, 0, cut.w, cut.h);
   return tint(raw.c, TINT[cut.key] || '#ffffff');
 }
-/* A 2x2 mirrored tile, seamless on both axes BY CONSTRUCTION.
-
-   Worth stating plainly, because it was measured rather than assumed: no 32px
-   tile in tilesetgrass.png satisfies the wrap test (edge column equal to its
-   opposite neighbour) except five, and all five are flat single-colour padding
-   rather than dirt. So the sheet cannot be tiled directly - doing it anyway is
-   what puts a visible grid over the rock. Mirroring the source into a 2x2
-   block makes opposite edges identical by definition, which needs no
-   cross-fade and no blending, and the 64px period lines up with TILE in
-   layers.js so the existing scroll arithmetic still holds.
-
-   Note the top-left quadrant is drawn straight from the sheet, so the source
-   rect is needed here; `raw` alone only holds the mirrored neighbours. */
-function mirrored(img, cut, cell) {
-  var n = cell, raw = surface(n * 2, n * 2), g = raw.g;
-  var sx = cut.col * n, sy = cut.row * n;
-  /* top-left quadrant, straight from the sheet */
-  g.drawImage(img, sx, sy, n, n, 0, 0, n, n);
-  /* top-right mirrored horizontally */
-  g.save();
-  g.translate(n * 2, 0); g.scale(-1, 1);
-  g.drawImage(img, sx, sy, n, n, 0, 0, n, n);
-  g.restore();
-  /* bottom half mirrored vertically from the finished top half */
-  g.save();
-  g.translate(0, n * 2); g.scale(1, -1);
-  g.drawImage(raw.c, 0, 0, n, n, 0, 0, n, n);
-  g.restore();
-  return tint(raw.c, TINT[cut.key] || '#ffffff');
-}
 function loadImage(file) {
   return new Promise(function (resolve, reject) {
     if (typeof Image === 'undefined') { reject(new Error('no Image')); return; }
@@ -180,24 +154,20 @@ function loadImage(file) {
     img.src = DIR + file;
   });
 }
-/* The pixel-art soil is drawn ON TOP of a per-band gradient, and the baked
-   grit tiles all get their depth from that gradient underneath - a band is
-   lighter at its top and darker at its bottom purely because of it.
+/* The dirt tile that used to be faded down here is gone, and with it the reason
+   for fading anything.
 
-   The tileset PNG is fully opaque, though, so used as-is it painted over the
-   gradient and flattened the whole dirt band into one flat brown, losing the
-   falloff every other band has. So the tile is faded down before it is handed
-   over.
+   It was the only entry, and it was faded to 0.15 for a specific reason worth
+   keeping in mind for any future tile: it repeated every 64px down a band that
+   can be thousands of pixels tall, and at full strength the repetition became
+   the thing you noticed - the rock stopped reading as depth and started reading
+   as wallpaper. That is the same failure as the grass cap, at a different scale,
+   and it is the reason every tiled asset is now gone rather than merely restyled.
 
-   The number is low on purpose. This tile repeats every 64px down a band that
-   can be thousands of pixels tall, so a high-contrast tile stamps itself over
-   the whole shaft and the repetition becomes the thing you notice - the rock
-   stops reading as depth and starts reading as wallpaper. At this level the
-   pebbles still read as pixel art and the gradient still clearly sits on top.
-
-   turf is NOT faded: the grass line is a hard edge against the sky and the dirt
-   body below it is meant to be solid. */
-var OPACITY = { dirt: 0.15 };
+   So the map is empty: nothing is faded, nothing is tiled, and the rock grit is
+   bakeTile()'s own speckle in layers.js, which is low contrast by construction
+   because the gradient it sits on is what gives a band its depth. */
+var OPACITY = {};
 
 /* Composite a finished sprite down to `amount` alpha. Returns the original when
    there is nothing to do, so the common path allocates nothing extra. */
@@ -210,24 +180,20 @@ function fade(c, amount) {
   return out.c;
 }
 
+/* Every remaining cut is a plain rectangle, so harvest() has exactly one shape to
+   deal with. It used to branch three ways - rectangle, single cell, and the
+   mirrored or stripped grid-cell tiles - but the cell helpers existed only for
+   the dirt tile and the grass cap, and both are gone. The seamless-tiling
+   problem they solved is now solved by not tiling at all: the rock grit is baked
+   per band by bakeTile() in layers.js and the grass is drawn as bands in
+   biome-sky.js, so no sheet pixel is ever repeated. */
 function harvest(name, img) {
   var spec = CELLS[name], out = {};
   for (var i = 0; i < spec.cuts.length; i++) {
-    var c = spec.cuts[i], spr;
-    if (spec.unit && c.mirror !== false) spr = mirrored(img, c, spec.size);
-    else if (spec.unit) spr = cell(img, c, spec.size);
-    else spr = slice(img, c);
-    out[c.key] = fade(spr, OPACITY[c.key]);
+    var c = spec.cuts[i];
+    out[c.key] = fade(slice(img, c), OPACITY[c.key]);
   }
   return out;
-}
-/* One grid cell, cropped to its 32px square. Used where the result is drawn in a
-   band exactly one cell tall, so there is no opposite edge to match and no reason
-   to pay for the mirrored version. */
-function cell(img, cut, size) {
-  var s = surface(size, size);
-  s.g.drawImage(img, cut.col * size, cut.row * size, size, size, 0, 0, size, size);
-  return tint(s.c, TINT[cut.key] || '#ffffff');
 }
 /* Which file each SHEET KEY is actually stored in.
 
@@ -240,12 +206,14 @@ function cell(img, cut, size) {
    the stubbed Image resolved for every name it was asked for.
 
    So the filename is data, declared next to the crop rectangles that describe the
-   same file, rather than a naming convention the code assumes. */
+   same file, rather than a naming convention the code assumes.
+
+   One file is listed now. bush.png, grass.png and tilesetgrass.png are no longer
+   requested: their only crops are gone from CELLS above, so fetching them decoded
+   a sheet that produced nothing. The bush, tuft and grass art is drawn in
+   sprites.js and biome-sky.js instead. */
 var SHEETS = {
-  tree:    'tree.png',
-  bush:    'bush.png',
-  grass:   'grass.png',
-  tileset: 'tilesetgrass.png'
+  tree:    'tree.png'
 };
 
 /* Populate `assets`. Resolves even on failure: `ok` says whether the sheets
@@ -285,17 +253,11 @@ function load() {
       }
     }
     if (got.tree)  assets.trees  = [got.tree.tall, got.tree.small];
-    if (got.bush)  assets.bushes = [got.bush.bush];
-    if (got.grass) assets.tufts  = [got.grass.tuft];
-    if (got.tileset) {
-      assets.turf = got.tileset.turf;
-      assets.dirt = got.tileset.dirt;
-    }
     assets.loaded = true;
-    /* ok means "the pixel art is live", so it is only true when BOTH tiling
-       tiles landed: dirt and turf are drawn every frame and have no per-object
-       fallback, unlike the foliage arrays which just stay empty. */
-    assets.ok = !!(assets.turf && assets.dirt && assets.trees.length && assets.tufts.length);
+    /* ok means "the pixel art is live". The trees are the only thing that comes
+       from a sheet now - the grass, the tufts and the rock grit are all drawn -
+       so this is a plain "did the trees arrive" check. */
+    assets.ok = !!assets.trees.length;
     if (!assets.ok) console.warn('pixel-art sheets incomplete, using the drawn art where missing');
   }).then(function () {
     /* Flush `ready()` waiters only once the promise is fully settled, so a

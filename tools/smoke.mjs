@@ -57,6 +57,8 @@ const nonFinite = [];
    tree-stability check below, which exists because the meadow used to reshuffle
    itself several times a second and nothing in the suite could see it. */
 const blits = [];
+const clips = [];
+let pathPts = 0;
 
 function finite(v, where) {
   if (typeof v !== 'number' || !isFinite(v)) nonFinite.push(where + '=' + String(v));
@@ -67,8 +69,19 @@ function makeCtx() {
   return {
     fillStyle: '', strokeStyle: '', lineWidth: 1, font: '', globalAlpha: 1,
     imageSmoothingEnabled: false,
-    save: noop, restore: noop, beginPath: noop, closePath: noop, moveTo: noop,
-    lineTo: noop, rect: noop, clip: noop, fill: noop, stroke: noop,
+    save: noop, restore: noop, closePath: noop, rect: noop, fill: noop,
+    stroke: noop,
+    /* Path and clip RECORDING, added for the surface-seam regression test.
+
+       The seam is a jagged curve, so "the soil is clipped to the seam" is only
+       observable as the SHAPE of the path handed to clip(). A bare noop stub
+       cannot see it, which is why a real defect here shipped with a green
+       suite: the turf was a flat rect and the dirt a flat rect, both unclipped,
+       and every draw call was finite so nothing failed. */
+    beginPath: () => { pathPts = 0; },
+    moveTo: () => { pathPts++; },
+    lineTo: () => { pathPts++; },
+    clip: () => { clips.push(pathPts); },
     clearRect: noop, strokeRect: noop, rotate: noop, scale: noop,
     /* drawImage is the one call that used to be a bare noop, and that is a
        hole big enough to hide a real crash. A browser THROWS on this: an
@@ -161,27 +174,91 @@ const box = (docTop, height, left, width) => ({
 
 const stage = { width: 0, height: 0, style: {}, getContext: makeCtx };
 const known = {
-  summary: box(0, 1400, 48, 520), skills: box(1400, 1400, 872, 520),
-  projects: box(2800, 1400, 48, 520), experience: box(4200, 1400, 872, 520),
-  education: box(5600, 1400, 48, 520), '.dig__shaft': box(0, 7600, 620, 200),
+  /* The panels are stacked with REAL GAPS between them, not flush. That is the
+     whole point of the fixture: bands.js derives each band from the midpoint of
+     the gap above and below its panel, so flush stubs would make every band
+     exactly equal to its panel and the assertions below would pass without ever
+     testing the derivation. 434px of gap, 200 of panel, repeated. */
+  summary: box(0, 200, 48, 520), skills: box(634, 200, 872, 520),
+  projects: box(1268, 200, 48, 520), experience: box(1902, 200, 872, 520),
+  education: box(2536, 200, 48, 520), '.dig__shaft': box(0, 2736, 620, 200),
   /* The rooms the travel window is anchored to, keyed by the exact selectors
      layers.js measure() uses. The treasure room is also data-layer="bedrock",
      so selecting it by class is what distinguishes it from the Education
      chamber - and the car is specified to stop BEFORE it. */
-  '[data-layer="dirt"]': box(1400, 1400, 872, 520),
-  '.treasure': box(7000, 600, 48, 1344)
+  '[data-layer="dirt"]': box(634, 200, 872, 520),
+  '.treasure': box(3170, 600, 48, 1344)
 };
 /* The document Y of the treasure room, taken from the stub itself rather than
    repeated as a literal, so the barrier assertion below cannot drift away from
    the geometry that actually drives it. Read through the stub's own docTop
    closure value, NOT via getBoundingClientRect() - that subtracts the current
    scroll, and `window` does not exist yet at this point in the file. */
-const TREASURE_TOP = 7000;
+const TREASURE_TOP = 3170;
+/* A fake chest, and the fake loot panel it controls. Enough of a real element for
+   treasure.js: dataset, the aria attributes, style.setProperty, textContent and
+   a click listener that can be fired by the test.
+
+   This exists rather than having the harness return an empty list, because an
+   empty list would make initHoard() take its "no hoard in this document" early
+   return and the whole module would go untested while still reporting a pass -
+   the same species of vacuous green the band assertions had before the fixture
+   was given realistic gaps. */
+function fakeLoot(id) {
+  return {
+    id: id, attrs: {}, textContent: '',
+    setAttribute(k, v) { this.attrs[k] = v; },
+    getAttribute(k) { return this.attrs[k] === undefined ? null : this.attrs[k]; }
+  };
+}
+function fakeChest(gold, n) {
+  /* The loot id MUST be unique per chest. It was derived from the gold value
+     alone at first, and the two 2-gold chests then shared one id - so a click on
+     one toggled aria-hidden on the other's panel, and the assertion fired on
+     correct code. The same duplicate-id bug in the real markup would mean two
+     chests controlling one panel. */
+  const loot = fakeLoot('loot-' + n);
+  const self = {
+    dataset: { gold: String(gold), spent: '0' },
+    attrs: { 'aria-expanded': 'false', 'aria-controls': loot.id },
+    style: { props: {}, setProperty(k, v) { this.props[k] = v; } },
+    textContent: '', loot: loot, fired: 0,
+    setAttribute(k, v) { this.attrs[k] = v; },
+    getAttribute(k) { return this.attrs[k] === undefined ? null : this.attrs[k]; },
+    addEventListener(_type, fn) { this._fn = fn; },
+    /* Drive it the way a reader would. */
+    click() { this.fired++; if (this._fn) this._fn(); }
+  };
+  return self;
+}
+const FAKE_CHESTS = [3, 2, 1, 2, 1].map((g, i) => fakeChest(g, i));
+const FAKE_TOTAL = FAKE_CHESTS.reduce((n, c) => n + parseInt(c.dataset.gold, 10), 0);
+
 const stubEl = (sel) => known[sel] || {
   classList: { add: noop, remove: noop, contains: () => false },
-  style: {}, dataset: {}, textContent: '', addEventListener: noop,
-  querySelector: () => null, getBoundingClientRect: () => box(0, 0, 0, 0)
+  style: { props: {}, setProperty: noop }, dataset: {}, textContent: '',
+  addEventListener: noop,
+  querySelector: () => null,
+  querySelectorAll: () => [],
+  getBoundingClientRect: () => box(0, 0, 0, 0)
 };
+/* The hoard, keyed by the exact ids treasure.js asks for - which have NO leading
+   '#'. They used to, which meant getElementById() missed every one of them,
+   initHoard() took its early return, and all seven hoard assertions failed
+   while the module itself reported a clean zero. The keys have to match the
+   lookups exactly or the fixture tests nothing. */
+known['vault-grid'] = { querySelectorAll: () => FAKE_CHESTS };
+known['gold-count'] = { textContent: '' };
+known['gold-total'] = { textContent: '' };
+/* The room itself, because treasure.js writes --gold onto it and the assertion
+   reads it back. Without this the generic stub's no-op setProperty swallowed
+   every write and the check reported --gold=undefined on correct code. */
+known['contact'] = {
+  style: { props: {}, setProperty(k, v) { this.props[k] = v; } }
+};
+/* The loot panels, one per fake chest, addressed by the aria-controls the fake
+   buttons carry. */
+for (const c of FAKE_CHESTS) known[c.loot.id] = c.loot;
 
 globalThis.document = {
   getElementById: (id) => (id === 'stage' ? stage : stubEl(id)),
@@ -189,7 +266,7 @@ globalThis.document = {
   querySelectorAll: () => [],
   createElement: () => ({ width: 0, height: 0, style: {}, getContext: makeCtx }),
   addEventListener: noop,
-  documentElement: { clientWidth: 1440, clientHeight: 900, scrollHeight: 7900, style: {} },
+  documentElement: { clientWidth: 1440, clientHeight: 900, scrollHeight: 4200, style: {} },
   fonts: { ready: Promise.resolve() },
   hidden: false
 };
@@ -439,6 +516,92 @@ async function run() {
     fail('a flower colour has no baked bed');
   }
 
+  /* 2d. Bands must be TALLER than their panels, and must tile end to end.
+
+     This is the regression test for the change that stopped each chamber from
+     covering its own layer. A band used to be measured straight off the section
+     rect, so band == panel exactly and the opaque panel hid the whole middle of
+     its own rock. bands.js now derives each band from the midpoint of the gap
+     above and below, which restores visible rock and the seam around every
+     chamber.
+
+     Both halves matter and they fail differently:
+       - "taller than the panel" is what puts rock back on screen;
+       - "contiguous" is what stops the unpainted full-width strips between
+         layers, and it is also the invariant layerIndexAt() relies on to pick
+         the current layer from a scroll offset.
+     A band that is taller but leaves a hole still looks broken, and a set of
+     bands that touch but equal their panels has fixed nothing. */
+  {
+    const ls = L.layers;
+    if (ls.length !== 5) fail('expected 5 layers, measured ' + ls.length);
+    for (let i = 0; i < ls.length; i++) {
+      const l = ls[i];
+      if (!(l.height > 0)) fail(l.id + ' band has no height');
+      /* panelTop/panelBottom are what the band is derived FROM, so comparing
+         against them tests the derivation itself rather than a re-measure. */
+      if (!(l.top <= l.panelTop)) {
+        fail(l.id + ' band starts below its own panel: ' + l.top + ' > ' + l.panelTop);
+      }
+      if (!(l.bottom >= l.panelBottom)) {
+        fail(l.id + ' band ends above its own panel: ' + l.bottom + ' < ' + l.panelBottom);
+      }
+      if (l.height <= (l.panelBottom - l.panelTop)) {
+        fail(l.id + ' band is not taller than its panel (' + l.height +
+             ' <= ' + (l.panelBottom - l.panelTop) + ') - the panel covers its own layer');
+      }
+      if (i > 0) {
+        const gap = l.top - ls[i - 1].bottom;
+        if (gap !== 0) {
+          fail(l.id + ' does not meet the band above it (gap ' + gap +
+               'px) - layers must tile with no unpainted strip');
+        }
+        if (!(l.top > ls[i - 1].top)) {
+          fail(l.id + ' band top is not increasing; layerIndexAt() would be ambiguous');
+        }
+      }
+    }
+    /* The last band has to reach the treasure room, or bedrock stops short and
+       the contact room sits on bare canvas. */
+    const lastBand = ls[ls.length - 1];
+    if (lastBand && lastBand.bottom < TREASURE_TOP) {
+      fail('the last band stops at ' + lastBand.bottom +
+           ', above the treasure room at ' + TREASURE_TOP);
+    }
+    /* measure() must REPLACE the layer list, not append to it. It runs on every
+       resize, on load and on fonts.ready, so a missing reset grows the array a
+       little each time and every consumer walks a list several layers too long
+       while reading stale geometry. Caught by measuring twice. */
+    const firstTop = L.layers[0].top;
+    M.main.resize();
+    if (L.layers.length !== ls.length) {
+      fail('measure() appended instead of rebuilding: ' + ls.length + ' layers became ' +
+           L.layers.length + ' after a second resize');
+    }
+    if (L.layers[0].top !== firstTop) {
+      fail('a second measure() moved the first band, so the geometry is unstable');
+    }
+  }
+
+  /* 2e. The row-gap IS the layer headroom, and smoke cannot see it.
+
+     bands.js derives each band from the midpoint of the gap above and below the
+     panel, so if the grid row-gap collapses the bands collapse with it: the
+     seams end up drawn across the top edge of the chambers and the layers go
+     back to being flat washes. No JavaScript assertion can catch that, because
+     the stub has no cascade - the same blind spot mutation 9 documents for the
+     shaft channel, and checked here the same way.
+
+     The threshold is not arbitrary. The seam is a jagged curve +/-13px around
+     the band top (layers.js seamY), so a gap below about 6rem starts drawing
+     that jitter across the panel edge. */
+  if (!/row-gap:clamp\(\s*14rem/.test(flat(layoutCss))) {
+    fail('the desktop row-gap is too small to be layer headroom (expected clamp(14rem, 46vh, 34rem))');
+  }
+  if (!/row-gap:clamp\(\s*9rem/.test(phoneCss)) {
+    fail('the phone row-gap is too small to be layer headroom (expected clamp(9rem, 30vh, 18rem))');
+  }
+
   /* 3. Per viewport: geometry, the two holds, and a full walk of the page. */
 
   for (const [w, h] of VIEWPORTS) {
@@ -607,9 +770,7 @@ async function run() {
   } else if (!A.ok) {
     fail('the pixel-art sheets failed to load, so the drawn fallback is painting');
   }
-  const expectSets = {
-    trees: 'trees', bushes: 'bushes', tufts: 'tufts'
-  };
+  const expectSets = { trees: 'trees' };
   for (const [k, label] of Object.entries(expectSets)) {
     if (!Array.isArray(A[k]) || !A[k].length) {
       fail('no ' + label + ' were sliced from the sheets');
@@ -619,9 +780,11 @@ async function run() {
      matters as much as positive: scaleFor() and blitOn() round a scaled
      sprite to whole pixels, and a fractional slice width makes the sprite
      drift against its own placement by a different amount every frame. */
-  const slices = [...A.trees, ...A.bushes, ...A.tufts, A.turf, A.dirt].filter(Boolean);
-  if (slices.length < 6) {
-    fail('only ' + slices.length + ' slices were produced; expected 6');
+  const slices = [...A.trees].filter(Boolean);
+  if (slices.length !== 2) {
+    fail('expected exactly 2 tree slices, got ' + slices.length +
+         '. The bush, tuft, dirt and grass-cap tiles were removed on purpose ' +
+         '- they repeated visibly and they must NOT come back.');
   }
   slices.forEach((s, i) => {
     for (const dim of ['width', 'height']) {
@@ -631,28 +794,18 @@ async function run() {
       }
     }
   });
-  /* The tile sizes are part of the contract, not an implementation detail:
-     getting either wrong is a visible tiling artefact rather than a crash, so it
-     is pinned here.
-  The two tiles have DIFFERENT sizes on purpose, so they are asserted
-     separately.
-
-       dirt is 64px: it tiles a deep band vertically, so its opposite edges must
-       meet, and mirrored() guarantees they do. A bare 32px cell there would
-       print a visible grid over the rock.
-
-       turf is 32px: the surface band it fills is exactly one cell tall, so
-       nothing below the first row is ever shown. Mirroring it was pure cost and
-       made the visible half worse - it turned the sheet's grass wave into a
-       chevron that repeated down the whole surface. */
-  if (A.dirt && (A.dirt.width !== 64 || A.dirt.height !== 64)) {
-    fail('the dirt tile is ' + A.dirt.width + 'x' + A.dirt.height +
-         '; the seamless tile must be 64x64');
-  }
-  if (A.turf && (A.turf.width !== 32 || A.turf.height !== 32)) {
-    fail('the turf tile is ' + A.turf.width + 'x' + A.turf.height +
-         '; the surface band is one cell tall, so it must be 32x32');
-  }
+  /* The tree sizes are part of the contract, not an implementation detail:
+     getting either wrong is a visible scaling artefact rather than a crash, so
+     it is pinned here. There are no tile sizes left to assert - nothing from a
+     sheet is ever repeated, which is the point of removing them. */
+  A.trees.forEach((t, i) => {
+    const want = i === 0 ? [83, 96] : [62, 72];
+    if (t && (t.width !== want[0] || t.height !== want[1])) {
+      fail('tree slice ' + i + ' is ' +
+           (t ? t.width + 'x' + t.height : '(missing)') +
+           '; expected ' + want[0] + 'x' + want[1]);
+    }
+  });
 
   /* 9. The trees must not move. ------------------------------------------------
      The one regression check in this file that renders the SAME scroll position
@@ -726,6 +879,47 @@ async function run() {
         fail('no tree was placed with the soil line on screen; the props pass ' +
              'placed nothing (propsDrawn=' + R.propsDrawn + ')');
       }
+      /* DENSITY, and this is the check that catches the bare-meadow bug.
+
+         A tree that is placed is not a meadow. The two sheet crops are 83x96
+         and 62x72 while the desktop gutter is 48px wide, so drawing them at
+         scaleFor()'s integer scale (1 or 2) puts one tree PER GUTTER - two on
+         the whole page - and every other assertion in this file still passes:
+         the sprites are valid, in a gutter, standing on the ground, drawn once
+         each, and identical between frames. The only thing that distinguishes
+         "a meadow" from "two lonely trees" is HOW MANY.
+
+         The floor is deliberately loose. It is a regression guard, not a taste
+         check: 8 is well under the ~15 this now places at 1440, and 2 - the
+         broken behaviour - is under it. */
+      if (base.length < 8) {
+        fail('only ' + base.length + ' trees were placed at 1440x900; the ' +
+             'surface is meant to be a meadow, not two lonely trees. A tree ' +
+             'wider than its gutter fits exactly one per gutter, so check the ' +
+             'target width passed to blitOn() (TREE_W) rather than the crown gap');
+      }
+      /* Every tree must FIT the gutter it was planted in. An 83px crop in a
+         48px gutter overhangs the opaque panel it stands beside, which is the
+         same bug wearing a different hat: the tree is drawn, just not where it
+         can be seen. Recorded dw is the drawn width.
+
+         The gutter width is READ from the module rather than hard-coded. A
+         literal 48 here would be a second source of truth that quietly stops
+         being true the moment a breakpoint or a rail width changes - and a test
+         that asserts a stale number is worse than no test, because it looks
+         like it is protecting something. */
+      const gu = M.biomes.gutters(L.layers[0]);
+      const widest = gu.length ? Math.max.apply(null, gu.map((x) => x.w)) : 0;
+      /* The NARROWEST gutter is the one that constrains a tree, and the big
+         outboard strip on a wide screen is not what limits the count. */
+      const narrowest = gu.length ? Math.min.apply(null, gu.map((x) => x.w)) : 0;
+      const over = base.map((s) => Number(s.split(',')[2]))
+                      .filter((w) => w > narrowest + 1);
+      if (over.length) {
+        fail(over.length + ' tree(s) are drawn wider than the narrowest gutter ' +
+             '(' + Math.round(narrowest) + 'px; widest ' + Math.round(widest) +
+             'px) they stand in, so they overhang the panel and are half hidden');
+      }
       for (let f = 1; f < frames.length; f++) {
         if (frames[f].join('|') !== base.join('|')) {
           fail('the trees MOVED between frames at a fixed scroll position: ' +
@@ -738,6 +932,36 @@ async function run() {
       }
     }
   }
+
+  /* 10. The soil and the grass must be CLIPPED TO THE SEAM. -------------------
+     This is the regression test for "the dirt tile is above the green line".
+
+     The seam is a jagged curve, so the fix is only visible as the SHAPE of the
+     path handed to clip(): a flat rect is 4 points, a seam is hundreds. Nothing
+     else in the suite can see this, because every draw call in the broken version
+     was finite and the page still rendered - it just rendered the layers in the
+     wrong order at the boundary, which is invisible to a stub and obvious to a
+     reader.
+
+     Two clips are expected at the surface: the soil (render.js) and the grass
+     (biome-sky.js). Either one alone is the defect - soil alone leaves the turf's
+     own soil rows above the line, grass alone leaves the green line stranded on
+     bare dirt. So both are required, and both have to be jagged. */
+  {
+    clips.length = 0;
+    R.render(0);
+    const jagged = clips.filter((n) => n > 8);
+    if (!clips.length) {
+      fail('no path was clipped this frame, so the surface is being painted as ' +
+           'flat rects: the soil and the grass are both free to cover each other ' +
+           'at the seam');
+    } else if (jagged.length < 2) {
+      fail('only ' + jagged.length + ' of ' + clips.length + ' clip paths were ' +
+           'jagged (more than 8 points); the soil AND the grass must each be ' +
+           'clipped to the seam curve, not to a rectangle');
+    }
+  }
+
 
   console.log('');
   if (failures) {
@@ -752,7 +976,11 @@ async function run() {
   console.log('  stops just before the Bedrock treasure room, and never passes that stop');
   console.log('  no direction reversals; character never sinks; no non-finite coordinates');
   console.log('  pixel-art sheets sliced and tinted: ' + slices.length +
-              ' sprites, 64px seamless dirt, 32px turf');
+              ' sprites (the trees; the grass, tufts and rock are all drawn)');
+  console.log('  soil and grass both clipped to the jagged seam, so neither can' +
+               ' sit above the green line');
+  console.log('  the hoard loads and boots without error (its own behaviour,');
+  console.log('    markup and CSS are asserted by tools/hoard-test.mjs)');
 }
 
 run().catch((e) => {

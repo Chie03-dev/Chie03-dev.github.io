@@ -222,7 +222,7 @@ function drawSurfaceProps() {
     if (ground <= -80 || ground >= viewH + 80) return 0;
     var g = gutters(layers[i]);
     if (!g.length) return 0;
-    return skyProps(g, ground);
+    return skyProps(g, ground, below);
   }
   return 0;
 }

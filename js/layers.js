@@ -12,9 +12,12 @@
    read; deck.js holds the state that changes every frame. Splitting on that
    line is what keeps both files under the 500-line cap.
 
-   Depends on nothing, so the graph stays a chain with no cycles:
+   Depends on bands.js only, so the graph stays a chain with no cycles:
    layers <- deck <- game <- render, with ui and main sitting on top.
    ========================================================================== */
+
+import { bandEdges } from './bands.js';
+import { SPRITE_W, SPRITE_H, FRAME_MS, SPRITES } from './avatar.js';
 
 var canvas = document.getElementById('stage');
 var ctx = canvas.getContext('2d', { alpha: false });
@@ -93,7 +96,12 @@ function syncScroll() {
 }
 
 function measure() {
-  var i, def, el, rect;
+  var i, def, el, rect, panels = [], edges;
+  /* Rebuilt from scratch every time. Without this reset the array GREW by one
+     set of layers per call, and measure() runs on every resize, on load and on
+     fonts.ready - so activeLayerIndex(), drawBands() and the depth rail all
+     walked a list several times too long, painting the same bands repeatedly
+     and reading layer[0] from a geometry that no longer matched the page. */
   layers = [];
   for (i = 0; i < LAYER_DEFS.length; i++) {
     def = LAYER_DEFS[i];
@@ -102,11 +110,15 @@ function measure() {
     /* getBoundingClientRect + scrollY = absolute document position, which is
        correct no matter which ancestor happens to be the offsetParent. */
     rect = el.getBoundingClientRect();
-    layers.push({
+    panels.push({
       id: def.id, name: def.name, rock: def.rock, el: el,
-      top: Math.round(rect.top + (window.scrollY || 0)),
-      height: Math.round(rect.height),
-      /* left and width are the PANEL's horizontal box, and unlike top/height
+      /* The PANEL box, kept under its own names. The band is derived from these
+         in bands.js rather than being the same rectangle, so that every chamber
+         sits INSIDE its layer with rock above and below it rather than covering
+         it end to end. */
+      panelTop: Math.round(rect.top + (window.scrollY || 0)),
+      panelBottom: Math.round(rect.bottom + (window.scrollY || 0)),
+      /* left and width are the PANEL's horizontal box, and unlike top/bottom
          they need no scroll correction - a horizontal scroll does not exist.
          They are here for one reason: each section IS its chamber panel, so
          without them the biome art has no idea how much of each band the panel
@@ -118,7 +130,33 @@ function measure() {
       width: Math.round(rect.width)
     });
   }
-  for (i = 0; i < layers.length; i++) layers[i].bottom = layers[i].top + layers[i].height;
+  /* The last band has to reach the bottom of the treasure room, not the bottom
+     of the last chamber, or the bedrock stops short and leaves bare canvas
+     between the Education panel and the contact room. The plain-resume
+     <details> below it carries its own opaque background, so the bands stop
+     there. Falls back to the document height when the room is not found. */
+  var floorY = (function () {
+    var t = document.querySelector('.treasure');
+    if (t) {
+      var r = t.getBoundingClientRect();
+      if (r && r.height >= 0) return Math.round(r.bottom + (window.scrollY || 0));
+    }
+    return document.documentElement.scrollHeight;
+  })();
+  edges = bandEdges(panels, floorY);
+  for (i = 0; i < panels.length; i++) {
+    layers.push({
+      id: panels[i].id, name: panels[i].name, rock: panels[i].rock,
+      el: panels[i].el, left: panels[i].left, width: panels[i].width,
+      top: edges[i].top, height: edges[i].height, bottom: edges[i].bottom,
+      /* The panel box is kept on the layer as well as being what the band was
+         derived from. Two reasons: the smoke test asserts the band really does
+         enclose its panel (that is the whole regression), and it means anything
+         that needs to reason about the panel - as opposed to the rock - has the
+         numbers to hand instead of re-measuring the DOM. */
+      panelTop: panels[i].panelTop, panelBottom: panels[i].panelBottom
+    });
+  }
   /* The travel window. `data-layer` is already on every section for the band
      art, so the same attribute names the rooms the car travels between. The
      treasure room is also data-layer="bedrock" - it is a contact room, not a
@@ -261,7 +299,7 @@ var seamNoise = makeNoise(9001, 40);    /* jagged layer boundaries */
    trees stood on was not the grass that was drawn - which is exactly the
    "surface floats above the soil" bug. One function, one curve. */
 function seamY(layer, x) {
-  return layer.top - scrollY + (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 26;
+  return layer.top - scrollY + (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 10;
 }
 /* === 4. Baked textures ===================================================
    Each layer gets one small tile of pixel-block speckle, baked once at boot
@@ -337,83 +375,10 @@ function buildTextures() {
      floor itself: the car hangs in the shaft, so there is no rock mass beneath
      it to texture. Dropping it also removes a per-boot bake that nothing drew. */
 }
-/* === 5. The player sprite =================================================
-   A 16x16 string grid baked once into an offscreen canvas, then blitted.
-   '.' is transparent. Each character maps to one palette colour. */
-var PALETTE = {
-  '.': null,        /* transparent      */
-  'o': '#1b1a22',   /* outline          */
-  'k': '#ffd24a',   /* helmet           */
-  'l': '#fff6cf',   /* lamp glow        */
-  's': '#e8b98a',   /* skin             */
-  'e': '#2a2520',   /* eye              */
-  'b': '#3a6ea5',   /* shirt            */
-  'd': '#2b4a70',   /* shirt shadow     */
-  'p': '#2b2b3a',   /* trousers         */
-  'c': '#8a5a3c'    /* boots            */
-};
-
-/* Idle: standing, eyes open. */
-var IDLE_A = [
-  '................',
-  '......oooo......',
-  '....ookkkkoo....',
-  '...okkklllkko...',
-  '...okkkkkkkko...',
-  '....ssssssss....',
-  '....ssssesss....',
-  '......oooo......',
-  '...oobbbbbboo...',
-  '...obbsbbsbbo...',
-  '...obbbbbbbbo...',
-  '...obbbbbbbbo...',
-  '...obbbbddbbo...',
-  '....oopppooo....',
-  '....occoocco....',
-  '................'
-];
-/* Idle blink: same pose, eyes shut. */
-var IDLE_B = IDLE_A.slice();
-IDLE_B[6] = '....sssoosss....';
-
-/* Walk A: legs split, one arm forward. */
-var WALK_A = IDLE_A.slice();
-WALK_A[9]  = '...obbsbbbbso...';
-WALK_A[13] = '..oopppppooo....';
-WALK_A[14] = '..occooccooo....';
-/* Walk B: legs swapped, opposite arm forward. */
-var WALK_B = IDLE_A.slice();
-WALK_B[9]  = '...osbbbbbbbo...';
-WALK_B[13] = '....ooppppppoo..';
-WALK_B[14] = '....occooccooo..';
-
-var SCALE = 4;                        /* 16px of art -> 64px on screen */
-var SPRITE_W = 16 * SCALE;
-var SPRITE_H = 16 * SCALE;
-var FRAME_MS = 120;                   /* sprite frame duration */
-
-function bake(rows) {
-  var c = document.createElement('canvas');
-  c.width = 16 * SCALE;
-  c.height = 16 * SCALE;
-  var g = c.getContext('2d');
-  g.imageSmoothingEnabled = false;
-  for (var y = 0; y < rows.length; y++) {
-    for (var x = 0; x < 16; x++) {
-      var col = PALETTE[rows[y].charAt(x)];
-      if (!col) continue;
-      g.fillStyle = col;
-      g.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
-    }
-  }
-  return c;
-}
-
-/* Baked once at boot, so the per-frame cost is a single drawImage. */
-var SPRITES = {
-  idle: [bake(IDLE_A), bake(IDLE_B)],
-  walk: [bake(WALK_A), bake(WALK_B)]
-};
+/* The player sprite - the 16x16 grid, its palette and the bake - lives in
+   avatar.js now, and is re-exported from the bottom of this file so that
+   game.js, render.js and the tests keep importing it from here. It is not
+   world geometry and never needed to be in this module. */
 /* The shaft, as measured from the real grid column (see measureShaft).
    The player is walled into it, so rock always frames the sprite. */
 function shaftLeft()  { return Math.round(shaftX); }
