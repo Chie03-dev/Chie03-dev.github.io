@@ -20,7 +20,7 @@ import {
 } from './layers.js';
 import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
-import { drawBiomes } from './biomes.js';
+import { drawBiomes, drawSurfaceProps } from './biomes.js';
 
 /* Tiny helper: draw one snapped, axis-aligned pixel rect. Snapping keeps
    edges crisp on HiDPI, where a fractional fill would blur a whole pixel. */
@@ -347,6 +347,9 @@ function drawForeground() {
    skipped - so the whole module reported perfectly healthy while drawing
    nothing at all. */
 var biomesDrawn = 0;
+/* Trees placed by the props pass, tracked for the same reason: a pass that
+   silently stops running must be visible to the smoke check, not invisible. */
+var propsDrawn = 0;
 
 function render(now) {
   biomesDrawn = 0;
@@ -354,6 +357,12 @@ function render(now) {
   ctx.fillRect(0, 0, viewW, viewH);
   drawFar();
   drawBands(now);
+  /* Trees and bushes, AFTER the bands and BEFORE the shaft. The bands paint
+     the soil over the sky band, so anything standing on the soil has to be
+     drawn in this gap or the dirt buries the bottom of every trunk. Before the
+     shaft because the shaft walls and their rails are nearer the reader than
+     anything on the surface. */
+  propsDrawn = drawSurfaceProps();
   drawShaft();
   drawHoist();     /* headgear, cables, counterweight and the car itself */
   drawPlayer(now);
@@ -374,5 +383,6 @@ export {
   seedMotes,
   drawMotes,
   render,
-  biomesDrawn
+  biomesDrawn,
+  propsDrawn
 };

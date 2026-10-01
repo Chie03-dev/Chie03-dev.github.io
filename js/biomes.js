@@ -15,7 +15,7 @@
    be seen.
    ========================================================================== */
 
-import { ctx, viewW, viewH, shaftLeft, shaftRight } from './layers.js';
+import { ctx, viewW, viewH, shaftLeft, shaftRight, layers, scrollY } from './layers.js';
 
 /* === Where a biome is actually visible ===================================
    This is the fix for the panels sitting on top of their own layer.
@@ -89,7 +89,7 @@ function gutters(layer) {
 /* The sprite-placement helpers moved to place.js and the sky painter moved to
    biome-sky.js. Both are re-exported below, so render.js and the pixel test
    keep importing from this one module and the refactor stays invisible. */
-import { skyBiome, sunSpot } from './biome-sky.js';
+import { skyBiome, skyProps, sunSpot } from './biome-sky.js';
 import { scaleFor, blit, blitOn } from './place.js';
 
 
@@ -192,7 +192,42 @@ function drawBiomes(layer, i, bandTop, bandBottom, now) {
   return 1;
 }
 
-/* drawBiomes and gutters are this module's own. The three are re-exported purely
+/* === The props pass, run AFTER every band has been painted ===============
+   The z-order fix, and the reason the trees live in their own pass.
+
+   drawBands() paints the sky band first and the dirt band second, and the dirt
+   band's gradient covers everything below its top edge. The trees used to be
+   drawn from inside the sky biome, so the soil was painted straight over the
+   bottom of every trunk: the crowns floated above the grass line and the
+   trunks were sliced off by the band edge. No amount of tuning the placement
+   inside the sky painter fixes that - the painter runs too early in the frame,
+   and the only thing that draws after the bands is the code that calls them.
+
+   So the trees, bushes and their ground cover are drawn here instead, once,
+   after the loop that paints the bands. Same geometry, same seed, strictly
+   later in the frame. The turf and the grass tuft row stay in the sky biome:
+   they are continuous terrain that belongs UNDER the props, which is exactly
+   the order the user sees now.
+
+   Returns the number of trees placed, so the smoke check can prove this pass
+   actually ran rather than silently placing nothing. */
+function drawSurfaceProps() {
+  for (var i = 0; i < layers.length; i++) {
+    if (layers[i].rock !== 'sky') continue;
+    var below = layers[i + 1];
+    if (!below) return 0;
+    var ground = below.top - scrollY;
+    /* Same gate the sky painter uses: the props stand ON the soil line, so
+       there is nothing to stand on while it is off screen. */
+    if (ground <= -80 || ground >= viewH + 80) return 0;
+    var g = gutters(layers[i]);
+    if (!g.length) return 0;
+    return skyProps(g, ground);
+  }
+  return 0;
+}
+
+/* drawBiomes and gutters are this module's own. The rest are re-exported purely
    so that callers - render.js and tools/pixel-test.mjs - do not have to know
    which file a helper happens to live in after the split. */
-export { drawBiomes, gutters, sunSpot, scaleFor, blit, blitOn };
+export { drawBiomes, drawSurfaceProps, gutters, sunSpot, scaleFor, blit, blitOn };

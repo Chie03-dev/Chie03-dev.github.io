@@ -52,6 +52,11 @@ const load = (rel) => import(pathToFileURL(join(ROOT, rel)).href);
 
 const noop = () => {};
 const nonFinite = [];
+/* Every blit the frame made, as "src:dx:dy:dw:dh". Recorded so a check can compare
+   one frame against another and prove that a given prop stayed put - see the
+   tree-stability check below, which exists because the meadow used to reshuffle
+   itself several times a second and nothing in the suite could see it. */
+const blits = [];
 
 function finite(v, where) {
   if (typeof v !== 'number' || !isFinite(v)) nonFinite.push(where + '=' + String(v));
@@ -110,6 +115,10 @@ function makeCtx() {
       if (!src || !(src.width > 0) || !(src.height > 0)) {
         throw new Error('InvalidStateError: drawImage source has no pixels');
       }
+      /* Record the resolved destination. Keyed by source identity so a caller can
+         ask "did THIS sprite move between two frames", which is a far sharper
+         question than comparing every blit in the frame. */
+      blits.push({ src: src, dx: dx, dy: dy, dw: dw, dh: dh });
     },
     setTransform: noop, ellipse: noop, quadraticCurveTo: noop, bezierCurveTo: noop,
     createPattern: () => ({}),
@@ -643,6 +652,91 @@ async function run() {
   if (A.turf && (A.turf.width !== 32 || A.turf.height !== 32)) {
     fail('the turf tile is ' + A.turf.width + 'x' + A.turf.height +
          '; the surface band is one cell tall, so it must be 32x32');
+  }
+
+  /* 9. The trees must not move. ------------------------------------------------
+     The one regression check in this file that renders the SAME scroll position
+     twice at different frame times and insists the props land in the same place.
+
+     It exists because of a bug that every other check here was blind to. The sky
+     biome drew its clouds and its trees from a single seeded rng, and the cloud
+     loop's off-screen `continue` is against a clock-derived x, so a different
+     number of draws were pulled from the stream on each frame. The trees read
+     the stream after the clouds, so the whole meadow reshuffled itself a few
+     times a second while the clouds drifted past. Nothing failed: every sprite
+     was valid, in a gutter, standing on the ground, drawn exactly once. It just
+     was not the same meadow twice.
+
+     A "no exceptions, no non-finite numbers, biomesDrawn > 0" suite cannot see
+     that, which is why this renders twice and compares. The two frames differ
+     ONLY in `now`, which is exactly the variable the bug travelled through. */
+  {
+    const props = [...(S.SET.conifers || []), ...(S.SET.canopies || [])];
+    if (!props.length) {
+      fail('no tree sprites exist, so tree stability cannot be checked');
+    } else {
+      const treeSet = new Set(props);
+      /* Settle at a scroll position where the surface is on screen - the top of
+         the page - so the props pass actually has somewhere to put a tree. This
+         mirrors the per-viewport settle() above, which is scoped to that loop.
+
+         The size is set explicitly because the viewport loop has just left the
+         stub at its LAST entry, 300x200, where the panel and the shaft leave
+         only slivers of gutter and no tree fits anywhere. A desktop size is
+         checked here because that is where the meadow is widest. */
+      globalThis.document.documentElement.clientWidth = 1440;
+      globalThis.document.documentElement.clientHeight = 900;
+      globalThis.window.innerHeight = 900;
+      M.main.resize();
+      /* Scroll so the SOIL LINE is on screen, not to a hard-coded offset. The
+         gate in drawSurfaceProps() is `ground > -80 && ground < viewH + 80`,
+         and at scroll 0 the stub's dirt band starts at y=1400 - 500px below a
+         900px viewport - so the props pass correctly places nothing there and a
+         fixed scroll of 0 would have failed for the right reason and looked like
+         the wrong one. Put the line 60% down the screen, which is where the
+         meadow actually sits in the real page. */
+      const wantGround = Math.round(900 * 0.6);
+      globalThis.window.scrollY = Math.max(0, Math.min(L.maxScroll, L.layers[1].top - wantGround));
+      L.syncScroll();
+      for (let i = 0; i < 250; i++) D.advanceCar(1 / 60);
+      G.movePlayer(1 / 60);
+
+      const snap = (now) => {
+        blits.length = 0;
+        R.render(now);
+        /* Only the tree blits, in draw order, as "x,y,w,h". The SIZE is part of
+           the signature on purpose: it is how a tree that got rescaled between
+           frames is caught, and it costs nothing to include.
+
+           Sizes legitimately differ WITHIN a frame - the two sheet crops are
+           62x72 and 83x96, and scaleFor() may double either of them in a wide
+           gutter - so an earlier version of this check that compared every
+           tree's size against every other tree's size failed on correct
+           behaviour. What must hold is that the same source keeps the same
+           destination, and comparing whole frames captures exactly that. */
+        return blits.filter((b) => treeSet.has(b.src))
+                    .map((b) => [b.dx, b.dy, b.dw, b.dh].join(','));
+      };
+
+      /* Three times, spread over a window long enough for a cloud to drift in
+         and back out of a gutter. The bug reproduced well inside this. */
+      const frames = [0, 700, 1900, 4300].map(snap);
+      const base = frames[0];
+      if (!base.length) {
+        fail('no tree was placed with the soil line on screen; the props pass ' +
+             'placed nothing (propsDrawn=' + R.propsDrawn + ')');
+      }
+      for (let f = 1; f < frames.length; f++) {
+        if (frames[f].join('|') !== base.join('|')) {
+          fail('the trees MOVED between frames at a fixed scroll position: ' +
+               base.length + ' placed at t=0, frame ' + f + ' placed ' +
+               frames[f].length + ' in different places or sizes. The props ' +
+               'layout must be a pure function of the gutter geometry, not of ' +
+               'the frame clock.');
+          break;
+        }
+      }
+    }
   }
 
   console.log('');

@@ -302,62 +302,75 @@ function skySurface(g, bandTop, ground, r, clock, surfaceVisible) {
     }
   }
 
-  /* --- Props, in the gutters, standing ON the horizon -------------------
-     blitOn() anchors a sprite's feet to the ground line, so every tree meets
-     the grass instead of hovering above it or sinking into the soil.
+}
 
-     Skipped entirely when the soil line is off screen. The old inner test was
-     `ground > bandTop - 60 && ground < viewH + 60`, which re-checked the same
-     thing on every tree in every cell; hoisting it out means the rng is consumed
-     identically whether or not the ground is visible, so the meadow is laid out
-     the same way at every scroll position and does not reshuffle as it moves. */
-  if (!surfaceVisible) return;
+/* === The props: trees and bushes, in a pass of their own =================
+   Split out of the sky biome so render.js can draw them AFTER every band is
+   painted, which is the only way the z-order comes out right - see the note on
+   drawSurfaceProps() in biomes.js.
+
+   Its own rng, deliberately. The sky biome shares one seeded stream, and the
+   cloud loop above CONSUMES A DIFFERENT NUMBER OF DRAWS ON EVERY FRAME: the
+   `continue` at the off-screen test is against cxx, which is a function of the
+   clock, so a cloud drifting out of the gutter skips the density draw that
+   follows it. Every one of those skips shifts the stream the props then read,
+   and the meadow visibly reshuffled itself a few times a second while the
+   clouds drifted past. A separate stream makes the layout a pure function of
+   the gutter geometry, so the trees are where they were put and stay there. */
+var PROP_SEED = 0x5EA51DE;
+/* How far a trunk is pushed BELOW the soil line. The trees are drawn after the
+   soil rather than before it, so this is what plants them in the ground
+   instead of balancing them on top of it. */
+var TREE_SINK = 4;
+
+function skyProps(g, ground) {
+  var r = mulberry32(PROP_SEED);
+  var n, gu, walk, spr, wide, placed = 0;
   for (n = 0; n < g.length; n++) {
     gu = g[n];
     if (gu.w < 12) continue;
 
     /* Walk the gutter, dropping trees with a guaranteed gap between crowns so
        the meadow stays open instead of becoming a wall of foliage. The step is
-       sized from the sprite below, not fixed. */
-    var walk = gu.x - 6;
+       sized from the sprite below, not fixed: the step used to be a literal
+       20-58px, which was sized for the drawn conifers (17-30px wide). The sheet
+       trees are 62 and 83px wide, so that step made every crown overlap its
+       neighbour and the meadow read as one hedge. Scaling by the sprite's own
+       drawn width keeps the gap the same whichever crop is placed. */
+    walk = gu.x - 6;
     while (walk < gu.x + gu.w) {
-      var spr = r() < 0.6
+      spr = r() < 0.6
         ? SET.conifers[(r() * SET.conifers.length) | 0]
         : SET.canopies[(r() * SET.canopies.length) | 0];
-      blitOn(spr, walk, ground, gu.w);
+      wide = spr.width * scaleFor(spr, gu.w);
 
-      /* Stride with the SPRITE, not a fixed number. The step used to be a
-         literal 20-58px, which was sized for the drawn conifers (17-30px wide).
-         The sheet trees are 62 and 83px wide, so that step made every crown
-         overlap its neighbour and the meadow read as one hedge instead of a
-         stand of trees. Scaling by the sprite's own drawn width keeps the gap
-         the same regardless of which crop is placed. */
-      var wide = spr.width * scaleFor(spr, gu.w);
-      walk += wide + 8 + ((r() * 26) | 0) + (r() < 0.22 ? 40 : 0);
-
-      /* Bush from bush.png, set just off the trunk. Drawn AFTER the tree so it
-         overlaps the base of the trunk, which is what stops the tree looking
-         pasted onto the grass rather than growing out of it. */
-      if (SET.bushes && r() < 0.55) {
-        blitOn(SET.bushes[(r() * SET.bushes.length) | 0],
-               walk - wide + ((r() * (wide - 6)) | 0), ground + 1, gu.w);
-      }
-
-      /* Ground cover and a flower at the trunk, so nothing looks pasted on. */
-      if (r() < 0.7) {
+      /* Ground cover and a flower, drawn FIRST so the tree and the bush paint
+         over them. Ordered this way round they read as growth at the foot of
+         the trunk rather than tufts floating on top of the canopy. */
+      if (r() < 0.7 && SET.tufts.length) {
         blitOn(SET.tufts[(r() * SET.tufts.length) | 0],
-               walk - wide + ((r() * wide) | 0), ground, gu.w);
+               walk + ((r() * wide) | 0), ground + 2, gu.w);
       }
-      if (r() < 0.6) {
+      if (r() < 0.6 && SET.blooms.length) {
         var bed = SET.blooms[(r() * SET.blooms.length) | 0];
-        blitOn(bed[(r() * bed.length) | 0], walk - wide + ((r() * 20) | 0), ground, gu.w);
+        blitOn(bed[(r() * bed.length) | 0], walk + ((r() * wide) | 0), ground + 2, gu.w);
       }
-      /* NB: the walk is advanced ABOVE, immediately after the tree is placed,
-         and the ground cover is positioned back off the new `walk` by `wide`.
-         Advancing it here as well used to double-step the cursor and leave half
-         the gutter bare; there is exactly one advance per tree. */
+
+      blitOn(spr, walk, ground + TREE_SINK, gu.w);
+      placed++;
+
+      /* Bush from bush.png, over the base of the trunk. Drawn AFTER the tree so
+         it overlaps it, which is what stops the tree looking pasted onto the
+         grass rather than growing out of it. */
+      if (SET.bushes && SET.bushes.length && r() < 0.55) {
+        blitOn(SET.bushes[(r() * SET.bushes.length) | 0],
+               walk + ((r() * wide) | 0), ground + 2, gu.w);
+      }
+
+      walk += wide + 8 + ((r() * 26) | 0) + (r() < 0.22 ? 40 : 0);
     }
   }
+  return placed;
 }
 
-export { skyBiome, sunSpot };
+export { skyBiome, skyProps, sunSpot };

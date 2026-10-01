@@ -111,6 +111,22 @@ Mutate '20. import dropped but still used (black canvas)' 'js\render.js' 'seamY,
 # ran clean and I nearly read that as the pixel test being weak.
 MutatePixel '21. broadleaf crown sheared flat across the top' 'js\sprites.js' 'var k = t <= shoulder ? (shoulder - t) / shoulder : (t - shoulder) / (1 - shoulder);' 'var k = t;'
 MutatePixel '22. sun and clouds frozen (scroll-keyed, not time-keyed)' 'js\biome-sky.js' 'var clock = reduced ? 0 : (isFinite(now) ? now / 1000 : 0);' 'var clock = 0;'
+# 23 is the meadow that reshuffled itself several times a second, reported by the
+# user as "sometimes the trees move". The whole sky biome used to draw its clouds
+# and its trees from ONE seeded stream, and the cloud loop's off-screen
+# `continue` is tested against a clock-derived x - so a cloud drifting out of a
+# gutter skipped the density draw that follows it, the stream advanced by a
+# different amount each frame, and the trees read it downstream. Every sprite
+# stayed valid, in a gutter, standing on the ground. Nothing could see it but a
+# check that renders twice and compares.
+# The fix was a dedicated stream for the props, so the mutation makes that stream
+# advance once per call - the same symptom as the original bug (a different
+# layout per frame) without needing a clock threaded through three files, which
+# a single-file replace cannot do. `globalThis` is used for the counter so the
+# replacement stays one self-contained line and needs no declaration.
+# Note the smoke test CAN see this one - it is not a pixel-only bug, it is a
+# determinism bug - which is why it is a plain Mutate and not a MutatePixel.
+Mutate '23. props stream re-contaminated per frame' 'js\biome-sky.js' 'var r = mulberry32(PROP_SEED);' 'var r = mulberry32(PROP_SEED + ((((globalThis.__propFrame = (globalThis.__propFrame || 0) + 1) * 7) | 0)));'
 Write-Output ''
 Write-Output 'restored - confirming the tree is clean again:'
 node tools\smoke.mjs 2>&1 | Select-Object -Last 1
