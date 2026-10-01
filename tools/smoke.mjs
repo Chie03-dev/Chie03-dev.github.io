@@ -312,10 +312,14 @@ async function run() {
 
         So each set is asserted non-empty, and the flower beds are asserted to
         have all four colours, because "vibrant flowers on the surface layer" is
-        a stated requirement and not a stylistic preference. */
-  const SETS = ['conifers', 'canopies', 'tufts', 'blooms', 'soil', 'roots', 'ore',
-                'blocks', 'moss', 'crystals', 'spikesDown', 'spikesUp', 'strata',
-                'nuggets', 'shelves'];
+        a stated requirement and not a stylistic preference.
+
+        The rock decoration sets (soil, roots, ore, blocks, moss, crystals,
+        spikesDown, spikesUp, strata, nuggets, shelves) were removed along with
+        the decorations themselves. The rock bands are now painted geometrically
+        from their band geometry in render.js, so there is no sprite set left to
+        check for them. Only the surface foliage is baked. */
+  const SETS = ['conifers', 'canopies', 'tufts', 'blooms'];
   for (const k of SETS) {
     if (!Array.isArray(S.SET[k]) || !S.SET[k].length) {
       fail('the sprite set ' + k + ' is empty, so that biome silently draws nothing');

@@ -90,7 +90,9 @@ Mutate '13. panel geometry not measured' 'js\layers.js' 'left: Math.round(rect.l
 Mutate '14. no grass tufts on the surface' 'js\sprites.js' "SET.tufts = [bakeTuft(9, 6, PAL.leaf, r), bakeTuft(7, 4, PAL.leaf, r)];" "SET.tufts = [];"
 Mutate '15. flowers reduced to three colours' 'js\sprites.js' "  { petal: '#5ee0ff', petalDim: '#1f92c4', core: '#eafcff' },  /* cyan    */" ''
 Mutate '16. no trees on the surface layer' 'js\sprites.js' "SET.canopies = [bakeCanopy(21, 19, PAL.leaf, r), bakeCanopy(26, 23, PAL.leaf, r)];" "SET.canopies = [];"
-Mutate '17. no crystal in the caves' 'js\sprites.js' "SET.crystals = [bakeShard(15, PAL.ice, r, false), bakeShard(21, PAL.ice, r, false)];" "SET.crystals = [];"
+# The old #17 ("no crystal in the caves") was removed with the rock
+# decorations it targeted - SET.crystals no longer exists, so the mutation had
+# nothing to patch. Numbering below is left as-is to keep the diff readable.
 Mutate '18. baker called without its height' 'js\sprites.js' 'bakeCanopy(21, 19, PAL.leaf, r)' 'bakeCanopy(21, PAL.leaf, r)'
 Mutate '19. blit a sprite with a zero destination' 'js\place.js' 'return Math.max(1, Math.min(2, Math.floor(room / spr.width) || 1));' 'return 0;'
 # seamNoise was folded into seamY; mulberry32 is the import render.js still

@@ -160,97 +160,10 @@ function bakeTuft(w, h, pal, rnd) {
   return s.c;
 }
 
-/* An angular mineral shape: crystals, stalactites, stalagmites, ice. `down`
-   flips which end it points at, so one function covers a cave ceiling and a
-   cave floor. */
-function bakeShard(h, pal, rnd, down) {
-  var w = Math.max(5, Math.round(h * 0.42)) | 1;
-  var s = surface(w, h), g = s.g;
-  for (var y = 0; y < h; y++) {
-    var t = y / Math.max(1, h - 1);
-    var half = Math.round(0.5 + t * ((w - 1) / 2));
-    for (var x = (w - 1) / 2 - half; x <= (w - 1) / 2 + half; x++) {
-      if (x < 0 || x > w - 1) continue;
-      var col = x < (w - 1) / 2 ? pal.lit : (x > (w - 1) / 2 - 1 ? pal.shade :
-                (rnd() < 0.10 ? pal.core : pal.mid));
-      px(g, x, down ? y : h - 1 - y, 1, 1, col);
-    }
-  }
-  return s.c;
-}
-
-/* A rounded lump: pebbles, ore, nuggets, clods. `banded` adds a horizontal
-   seam so it reads as mineral rather than as a pebble. */
-function bakeChunk(w, h, pal, rnd, banded) {
-  var s = surface(w, h), g = s.g;
-  for (var y = 0; y < h; y++) {
-    var t = y / Math.max(1, h - 1);
-    var half = Math.round((w / 2) * Math.sqrt(Math.max(0, 1 - Math.pow(t * 2 - 1, 2))));
-    for (var x = (w - 1) / 2 - half; x <= (w - 1) / 2 + half; x++) {
-      if (x < 0 || x > w - 1) continue;
-      var col = x < (w - 1) / 2 - half + 1 ? pal.lit : pal.mid;
-      if (banded && y === Math.floor(h * 0.55)) col = pal.core;
-      if (rnd() < 0.10) col = pal.shade;
-      px(g, x, y, 1, 1, col);
-    }
-  }
-  return s.c;
-}
-
-/* A squared-off block with a mortar joint: the masonry of the vault, and the
-   strata of the bedrock. */
-function bakeSlab(w, h, pal, rnd) {
-  var s = surface(w, h), g = s.g;
-  px(g, 0, 0, w, h, pal.mid);
-  px(g, 0, 0, w, 1, pal.lit);
-  px(g, 0, h - 1, w, 1, pal.shade);
-  px(g, 0, Math.floor(h / 2), w, 1, pal.shade);       /* the mortar course */
-  px(g, 1 + Math.floor(w / 2), 0, 1, Math.floor(h / 2), pal.shade);
-  px(g, Math.floor(w / 4), Math.floor(h / 2), 1, h - Math.floor(h / 2), pal.shade);
-  for (var i = 0; i < 3; i++) {
-    px(g, Math.floor(rnd() * w), 1 + Math.floor(rnd() * (h - 2)), 1, 1, pal.core);
-  }
-  return s.c;
-}
-
-/* A row of book spines. The bedrock layer is the ancient library, and this is
-   the one motif that says so without a word of copy. */
-function bakeShelf(w, h, pal, rnd) {
-  var s = surface(w, h), g = s.g;
-  px(g, 0, 0, w, h, pal.mid);
-  px(g, 0, 0, w, 1, pal.lit);
-  px(g, 0, h - 2, w, 2, pal.shade);              /* the plank it stands on */
-  var x = 1;
-  var spines = ['#8c5a3c', '#6b7f4a', '#8a4a52', '#4a6b8c', '#7a6a3c', '#5a4a7a'];
-  while (x < w - 2) {
-    var bw = 1 + Math.floor(rnd() * 3);
-    if (x + bw > w - 2) break;
-    var bh = h - 4 - Math.floor(rnd() * 2);
-    px(g, x, h - 2 - bh, bw, bh, spines[Math.floor(rnd() * spines.length)]);
-    px(g, x, h - 2 - bh, bw, 1, pal.core);       /* the gilt band on top */
-    x += bw + 1;
-  }
-  return s.c;
-}
-
-/* A hanging root, for the dirt layer: thinner than a shard, and it grows
-   downward out of a soil line rather than out of a wall. It is what makes the
-   dirt band read as the layer directly under the grass, and it is the reason
-   the surface and the mine feel like one continuous cut rather than two
-   unrelated bands. */
-function bakeRoot(h, pal, rnd) {
-  var w = Math.max(5, Math.round(h * 0.5)) | 1;
-  var s = surface(w, h), g = s.g;
-  var cx = (w - 1) / 2;
-  for (var y = 0; y < h; y++) {
-    /* Wander sideways as it descends, so a row of them is not a fringe. */
-    cx += (rnd() - 0.5) * 0.9;
-    cx = Math.max(1, Math.min(w - 2, cx));
-    px(g, cx, y, 1, 1, y % 3 === 0 ? pal.lit : pal.mid);
-    if (rnd() < 0.16) px(g, cx + (rnd() < 0.5 ? -1 : 1), y, 1, 2, pal.shade);
-  }
-  return s.c;
-}
+/* The angular mineral, rounded lump, masonry slab, book shelf and hanging root
+   bakers lived here and have been removed along with the rock decorations they
+   served. Only the surface foliage bakers remain: bakeConifer, bakeCanopy,
+   bakeTuft and bakeBloom. */
 
 /* === The sprite set =====================================================
    Baked once, at module load, exactly like the player sprite in layers.js.
@@ -264,16 +177,10 @@ var PAL = {
     shade: '#1f3d1c', mid: '#3f7a3a', lit: '#6cb85a', core: '#8fd06a',
     trunk: '#3a2a1c', trunkLit: '#5c4128', stem: '#2f6b2c'
   },
-  soil: { lit: '#8a5a3c', mid: '#5c3a26', shade: '#3a2318', core: '#a8703f' },
-  ore:  { lit: '#ffd98a', mid: '#e0a93c', shade: '#8a5f18', core: '#fff3d0' },
-  /* Vault masonry: cold grey stone with a lit top arris. */
-  rock: { lit: '#7d8794', mid: '#5b6470', shade: '#333b45', core: '#9aa5b2' },
-  moss: { lit: '#5c8a3a', mid: '#3d6b28', shade: '#26401a', core: '#7fb04a' },
-  /* Cave crystal: the one place the palette goes cold and bright. */
-  ice:  { lit: '#bfe6f2', mid: '#6fa8bf', shade: '#2f5f75', core: '#eaf9ff' },
-  /* Bedrock: near-black with an amber vein, so the treasure room reads as
-     the deepest and warmest rock rather than as more cave. */
-  deep: { lit: '#4a5460', mid: '#2b323b', shade: '#12161b', core: '#ffd24a' }
+  /* Only the surface palette is left. The soil, ore, rock, moss, ice and deep
+     palettes existed solely for the rock decorations and went with them; the
+     rock bands now take their colour from the ROCK table in layers.js, which
+     paints the gradients directly. */
 };
 
 /* Flowers. Four beds, deliberately the loudest colours on the page: this is
@@ -306,17 +213,12 @@ function bakeSet() {
                 petal: petals.petal, petalDim: petals.petalDim, core: petals.core };
     return [bakeBloom(6, pal), bakeBloom(9, pal), bakeBloom(4, pal)];
   });
-  SET.soil = [bakeChunk(9, 6, PAL.soil, r, false), bakeChunk(6, 4, PAL.soil, r, false)];
-  SET.roots = [bakeRoot(16, PAL.soil, r), bakeRoot(24, PAL.soil, r)];
-  SET.ore = [bakeChunk(11, 7, PAL.ore, r, true), bakeChunk(8, 5, PAL.ore, r, true)];
-  SET.blocks = [bakeSlab(18, 10, PAL.rock, r), bakeSlab(14, 9, PAL.rock, r)];
-  SET.moss = [bakeChunk(10, 5, PAL.moss, r, false)];
-  SET.crystals = [bakeShard(15, PAL.ice, r, false), bakeShard(21, PAL.ice, r, false)];
-  SET.spikesDown = [bakeShard(14, PAL.rock, r, true), bakeShard(19, PAL.rock, r, true)];
-  SET.spikesUp = [bakeShard(11, PAL.rock, r, false), bakeShard(15, PAL.rock, r, false)];
-  SET.strata = [bakeSlab(20, 8, PAL.deep, r), bakeSlab(15, 7, PAL.deep, r)];
-  SET.nuggets = [bakeChunk(9, 7, PAL.deep, r, true)];
-  SET.shelves = [bakeShelf(20, 12, PAL.deep, r), bakeShelf(15, 11, PAL.deep, r)];
+  /* The rock decorations - soil, roots, ore, masonry, moss, crystals, spikes,
+     strata, nuggets and book shelves - were baked here and have been removed.
+     Only the surface foliage and the player/hoist sprites remain; the rock
+     bands are painted from their band geometry in render.js, which needs no
+     sprites at all. Removing the bakes also removed the only callers of
+     bakeChunk, bakeRoot, bakeSlab, bakeShard and bakeShelf. */
 }
 bakeSet();
 

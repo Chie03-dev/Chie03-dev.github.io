@@ -15,10 +15,7 @@
    be seen.
    ========================================================================== */
 
-import {
-  ctx, viewW, viewH, scrollY, shaftLeft, shaftRight, mulberry32
-} from './layers.js';
-import { SET, px } from './sprites.js';
+import { ctx, viewW, viewH, shaftLeft, shaftRight } from './layers.js';
 
 /* === Where a biome is actually visible ===================================
    This is the fix for the panels sitting on top of their own layer.
@@ -98,129 +95,44 @@ import { scaleFor, blit, blitOn } from './place.js';
 
 /* === The five biomes ====================================================
    Each painter receives the band in SCREEN space plus the gutters, and places
-   its own shapes. Placement is driven by a world-space cell index, so a sprite
-   is nailed to a spot in the document and does not swim or flicker as the
-   reader scrolls - the same rule the old motifs used, kept because it works. */
+   its own shapes. Only the sky has a painter left; the rock bands are painted
+   geometrically in render.js and have nothing to place. See bareBiome below.
 
-var CELL = 74;   /* vertical rhythm of the placement grid, in document px */
-
-/* Walk the cells that intersect this band and hand each one to `place`,
-   along with a seeded rng. Scoped per biome so two biomes sharing a cell
-   boundary cannot place on top of each other. */
-function eachCell(bandTop, bandBottom, i, place) {
-  var worldTop = bandTop + scrollY;                 /* document Y of the band */
-  /* bandBottom - bandTop is the band HEIGHT in screen space, and scrollY has
-     already been added once into worldTop. Adding it a second time here
-     inflated `last` by scrollY/CELL - about 95 extra cells per band per frame
-     on a long page, so it quietly multiplied the per-frame sprite count. */
-  var bandH = bandBottom - bandTop;
-  var first = Math.floor(worldTop / CELL) - 1;
-  var last = Math.ceil((worldTop + bandH) / CELL) + 1;
-  for (var c = first; c <= last; c++) {
-    var cy = c * CELL - scrollY;                 /* cell top, screen space */
-    if (cy > viewH + 60 || cy + CELL < -60) continue;
-    place(c, cy, mulberry32(c * 2654435761 + i * 40503 + 7));
-  }
-}
-
-/* A position inside a gutter. `room` is the gutter width, and every caller
-   passes it to blit() so a shape is shrunk rather than allowed to spill over
-   the panel edge it is meant to be framing. */
-function spot(gu, rnd, reserve) {
-  var room = Math.max(1, gu.w - (reserve || 0));
-  return gu.x + ((rnd() * room) | 0);
-}
+   The cell-walk helpers that used to live here (eachCell, spot, CELL) went with
+   the rock decorations. The sky walks its own foliage along the ground line in
+   biome-sky.js, and the sun is placed from the clock, so nothing else needed a
+   world-space grid. */
 
 
-/* --- 2. Dirt: the ore mine ---------------------------------------------
-   Soil clods, a seam of exposed gold, and roots coming down out of the turf
-   above. The roots are the continuity cue: they tie this band to the surface
-   instead of leaving it as unrelated brown. */
-function dirtBiome(g, bandTop, bandBottom) {
-  for (var n = 0; n < g.length; n++) {
-    var gu = g[n];
-    if (gu.w < 10) continue;
-    eachCell(bandTop, bandBottom, 1, function (cell, cy, r) {
-      var x = spot(gu, r, 10);
-      if (r() < 0.85) blit(SET.soil[(r() * SET.soil.length) | 0], x, cy, gu.w);
-      if (r() < 0.30) blit(SET.ore[(r() * SET.ore.length) | 0], x, cy + 14, gu.w);
-      if (r() < 0.22) blit(SET.roots[(r() * SET.roots.length) | 0], x, cy - 4, gu.w);
-    });
-  }
-}
+/* --- Rock layers: deliberately bare --------------------------------------
+   The dirt, stone, caves and bedrock bands used to each carry their own
+   decoration pass: soil clods and ore in the dirt, coursed masonry and moss in
+   the vault, stalactites and crystals in the caves, strata and book shelves in
+   the bedrock.
 
-/* --- 3. Stone: the treasure vault --------------------------------------
-   Coursed masonry rather than a rock face. This is the one biome that is
-   clearly BUILT, which is what separates the vault from the mine above and the
-   caves below; the moss is what stops it looking like a diagram. */
-function stoneBiome(g, bandTop, bandBottom) {
-  for (var n = 0; n < g.length; n++) {
-    var gu = g[n];
-    if (gu.w < 10) continue;
-    eachCell(bandTop, bandBottom, 2, function (cell, cy, r) {
-      /* Stagger alternate courses, or the mortar lines line up into a grid. */
-      var x = gu.x + (cell % 2) * 9 - 9;
-      while (x < gu.x + gu.w) {
-        blit(SET.blocks[(r() * SET.blocks.length) | 0], x, cy, gu.w);
-        x += 17;
-      }
-      if (r() < 0.34) blit(SET.moss[0], spot(gu, r, 10), cy + 30, gu.w);
-      if (r() < 0.22) blit(SET.ore[(r() * SET.ore.length) | 0], spot(gu, r, 8), cy + 46, gu.w);
-    });
-  }
-}
+   All of that is gone, deliberately. Those shapes made the bands read as
+   separate themed layers rather than as one continuous dig, and the shelves in
+   particular named their own layer out loud, which undercut the point of
+   having layers at all.
 
+   What is left is the part that actually carries the mine: the gradient, the
+   scrolling grit and the jagged seam, all painted per layer in render.js. Those
+   are drawn from the band geometry rather than placed as sprites, so the rock
+   still has texture and still scrolls with the world - it is simply no longer
+   littered with objects.
 
-/* --- 4. Caves: the dungeon halls ---------------------------------------
-   The ceiling and the floor grow towards each other: spikes hang from the top
-   of each cell and rise from the bottom of the next. The crystals are the only
-   cold, bright thing in the whole dig, which is what stops this band reading
-   as "more dark rock" - the palette, not the shape, is doing the work. */
-function cavesBiome(g, bandTop, bandBottom) {
-  for (var n = 0; n < g.length; n++) {
-    var gu = g[n];
-    if (gu.w < 10) continue;
-    eachCell(bandTop, bandBottom, 3, function (cell, cy, r) {
-      if (r() < 0.55) {
-        blit(SET.spikesDown[(r() * SET.spikesDown.length) | 0],
-             spot(gu, r, 8), cy - 6, gu.w);
-      }
-      if (r() < 0.45) {
-        blit(SET.spikesUp[(r() * SET.spikesUp.length) | 0],
-             spot(gu, r, 8), cy + CELL - 8, gu.w);
-      }
-      if (r() < 0.40) {
-        blit(SET.crystals[(r() * SET.crystals.length) | 0],
-             spot(gu, r, 9), cy + 18, gu.w);
-      }
-    });
-  }
-}
+   The sky keeps its painter (biome-sky.js), because the sun and clouds are the
+   one thing on the page that moves, and they are drawn from the clock rather
+   than pinned to a grid cell. */
 
-/* --- 5. Bedrock: the ancient library, and the treasure room ------------
-   The deepest rock is the warmest, not the darkest: near-black strata with an
-   amber vein, because this is the bottom of the dig and the resume is down
-   here. The bookshelf rows are the one motif in the project that names its own
-   layer without a word of copy. */
-function bedrockBiome(g, bandTop, bandBottom) {
-  for (var n = 0; n < g.length; n++) {
-    var gu = g[n];
-    if (gu.w < 10) continue;
-    eachCell(bandTop, bandBottom, 4, function (cell, cy, r) {
-      var x = gu.x + (cell % 2) * 10 - 10;
-      while (x < gu.x + gu.w) {
-        blit(SET.strata[(r() * SET.strata.length) | 0], x, cy, gu.w);
-        x += 19;
-      }
-      if (r() < 0.50) blit(SET.shelves[(r() * SET.shelves.length) | 0], spot(gu, r, 15), cy + 26, gu.w);
-      if (r() < 0.30) blit(SET.nuggets[0], spot(gu, r, 9), cy + 52, gu.w);
-    });
-  }
-}
+function bareBiome() { /* nothing to place: the rock is painted by render.js */ }
 
+/* Only the sky paints anything now. The rock bands keep an entry so that the
+   collar still runs and drawBiomes still reports a painted band, but the
+   painter itself does nothing. */
 var PAINTERS = {
-  sky: skyBiome, dirt: dirtBiome, stone: stoneBiome,
-  caves: cavesBiome, bedrock: bedrockBiome
+  sky: skyBiome, dirt: bareBiome, stone: bareBiome,
+  caves: bareBiome, bedrock: bareBiome
 };
 
 /* === The collar ========================================================
