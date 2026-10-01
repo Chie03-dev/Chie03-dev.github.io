@@ -1,0 +1,19 @@
+{
+  "name": "portfolio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A scroll-driven, code-drawn resume: five layers of pixel art, one canvas, no build step and no dependencies.",
+  "type": "module",
+  "scripts": {
+    "verify": "node tools/smoke.mjs && node tools/hoard-test.mjs && node tools/pixel-test.mjs",
+    "smoke": "node tools/smoke.mjs",
+    "hoard": "node tools/hoard-test.mjs",
+    "pixel": "node tools/pixel-test.mjs",
+    "mutate": "powershell -ExecutionPolicy Bypass -File tools/mutation-test.ps1"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

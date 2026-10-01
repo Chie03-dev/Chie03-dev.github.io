@@ -25,6 +25,7 @@
 </script>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/chambers.css">
+<link rel="stylesheet" href="css/treasure.css">
 <link rel="stylesheet" href="css/layout.css">
 </head>
 <body>
@@ -243,6 +244,124 @@
     <p class="hint">
       <a class="btn btn--ghost" href="#summary">Back to the surface</a>
     </p>
+
+    <!-- ============ THE HOARD: five chests, opened one at a time ============
+         Each chest is a real <button> carrying aria-expanded and aria-controls,
+         so the whole hoard is reachable by keyboard and reports its own state
+         to assistive tech without any ARIA being invented in JS.
+
+         The loot is CONDENSED copy that links onward to the full text in the
+         chamber above, rather than a second copy of it. That is deliberate: copy
+         that exists in two places drifts, and the plain resume at the foot of
+         the page is the one authoritative version. Nothing here is the only
+         place a piece of information exists.
+
+         The loot carries NO `hidden` attribute in this markup. It is collapsed
+         by CSS under `html.js` only, so a visitor whose script fails - or who
+         has disabled JS - reads the hoard open rather than losing it. This is
+         the same progressive-enhancement trick the chambers use (see the .js
+         rules in layout.css), and it is exactly why `hidden` would be the wrong
+         tool here: it is a promise only script is keeping, and if the script
+         never runs that promise is never kept.
+    ========================================================================== -->
+    <div class="vault" id="vault">
+      <p class="vault__head">
+        <span class="vault__title">The hoard</span>
+        <span class="vault__tally" role="status">
+          <span class="vault__coins" aria-hidden="true"></span>
+          <span id="gold-count">0</span> of <span id="gold-total">0</span> gold
+        </span>
+      </p>
+      <!-- Two real lists, side by side, rather than one list whose cells are
+           placed in columns 1 and 3. Both readings put the chests either side
+           of the shaft; this one also means each side is its own block, so a
+           chest opening on the left can never change the row height of the
+           right, and the two sides can be styled and re-ordered independently.
+
+           The id stays on this wrapper, so treasure.js still finds every
+           `.chest` with one getElementById + querySelectorAll - the split is a
+           layout change, not a behaviour one. -->
+      <div class="vault__row" id="vault-grid">
+        <ul class="vault__stack vault__stack--left">
+          <li class="vault__cell">
+            <button class="chest" type="button" data-chest="till" data-gold="3"
+                    aria-expanded="false" aria-controls="loot-till">
+              <span class="chest__lid" aria-hidden="true"></span>
+              <span class="chest__name">The till</span>
+              <span class="chest__sub">Mobile POS &amp; inventory</span>
+            </button>
+            <div class="chest__loot" id="loot-till">
+              <div class="chest__loot-in">
+                <p>An offline-first Android POS: barcode checkout, inventory tracking, sales analytics, forecasting and PDF receipts.</p>
+                <p class="chest__more"><a href="#projects">Full entry in the treasure vault</a></p>
+              </div>
+            </div>
+          </li>
+          <li class="vault__cell">
+            <button class="chest" type="button" data-chest="mirror" data-gold="1"
+                    aria-expanded="false" aria-controls="loot-mirror">
+              <span class="chest__lid" aria-hidden="true"></span>
+              <span class="chest__name">The mirror</span>
+              <span class="chest__sub">AI resume tailor</span>
+            </button>
+            <div class="chest__loot" id="loot-mirror">
+              <div class="chest__loot-in">
+                <p>Keeps one master resume and hot-swaps keywords for the target job, scoring the result against how an ATS parses it.</p>
+                <p class="chest__more"><a href="#projects">Full entry in the treasure vault</a></p>
+              </div>
+            </div>
+          </li>
+          <li class="vault__cell">
+            <button class="chest" type="button" data-chest="shelf" data-gold="1"
+                    aria-expanded="false" aria-controls="loot-shelf">
+              <span class="chest__lid" aria-hidden="true"></span>
+              <span class="chest__name">The shelf</span>
+              <span class="chest__sub">What I work in</span>
+            </button>
+            <div class="chest__loot" id="loot-shelf">
+              <div class="chest__loot-in">
+                <p>Kotlin, Java, Python, JavaScript and PHP; Android, React, Node, Django and Next; PostgreSQL, SQLite and MySQL.</p>
+                <p class="chest__more"><a href="#skills">The full list in the dirt layer</a></p>
+              </div>
+            </div>
+          </li>
+        </ul>
+
+        <!-- The right stack. Two chests, so it is shorter than the left; the row
+             is align-items:start, which is what stops the two lists stretching
+             to each other's height and leaving a gap under the shorter one. -->
+        <ul class="vault__stack vault__stack--right">
+          <li class="vault__cell">
+            <button class="chest" type="button" data-chest="exam" data-gold="2"
+                    aria-expanded="false" aria-controls="loot-exam">
+              <span class="chest__lid" aria-hidden="true"></span>
+              <span class="chest__name">The exam room</span>
+              <span class="chest__sub">Lock Task Mode &amp; live telemetry</span>
+            </button>
+            <div class="chest__loot" id="loot-exam">
+              <div class="chest__loot-in">
+                <p>An exam environment that locks the device with Lock Task Mode and streams WebSocket telemetry, with instructor remote controls and zero-loss draft sync.</p>
+                <p class="chest__more"><a href="#projects">Full entry in the treasure vault</a></p>
+              </div>
+            </div>
+          </li>
+          <li class="vault__cell">
+            <button class="chest" type="button" data-chest="bench" data-gold="2"
+                    aria-expanded="false" aria-controls="loot-bench">
+              <span class="chest__lid" aria-hidden="true"></span>
+              <span class="chest__name">The bench</span>
+              <span class="chest__sub">Build &amp; repair</span>
+            </button>
+            <div class="chest__loot" id="loot-bench">
+              <div class="chest__loot-in">
+                <p>Hardware and software repair, OS installation, printers and networks on Windows and Linux &mdash; and the web work that came out of it.</p>
+                <p class="chest__more"><a href="#experience">Full entry in the dungeon halls</a></p>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
   </section>
  </div>
 </main>

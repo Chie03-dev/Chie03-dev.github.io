@@ -14,6 +14,7 @@ import { advanceCar, seatDeck } from './deck.js';
 import { player, keys, WALK_SPEED, movePlayer, snapPlayerToGround } from './game.js';
 import { seedMotes, drawMotes, render } from './render.js';
 import { updateDepth, updateCue } from './ui.js';
+import { initHoard } from './treasure.js';
 
 /* === 7. Game loop ========================================================
    requestAnimationFrame with a delta time, never setInterval. dt is clamped
@@ -81,12 +82,19 @@ window.addEventListener('orientationchange', function () { setTimeout(resize, 12
    viewport, so this only has to beat the first pattern creation. */
 resize();
 updateDepth();
+/* The hoard is wired before the sheets finish loading, so the chest buttons
+   respond immediately rather than waiting on an image decode. It touches only
+   the contact room, which measure() has not positioned yet - it reads no
+   geometry, so the boot order costs it nothing. */
+initHoard();
 whenSheets(function (a) {
-  /* The dirt tile is the one asset the renderer needs directly rather than
-     through the sprite set, so it is handed over and the patterns rebuilt.
-     buildTextures() is idempotent, so re-running it here is the whole
+  /* The dirt tile is gone from the sheets, so the renderer is told so plainly and
+     buildTextures() falls back to its own baked grit per band - which is what it
+     did before the tile was introduced. Passing null rather than leaving the
+     previous tile in place matters because a stale tile would outlive its own
+     removal. buildTextures() is idempotent, so re-running it here is the whole
      re-bake rather than a second code path to keep in step with it. */
-  setDirtTile(a && a.ok ? a.dirt : null);
+  setDirtTile(null);
   buildTextures();
   start();
   if (!running) render(last);
