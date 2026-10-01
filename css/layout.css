@@ -51,6 +51,12 @@ main{position:relative;z-index:10}
    color-mix. */
 .chamber,.treasure{
   position:relative;
+  /* A grid item defaults to min-width:auto, which means it refuses to shrink
+     below the widest thing INSIDE it. On a 320px phone that made every chamber
+     257px wide inside a 248px column, so the document scrolled sideways by
+     9px and the whole page could be dragged off-screen. min-width:0 lets the
+     item shrink and lets the text inside it wrap instead. */
+  min-width:0;
   background:var(--panel-solid);
   background-image:linear-gradient(180deg,
     color-mix(in srgb,var(--hue) 12%,transparent),transparent 55%);

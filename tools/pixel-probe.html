@@ -373,6 +373,21 @@ if (skyVisible && p0.drawn) {
                          ' vs viewport ' + viewH });
 }
 
+/* === No horizontal overflow ================================================
+   scrollWidth must never exceed the viewport width. If it does, the whole page
+   can be dragged sideways and the right-hand gutter - the one the sun and the
+   clouds are drawn into - slides off-screen on a phone.
+
+   This was a real bug that every other assertion here passed straight through:
+   the sky was drawn, it animated, it was the right colour, and the document was
+   still 9px too wide at 320px. The chambers are grid items, and a grid item
+   defaults to min-width:auto, so each one refused to shrink below its content
+   and pushed the page wide. Only measuring the document catches it. */
+const de = document.documentElement;
+const overBy = Math.max(de.scrollWidth, document.body.scrollWidth) - de.clientWidth;
+ok('the page does not scroll sideways', overBy <= 0,
+   overBy > 0 ? 'document is ' + overBy + 'px wider than the viewport' : '');
+
 /* === Verdict ============================================================
    JSON into the DOM, read back out of a screenshot by tools/pixel-test.mjs. */
 const failed = results.filter(r => !r.pass);

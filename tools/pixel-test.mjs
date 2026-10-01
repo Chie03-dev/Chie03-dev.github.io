@@ -32,11 +32,12 @@
    No dependencies, no build step, nothing here is ever fetched by a browser.
    ========================================================================== */
 
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import http from 'node:http';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -154,7 +155,116 @@ function serve() {
   });
 }
 
-/* One run: fresh profile, dump the DOM, parse the verdict.
+/* ==========================================================================
+   Driving the browser over CDP (Chrome DevTools Protocol), not --dump-dom.
+
+   WHY: --window-size cannot reach a phone viewport in this headless build.
+   Measured on this machine, requesting a window gives:
+
+       requested 360x740  -> viewport 492x601
+       requested 480x740  -> viewport 492x601
+       requested 821x1180 -> viewport 797x601
+
+   So every width below 492px silently rendered as 492px, and the HEIGHT was
+   clamped too. A "360px phone" run was really a 492px run. The phone gutter
+   is never as narrow in that test as in a real phone, which is precisely the
+   situation that let a 26px collar cover a 16px gutter go unnoticed.
+
+   Emulation.setDeviceMetricsOverride has no such floor: it sets the CSS
+   viewport outright, so 360x740 is genuinely 360x740.
+
+   Each size also reports the viewport the page ACTUALLY got (vwSeen below).
+   That is the real fix for the reporting lie: if the browser ever hands back a
+   width other than the one requested, the run FAILS instead of quietly testing
+   the wrong layout and reporting it as a phone.
+   ========================================================================== */
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function launch() {
+  const profile = mkdtempSync(join(tmpdir(), 'pixelprof-'));
+  const port = 9200 + Math.floor(Math.random() * 700);
+  const proc = spawn(browser, [
+    '--headless=new', '--disable-gpu', '--no-sandbox',
+    '--remote-debugging-port=' + port,
+    '--user-data-dir=' + profile,
+    'about:blank'
+  ], { stdio: 'ignore' });
+
+  /* The debugger takes a moment to come up; poll rather than guess a sleep. */
+  let ready = false;
+  for (let i = 0; i < 80 && !ready; i++) {
+    await sleep(250);
+    try { await fetch('http://127.0.0.1:' + port + '/json/version'); ready = true; }
+    catch { /* not listening yet */ }
+  }
+  if (!ready) {
+    proc.kill();
+    try { rmSync(profile, { recursive: true, force: true }); } catch {}
+    console.error('PIXEL TEST: the browser never opened a debugging port.');
+    process.exit(2);
+  }
+
+  /* /json/new rejects GET and answers PUT with an "unsafe HTTP verb" error. */
+  const tgt = await (await fetch(
+    'http://127.0.0.1:' + port + '/json/new?about:blank', { method: 'PUT' })).json();
+
+  const ws = new WebSocket(tgt.webSocketDebuggerUrl);
+  let nextId = 0;
+  const pending = new Map();
+  ws.addEventListener('message', ev => {
+    const m = JSON.parse(ev.data);
+    if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+  });
+  await new Promise(res => ws.addEventListener('open', res));
+
+  const send = (method, params = {}, sessionId) => new Promise(res => {
+    const id = ++nextId;
+    pending.set(id, res);
+    ws.send(JSON.stringify({ id, method, params, sessionId }));
+  });
+
+  return {
+    send,
+    /* A fresh target per run, so nothing carries over between sizes: not the
+       device metrics, not the emulated media, not the scroll position. */
+    newTarget: async () => {
+      const t = await (await fetch(
+        'http://127.0.0.1:' + port + '/json/new?about:blank',
+        { method: 'PUT' })).json();
+      const a = await send('Target.attachToTarget',
+                           { targetId: t.id, flatten: true });
+      return { id: t.id, session: a.result.sessionId };
+    },
+    close: async () => {
+      try { ws.close(); } catch {}
+      proc.kill();
+      await sleep(300);        /* let Edge release the profile before deleting */
+      try { rmSync(profile, { recursive: true, force: true }); } catch {}
+    }
+  };
+}
+
+/* Poll until the probe has filled its verdict element. The probe does its own
+   waiting (scroll settle, frame capture); this only bounds the total. */
+async function waitForVerdict(send, S, ms = 25000) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const r = await send('Runtime.evaluate', {
+      expression: `(function(){
+        var el = document.getElementById('probe-out');
+        return el ? el.innerHTML : '';
+      })()`,
+      returnByValue: true
+    }, S);
+    const html = r.result?.result?.value || '';
+    if (html.includes('@@PIXEL@@') && html.includes('@@END@@')) return html;
+    await sleep(200);
+  }
+  return null;
+}
+
+/* One run: fresh target, real viewport, parse the verdict.
    `reduced` selects the motion mode. BOTH are run for every width, because they
    are two different contracts:
      - reduced: the sky must be STILL. That is the accessibility promise, and a
@@ -163,45 +273,61 @@ function serve() {
    Running only one of them leaves the other entirely unverified, which is how a
    fix for "the sky does not animate" can ship while quietly breaking the people
    who asked for less motion. */
-function runOnce(rel, port, width, height, reduced) {
-  const profile = mkdtempSync(join(tmpdir(), 'pixelprof-'));
-  const dump = spawnSync(browser, [
-    '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
-    /* Belt and braces with the server's no-store header: a module cache hit
-       would otherwise make this test report on the previous revision. */
-    '--disable-application-cache', '--disk-cache-size=1',
-    '--user-data-dir=' + profile,
-    (reduced ? '--force-prefers-reduced-motion'
-             : '--force-prefers-no-reduced-motion'),
-    '--window-size=' + width + ',' + height,
-    /* 20s. The probe awaits its dynamic imports and then reads back real pixels;
-       --dump-dom snapshots the moment virtual time runs out, so a budget that
-       only just covers page load can capture the DOM before the assertions
-       have run and report an empty verdict. */
-    '--virtual-time-budget=20000',
-    '--dump-dom',
-    'http://127.0.0.1:' + port + '/' + rel
-  ], { encoding: 'utf8', timeout: 90000, maxBuffer: 64 * 1024 * 1024 });
-  rmSync(profile, { recursive: true, force: true });
+async function runOnce(bc, rel, port, width, height, reduced) {
+  const url = 'http://127.0.0.1:' + port + '/' + rel;
+  const { session: S } = await bc.newTarget();
 
-  const html = dump.stdout || '';
-  const m = html.match(/@@PIXEL@@([\s\S]*?)@@END@@/);
-  if (!m) {
-    const why = (dump.stderr || '').split('\n').filter(l => /ERROR|FATAL/i.test(l))[0];
-    console.error('PIXEL TEST: the probe never reported a verdict.');
-    console.error('  a missing verdict means the page did not run, not that the');
-    console.error('  assertions passed - check that it is served over http and');
-    console.error('  that the profile dir is writable.');
-    if (why) console.error('  browser: ' + why.trim());
+  /* The line that makes the difference: a real 360x740 CSS viewport, in mobile
+     mode, instead of the 492x601 that --window-size silently returned. */
+  await bc.send('Emulation.setDeviceMetricsOverride', {
+    width, height, deviceScaleFactor: 1, mobile: width <= 500
+  }, S);
+
+  /* Reduced motion over CDP, so no browser flag can leak into the next run.
+     Under --dump-dom this was --force-prefers-reduced-motion, which had to be
+     threaded through the spawn args and was easy to get backwards. */
+  await bc.send('Emulation.setEmulatedMedia', {
+    features: [{
+      name: 'prefers-reduced-motion',
+      value: reduced ? 'reduce' : 'no-preference'
+    }]
+  }, S);
+
+  await bc.send('Page.navigate', { url }, S);
+  const html = await waitForVerdict(bc.send, S);
+
+  /* Ask the page what viewport it ACTUALLY got. Trusting the request alone is
+     exactly how a 492px layout came to be reported as 360px for so long. */
+  const vp = await bc.send('Runtime.evaluate', {
+    expression: 'innerWidth + "x" + innerHeight', returnByValue: true
+  }, S);
+  const vwSeen = (vp.result && vp.result.result && vp.result.result.value) || '?';
+
+  /* Hard-fail on a mismatch rather than reporting a false pass. If the browser
+     ever clamps the viewport again, the suite stops instead of quietly testing
+     a layout nobody asked for and calling it a phone. */
+  if (vwSeen !== width + 'x' + height) {
+    console.error('PIXEL TEST: asked for ' + width + 'x' + height +
+                  ' but the page reported ' + vwSeen + '.');
+    console.error('  The layout under test is not the layout that was requested,');
+    console.error('  so any result here would be meaningless.');
     process.exit(2);
   }
-  /* Match the verdict INSIDE the filled element, not anywhere in the document.
-     The template contains the same @@PIXEL@@ markers inside the report() source,
-     so a document-wide match (even taking the last hit) can pick up the script
-     text instead of the rendered result. Scoping to the element's own content
-     removes the ambiguity entirely. */
-  const filled = html.match(/<div id="probe-out">([\s\S]*?)<\/div>/);
-  const found = filled ? (filled[1].match(/@@PIXEL@@([\s\S]*?)@@END@@/) || [])[1] : null;
+  if (!html) {
+    console.error('PIXEL TEST: the probe never reported a verdict at ' + width +
+                  'x' + height + (reduced ? ' (reduced)' : '') + '.');
+    console.error('  a missing verdict means the page did not run, not that the');
+    console.error('  assertions passed. viewport actually seen: ' + vwSeen);
+    process.exit(2);
+  }
+
+  /* `html` is ALREADY scoped to the verdict element's own content (see
+     waitForVerdict), so the markers are matched directly. The previous
+     --dump-dom version had to re-find <div id="probe-out"> inside the whole
+     document, because the template's own report() source sits OUTSIDE that div
+     and could otherwise be matched by accident. Reading the element directly
+     removes that class of ambiguity rather than working around it. */
+  const found = (html.match(/@@PIXEL@@([\s\S]*?)@@END@@/) || [])[1];
   if (!found) {
     console.error('PIXEL TEST: the verdict element is empty.');
     console.error('  the page ran but the probe wrote nothing - that is a probe');
@@ -221,16 +347,25 @@ function runOnce(rel, port, width, height, reduced) {
 
 /* Heights are back to ordinary values now that the probe scrolls to the sky and
    waits for the scroll to settle (see pixel-probe.html). The WIDTHS are what
-   matter for responsiveness and they are the three real breakpoints. */
-const WIDTHS = [[1440, 900], [821, 1180], [360, 740]];
+   matter for responsiveness and they are the real breakpoints.
+
+   320 is here because it is the narrowest layout in real use (iPhone SE, small
+   Androids) and the one where the gutter gets tightest. It could not be tested
+   at all before: --window-size clamped every request below 492px, so "360" was
+   really 492 and 320 was unreachable. With setDeviceMetricsOverride these are
+   now genuine phone layouts. */
+const WIDTHS = [[1440, 900], [821, 1180], [390, 844], [320, 568]];
 let anyFailed = 0, skyRuns = 0;
 const rel = buildProbe();
 const srv = await serve();
+/* One browser for the whole suite. Each size still gets its own target, own
+   device metrics and own emulated media, so there is no cross-run state. */
+const bc = await launch();
 const MODES = [[false, 'motion on '], [true, 'reduced ']];
 try {
   for (const [w, h] of WIDTHS) {
     for (const [reduced, label] of MODES) {
-      const v = runOnce(rel, srv.port, w, h, reduced);
+      const v = await runOnce(bc, rel, srv.port, w, h, reduced);
       const skipped = v.results.filter(r => r.skip);
       const ran = v.results.filter(r => !r.skip).length;
       /* Count a size as having exercised the sky only if the sky assertions
@@ -248,6 +383,7 @@ try {
     }
   }
 } finally {
+  await bc.close();
   srv.stop();
   try { rmSync(join(ROOT, '.pixel-run.html'), { force: true }); }
   catch {}
