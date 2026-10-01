@@ -269,6 +269,10 @@ function seamY(layer, x) {
    rects per frame, and it keeps the frame budget tiny. */
 var TILE = 64;
 var patterns = {};
+/* The soil tile from assets.js, or null before it decodes. Set once, then
+   buildTextures() is re-run. */
+var dirtTile = null;
+function setDirtTile(t) { dirtTile = t; }
 
 function bakeTile(seed, count, light, dark, size) {
   var t = document.createElement('canvas');
@@ -295,15 +299,34 @@ function bakeTile(seed, count, light, dark, size) {
   return t;
 }
 
+/* The dirt tile from the sheet, or null while it is still decoding. Read from
+   the assets module rather than imported as a live binding, because it is
+   assigned once the fetch resolves and layers.js must not hold a stale null.
+   setDirtTile() is called by main.js when that happens, and rebuilds the
+   patterns - this function is idempotent and cheap, so calling it again is
+   the whole re-bake story rather than a second code path. */
 function buildTextures() {
   var i;
   for (i = 0; i < LAYER_DEFS.length; i++) {
     /* The sky is open air: no rock grit, so no pattern tile. */
-    patterns[LAYER_DEFS[i].id] = LAYER_DEFS[i].rock === 'sky'
-      ? null
-      : ctx.createPattern(
-          bakeTile(1000 + i * 77, 150, 'rgba(255,255,255,0.10)', 'rgba(0,0,0,0.19)', TILE),
-          'repeat');
+    if (LAYER_DEFS[i].rock === 'sky') {
+      patterns[LAYER_DEFS[i].id] = null;
+      continue;
+    }
+    /* DIRT alone takes the pixel-art soil tile. It arrives as a 64px mirrored
+       block, which is also TILE, so the scroll arithmetic in render.js
+       (scrollY % TILE) still lines up with it exactly.
+
+       The tile arrives already faded, so that the band gradient underneath
+       still shows through it - see OPACITY in assets.js, which is where that
+       decision belongs, next to the tint table it sits beside. */
+    if (LAYER_DEFS[i].rock === 'dirt' && dirtTile) {
+      patterns[LAYER_DEFS[i].id] = ctx.createPattern(dirtTile, 'repeat');
+      continue;
+    }
+    patterns[LAYER_DEFS[i].id] = ctx.createPattern(
+        bakeTile(1000 + i * 77, 150, 'rgba(255,255,255,0.10)', 'rgba(0,0,0,0.19)', TILE),
+        'repeat');
   }
   patterns.far = ctx.createPattern(
     bakeTile(555, 60, 'rgba(255,255,255,0.030)', 'rgba(0,0,0,0.045)', 96), 'repeat');
@@ -459,6 +482,7 @@ export {
   TILE,
   patterns,
   buildTextures,
+  setDirtTile,
   SPRITE_W,
   SPRITE_H,
   FRAME_MS,

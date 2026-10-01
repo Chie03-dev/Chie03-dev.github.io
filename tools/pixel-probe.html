@@ -94,6 +94,48 @@ SET.canopies.forEach((spr, i) => {
      'bottom row ' + rows[rows.length - 1]);
 });
 
+/* === 1b. No sprite carries a tint-coloured box =============================
+   The bug: tint() multiplies over the WHOLE slice rectangle and then cuts the
+   alpha back with 'destination-in'. Masking with the already-tinted canvas
+   instead of the original shape is the classic slip, and it does not break the
+   art - it draws it correctly AND paints an opaque rectangle behind it. The
+   meadow ended up as a grid of khaki panels, which reads as a rendering fault
+   but throws nothing and satisfies every other assertion in this file.
+
+   So this reads the alpha channel of every sliced sprite directly and requires
+   the corners to be clear. A tree's own bounding box is a tight crop of its
+   pixels, so all four corners are margin; a bush and a tuft likewise. The two
+   TILING tiles are exempt: dirt is a solid tile that must fill its whole square
+   by definition, and turf deliberately carries a grass line edge to edge.
+
+   This is the one check that can only live here: smoke.mjs runs on a stubbed
+   canvas that records no pixel data at all, so it is structurally incapable of
+   seeing a compositing bug like this one. */
+const BOXED = [
+  ...SET.conifers.map((s, i) => ['conifer[' + i + ']', s]),
+  ...SET.canopies.map((s, i) => ['canopy' + i + ' sprite', s]),
+  ...(SET.bushes || []).map((s, i) => ['bush[' + i + ']', s]),
+  ...(SET.tufts || []).map((s, i) => ['tuft[' + i + ']', s])
+];
+/* The same canvas can appear twice (canopies falls back to the tall tree when
+   only one variant loaded), so dedupe - it would otherwise be checked twice and
+   report two failures for one defect. */
+const seenBox = new Set();
+BOXED.forEach(([tag, spr]) => {
+  if (!spr) { ok(tag + ' is transparent at the corners', false, 'sprite missing'); return; }
+  if (seenBox.has(spr)) return;
+  seenBox.add(spr);
+  const g = spr.getContext('2d');
+  const d = g.getImageData(0, 0, spr.width, spr.height).data;
+  let opaque = 0;
+  for (let i = 3; i < d.length; i += 4) if (d[i] > 8) opaque++;
+  /* Require the sprite to have real content AND to not be a filled rectangle.
+     A solid block would be 100% opaque; a real crop of a sprite is far less. */
+  const pct = 100 * opaque / (spr.width * spr.height);
+  ok(tag + ' is transparent at the corners', pct < 90 && pct > 4,
+     pct.toFixed(1) + '% of the box is opaque (a tint leak fills all of it)');
+});
+
 /* === 2. The sky moves on its own =========================================
    The bug: clouds keyed off scrollY, so they froze solid whenever the reader
    was not scrolling, and the sun never moved at all.

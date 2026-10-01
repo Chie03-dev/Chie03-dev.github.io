@@ -38,7 +38,7 @@
    browser - this file is not part of the site.
    ========================================================================== */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -76,7 +76,32 @@ function makeCtx() {
        So this validates what the spec makes mandatory, and the arguments the
        real overload requires: finite dx/dy, finite and strictly positive
        dw/dh, and a source with positive dimensions. */
-    drawImage: (src, dx, dy, dw, dh) => {
+    /* The three drawImage overloads, per the 2D spec:
+         drawImage(img)                                -> 0,0,img.w,img.h
+         drawImage(img, dx, dy)                        -> dx,dy,img.w,img.h
+         drawImage(img, dx, dy, dw, dh)                -> the last four args
+         drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh) -> the last FOUR, and
+                                                          the first four are the
+                                                          source rect.
+
+       Only the 5-argument form was modelled, so a 9-argument call bound its
+       SOURCE rect as if it were the destination and a 3-argument call supplied
+       no dw/dh at all. Both then failed the destination check for reasons that
+       had nothing to do with the caller - which is how the real bug in tint()
+       first surfaced, and then how the deliberate 3-argument blit in tint() got
+       reported as a defect it did not have. */
+    drawImage: function (src) {
+      const a = Array.prototype.slice.call(arguments);
+      /* Only the 9-argument form carries an 8-number tail; the shorter ones
+         take the destination from the first four numbers after the image. */
+      const off = a.length >= 9 ? 5 : 1;
+      let dw = a[off + 2], dh = a[off + 3];
+      /* The 1- and 3-argument forms have no dw/dh: the spec derives them from
+         the source's own size. Modelling that is what makes those overloads
+         checkable instead of crashing on undefined. */
+      if (dw === undefined) dw = src && src.width;
+      if (dh === undefined) dh = src && src.height;
+      const dx = a[off], dy = a[off + 1];
       finite(dx, 'drawImage.dx'); finite(dy, 'drawImage.dy');
       finite(dw, 'drawImage.dw'); finite(dh, 'drawImage.dh');
       if (!(dw > 0) || !(dh > 0)) {
@@ -169,6 +194,46 @@ globalThis.window = {
   getComputedStyle: () => ({ getPropertyValue: () => '#14181e', position: 'absolute' })
 };
 globalThis.IntersectionObserver = function () { this.observe = noop; this.unobserve = noop; };
+
+/* Minimal Image: fires onload asynchronously, like the real one. The reported
+   size is not the point - nothing here decodes pixels - but it MUST be
+   non-zero, because assets.js rejects a 0x0 decode and the whole suite
+   would quietly fall back to the drawn art again. */
+globalThis.Image = function () {
+  const img = { width: 320, height: 128, onload: null, onerror: null,
+                 _src: '' };
+  Object.defineProperty(img, 'src', {
+    get() { return img._src; },
+    set(v) {
+      img._src = v;
+      /* Async, so the ordering the real loader depends on is preserved:
+         nothing may assume the sheets are ready at module load. */
+      setTimeout(() => {
+        /* CHECK THE PATH AGAINST DISK, rather than resolving unconditionally.
+
+           A stub that succeeds for any filename cannot catch a wrong one, and
+           that is not hypothetical: the loader asked for 'tileset.png' while the
+           file on disk is 'tilesetgrass.png'. In the browser the 404 fell through
+           to the procedural fallback, so the page rendered perfectly and showed
+           none of the new art - a completely silent failure that both test
+           suites passed.
+
+           So this stub behaves like the network: it resolves only for a file
+           that is genuinely there. Every other path takes the onerror branch,
+           which is what a static host does. */
+        /* existsSync answers rather than throws, so it is the test itself that
+           decides which callback fires - an `exists` false must NOT quietly
+           count as a successful load. */
+        if (existsSync(join(ROOT, decodeURIComponent(v.split('?')[0])))) {
+          if (img.onload) img.onload();
+        } else if (img.onerror) {
+          img.onerror(new Error('404 (stubbed): ' + v));
+        }
+      }, 0);
+    }
+  });
+  return img;
+};
 
 const VIEWPORTS = [
   [1920, 1200], [1600, 1200], [1440, 900], [1366, 768], [1280, 720],
@@ -515,6 +580,71 @@ async function run() {
                 String(sheave).padStart(3) + '  ' + (failures === before ? 'ok' : 'PROBLEMS'));
   }
 
+  /* 8. The pixel-art sheets must actually have produced art. See the note
+       above: the drawn foliage is still baked as a fallback, so without
+       this section the whole suite is satisfied by the fallback and the
+       loader could break entirely without a single failure. */
+  /* The loader is ASYNC - the Image stub resolves on a timer, mirroring a real
+     decode - so the sheets may still be in flight at this point. Awaiting the
+     exported load() makes this a real check rather than a race: the promise
+     resolves on BOTH the success and the failure path, so a loader that throws
+     still completes here and is then reported by the ok=false assertion below
+     instead of hanging the suite. It is the promise the module already created
+     at load time, and awaiting it twice is free. */
+  await M.assets.load();
+  const A = M.assets.assets;
+  if (!A.loaded) {
+    fail('the asset loader never settled - the sheets are still in flight');
+  } else if (!A.ok) {
+    fail('the pixel-art sheets failed to load, so the drawn fallback is painting');
+  }
+  const expectSets = {
+    trees: 'trees', bushes: 'bushes', tufts: 'tufts'
+  };
+  for (const [k, label] of Object.entries(expectSets)) {
+    if (!Array.isArray(A[k]) || !A[k].length) {
+      fail('no ' + label + ' were sliced from the sheets');
+    }
+  }
+  /* Every slice must be a real, positive, INTEGER-sized canvas. Integer
+     matters as much as positive: scaleFor() and blitOn() round a scaled
+     sprite to whole pixels, and a fractional slice width makes the sprite
+     drift against its own placement by a different amount every frame. */
+  const slices = [...A.trees, ...A.bushes, ...A.tufts, A.turf, A.dirt].filter(Boolean);
+  if (slices.length < 6) {
+    fail('only ' + slices.length + ' slices were produced; expected 6');
+  }
+  slices.forEach((s, i) => {
+    for (const dim of ['width', 'height']) {
+      const v = s[dim];
+      if (!(typeof v === 'number' && isFinite(v) && v > 0 && v % 1 === 0)) {
+        fail('slice ' + i + ' has a bad ' + dim + ': ' + v);
+      }
+    }
+  });
+  /* The tile sizes are part of the contract, not an implementation detail:
+     getting either wrong is a visible tiling artefact rather than a crash, so it
+     is pinned here.
+  The two tiles have DIFFERENT sizes on purpose, so they are asserted
+     separately.
+
+       dirt is 64px: it tiles a deep band vertically, so its opposite edges must
+       meet, and mirrored() guarantees they do. A bare 32px cell there would
+       print a visible grid over the rock.
+
+       turf is 32px: the surface band it fills is exactly one cell tall, so
+       nothing below the first row is ever shown. Mirroring it was pure cost and
+       made the visible half worse - it turned the sheet's grass wave into a
+       chevron that repeated down the whole surface. */
+  if (A.dirt && (A.dirt.width !== 64 || A.dirt.height !== 64)) {
+    fail('the dirt tile is ' + A.dirt.width + 'x' + A.dirt.height +
+         '; the seamless tile must be 64x64');
+  }
+  if (A.turf && (A.turf.width !== 32 || A.turf.height !== 32)) {
+    fail('the turf tile is ' + A.turf.width + 'x' + A.turf.height +
+         '; the surface band is one cell tall, so it must be 32x32');
+  }
+
   console.log('');
   if (failures) {
     console.log('SMOKE FAILED: ' + failures + ' problem(s)');
@@ -527,6 +657,8 @@ async function run() {
   console.log('  car waits at the top through the sky, sets off at the dirt room,');
   console.log('  stops just before the Bedrock treasure room, and never passes that stop');
   console.log('  no direction reversals; character never sinks; no non-finite coordinates');
+  console.log('  pixel-art sheets sliced and tinted: ' + slices.length +
+              ' sprites, 64px seamless dirt, 32px turf');
 }
 
 run().catch((e) => {

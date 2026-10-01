@@ -210,28 +210,53 @@ function skyBiome(g, bandTop, bandBottom, layer, i, now) {
    the soil line is usually below the fold while the clouds are plainly in view.
    Only the turf and the trees are skipped, because they stand ON that line and
    cannot be drawn when it is not there. */
+/* Cached turf pattern, built lazily: SET.turf only exists once the pixel-art
+   sheets have decoded, so creating it at module load would always capture
+   null. */
+var turfPattern = null;
 function skySurface(g, bandTop, ground, r, clock, surfaceVisible) {
   var n, x, gu;
 
   /* --- The turf: a band of ground, not a 1px line ----------------------
-     Three stacked strokes sitting ON the soil line, so the grass has real
-     thickness and meets the dirt the layer below draws without a gap.
-
-     Gated on surfaceVisible: the turf stands ON the soil line, so with the line
-     off screen there is nothing to stand on and drawing it would put grass in
-     the middle of the sky. */
-  var bands = [[9, -4, '#3f6b28'], [5, -7, '#5c9a3e'], [2, -9, '#8fd06a']];
+     Gated on surfaceVisible: the turf stands ON the soil line, so with the
+     line off screen there is nothing to stand on and drawing it would put
+     grass in the middle of the sky. */
   if (surfaceVisible) {
-    for (var bi = 0; bi < bands.length; bi++) {
-      ctx.fillStyle = bands[bi][2];
-      ctx.fillRect(-40, ground + bands[bi][1], viewW + 80, bands[bi][0]);
+    /* The turf is the tileset's own grass-topped dirt cell, tiled across the
+       full width. It replaces three stacked rects, which read as flat bands
+       from across the room rather than as ground.
+
+       Painted CONTINUOUS terrain, so full width and not per gutter: it is the
+       surface the props stand on, and a background with a gap beside the
+       panel looks broken rather than framed. The pattern is cached because
+       createPattern is not free and this runs on every frame. */
+    if (SET.turf) {
+      if (!turfPattern) turfPattern = ctx.createPattern(SET.turf, 'repeat');
+      if (turfPattern) {
+        ctx.fillStyle = turfPattern;
+        ctx.fillRect(-40, ground - 30, viewW + 80, 32);
+      } else {
+        ctx.fillStyle = '#4e7a30';
+        ctx.fillRect(-40, ground - 8, viewW + 80, 10);
+      }
+    } else {
+      var bands = [[9, -4, '#3f6b28'], [5, -7, '#5c9a3e'], [2, -9, '#8fd06a']];
+      for (var bi = 0; bi < bands.length; bi++) {
+        ctx.fillStyle = bands[bi][2];
+        ctx.fillRect(-40, ground + bands[bi][1], viewW + 80, bands[bi][0]);
+      }
     }
 
-    /* Grass blades standing up off the turf. These are what make the surface
-       read as a surface from across the room, rather than as a green rule. */
-    for (x = -20; x < viewW + 20; x += 3) {
-      var bh = 5 + ((r() * 10) | 0);
-      px(ctx, x, ground - 9 - bh, 2, bh, r() < 0.35 ? '#8fd06a' : '#5c9a3e');
+    /* Grass tufts standing off the turf, from grass.png. These are what make
+       the surface read as a surface from across the room, rather than as a
+       green rule. Spaced on a coarse stride so one tuft is always clear of
+       its neighbour. blitOn is used rather than blit so the tuft sits ON the
+       line instead of hanging from it. */
+    var gt = SET.tufts[(r() * SET.tufts.length) | 0];
+    if (gt) {
+      for (x = -20; x < viewW + 20; x += 26) {
+        blitOn(gt, x + ((r() * 10) | 0), ground + 2, viewW);
+      }
     }
   }
 
@@ -292,23 +317,45 @@ function skySurface(g, bandTop, ground, r, clock, surfaceVisible) {
     if (gu.w < 12) continue;
 
     /* Walk the gutter, dropping trees with a guaranteed gap between crowns so
-       the meadow stays open instead of becoming a wall of foliage. */
+       the meadow stays open instead of becoming a wall of foliage. The step is
+       sized from the sprite below, not fixed. */
     var walk = gu.x - 6;
     while (walk < gu.x + gu.w) {
       var spr = r() < 0.6
         ? SET.conifers[(r() * SET.conifers.length) | 0]
         : SET.canopies[(r() * SET.canopies.length) | 0];
       blitOn(spr, walk, ground, gu.w);
+
+      /* Stride with the SPRITE, not a fixed number. The step used to be a
+         literal 20-58px, which was sized for the drawn conifers (17-30px wide).
+         The sheet trees are 62 and 83px wide, so that step made every crown
+         overlap its neighbour and the meadow read as one hedge instead of a
+         stand of trees. Scaling by the sprite's own drawn width keeps the gap
+         the same regardless of which crop is placed. */
+      var wide = spr.width * scaleFor(spr, gu.w);
+      walk += wide + 8 + ((r() * 26) | 0) + (r() < 0.22 ? 40 : 0);
+
+      /* Bush from bush.png, set just off the trunk. Drawn AFTER the tree so it
+         overlaps the base of the trunk, which is what stops the tree looking
+         pasted onto the grass rather than growing out of it. */
+      if (SET.bushes && r() < 0.55) {
+        blitOn(SET.bushes[(r() * SET.bushes.length) | 0],
+               walk - wide + ((r() * (wide - 6)) | 0), ground + 1, gu.w);
+      }
+
       /* Ground cover and a flower at the trunk, so nothing looks pasted on. */
       if (r() < 0.7) {
         blitOn(SET.tufts[(r() * SET.tufts.length) | 0],
-               walk + ((r() * spr.width * scaleFor(spr, gu.w)) | 0), ground, gu.w);
+               walk - wide + ((r() * wide) | 0), ground, gu.w);
       }
       if (r() < 0.6) {
         var bed = SET.blooms[(r() * SET.blooms.length) | 0];
-        blitOn(bed[(r() * bed.length) | 0], walk + ((r() * 12) | 0), ground, gu.w);
+        blitOn(bed[(r() * bed.length) | 0], walk - wide + ((r() * 20) | 0), ground, gu.w);
       }
-      walk += 20 + ((r() * 38) | 0) + (r() < 0.22 ? 44 : 0);
+      /* NB: the walk is advanced ABOVE, immediately after the tree is placed,
+         and the ground cover is positioned back off the new `walk` by `wide`.
+         Advancing it here as well used to double-step the cursor and leave half
+         the gutter bare; there is exactly one advance per tree. */
     }
   }
 }

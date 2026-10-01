@@ -7,8 +7,9 @@
    ========================================================================== */
 
 import {
-  measure, measureShaft, buildTextures, resizeViewport, syncScroll
+  measure, measureShaft, buildTextures, resizeViewport, syncScroll, setDirtTile
 } from './layers.js';
+import { whenSheets } from './sprites.js';
 import { advanceCar, seatDeck } from './deck.js';
 import { player, keys, WALK_SPEED, movePlayer, snapPlayerToGround } from './game.js';
 import { seedMotes, drawMotes, render } from './render.js';
@@ -75,9 +76,21 @@ window.addEventListener('resize', function () {
 });
 window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
 /* === Boot ================================================================ */
+/* resize() first, so the canvas has its real size before the art is built:
+   the slices are drawn into offscreen canvases sized to the art, not the
+   viewport, so this only has to beat the first pattern creation. */
 resize();
 updateDepth();
-start();
+whenSheets(function (a) {
+  /* The dirt tile is the one asset the renderer needs directly rather than
+     through the sprite set, so it is handed over and the patterns rebuilt.
+     buildTextures() is idempotent, so re-running it here is the whole
+     re-bake rather than a second code path to keep in step with it. */
+  setDirtTile(a && a.ok ? a.dirt : null);
+  buildTextures();
+  start();
+  if (!running) render(last);
+});
 
 /* Late layout shifts (font swap, scrollbar changes) need a re-measure. The
    shaft is part of that: its width comes from clamp(140px,24vw,220px).

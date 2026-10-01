@@ -17,6 +17,7 @@
    ========================================================================== */
 
 import { mulberry32 } from './layers.js';
+import { ready } from './assets.js';
 
 /* One snapped, axis-aligned pixel rect. Snapping keeps edges crisp on HiDPI,
    where a fractional fill would blur a whole pixel. Exported because biomes.js
@@ -222,6 +223,40 @@ function bakeSet() {
 }
 bakeSet();
 
+/* The sheets from assets/PixelArt, once they have decoded.
+
+   These REPLACE the drawn foliage rather than sitting beside it. The drawn
+   versions stay as the fallback: load() resolves with ok=false on a failed
+   request, and the surface layer with no trees on it is a visibly broken
+   page, so the procedural set is still baked and is still what paints when
+   the sheets are absent. The swap happens in applySheets(), which is called
+   from the loader's callback - never at module load, because at module load
+   every slice would still be null.
+
+   assets.js imports nothing, so importing it here adds a leaf to the graph
+   rather than an edge between two modules that already know each other. */
+function applySheets(a) {
+  if (!a || !a.ok) return false;
+  /* Trees become a two-variant set keyed the way the painter already reads
+     them, so conifers get the tall sheet crop and canopies the smaller one -
+     which is also what those two crops actually depict. */
+  if (a.trees.length) {
+    SET.conifers = [a.trees[0]];
+    SET.canopies = a.trees.length > 1 ? [a.trees[1]] : [a.trees[0]];
+  }
+  if (a.tufts.length) SET.tufts = a.tufts;
+  if (a.bushes.length) SET.bushes = a.bushes;
+  SET.turf = a.turf;
+  SET.dirt = a.dirt;
+  return true;
+}
+/* Fires `cb` once, when the sheets land either way. main.js waits on this
+   before its first frame so the page never paints a frame with the drawn
+   art and then visibly swaps it for the real sheets. */
+function whenSheets(cb) {
+  ready(function (a) { applySheets(a); cb(a); });
+}
+
 /* Public surface of this module, collected here so that not one line of the
-   code above needed a keyword added to it. */
-export { SET, PAL, FLOWERS, px, bakeSet };
+    code above needed a keyword added to it. */
+export { SET, PAL, FLOWERS, px, bakeSet, applySheets, whenSheets };
