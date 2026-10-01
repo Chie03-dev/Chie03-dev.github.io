@@ -161,10 +161,49 @@ function bakeTuft(w, h, pal, rnd) {
   return s.c;
 }
 
+/* A shrub. The shape that was missing between the tuft and the tree: without it
+   the cover is a uniform fringe of the same 9px grass along the whole seam, and
+   the surface has no middle height at all.
+
+   A single dome reads as a small tree, so this is a CLUSTER of overlapping
+   lobes, each wider than it is tall, sitting on a short stem. The lobe widths
+   come from the seeded rng, so a row of them is varied but identical on every
+   reload - the same contract every other baker here keeps. */
+function bakeBush(w, h, pal, rnd) {
+  var s = surface(w, h), g = s.g;
+  var lobes = 3 + ((rnd() * 3) | 0);          /* 3-5 domes */
+  var stemH = Math.max(1, Math.round(h * 0.16));
+  for (var y = h - stemH; y < h; y++) {
+    px(g, (w >> 1), y, 1, 1, pal.stem);
+  }
+  for (var i = 0; i < lobes; i++) {
+    /* The ellipse is squashed vertically (the 0.72 divisor) because a bush is
+       wider than it is tall; a circle here is the single most common reason a
+       procedural shrub reads as a tree. */
+    var lr = Math.max(2, Math.round(h * (0.26 + rnd() * 0.20)));
+    var lx = (((i + 0.5) / lobes) * (w - 2) + 1) | 0;
+    var ly = h - stemH - lr + ((rnd() * (h * 0.16)) | 0);
+    for (var dy = -lr; dy <= lr; dy++) {
+      for (var dx = -lr; dx <= lr; dx++) {
+        if ((dx * dx + dy * dy * 1.38) > lr * lr) continue;
+        var X = lx + dx, Y = ly + dy;
+        if (X < 0 || X > w - 1 || Y < 0 || Y > h - 1) continue;
+        /* Lit from the upper left, like every other shape in this file. The
+           core colour is used sparingly - one highlight per lobe, not a wash. */
+        var shade = (dx + dy) < -lr * 0.45 ? pal.shade
+                  : (dx < -lr * 0.1 && dy < 0 && rnd() < 0.22) ? (pal.core || pal.lit)
+                  : pal.mid;
+        px(g, X, Y, 1, 1, shade);
+      }
+    }
+  }
+  return s.c;
+}
+
 /* The angular mineral, rounded lump, masonry slab, book shelf and hanging root
    bakers lived here and have been removed along with the rock decorations they
    served. Only the surface foliage bakers remain: bakeConifer, bakeCanopy,
-   bakeTuft and bakeBloom. */
+   bakeTuft, bakeBush and bakeBloom. */
 
 /* === The sprite set =====================================================
    Baked once, at module load, exactly like the player sprite in layers.js.
@@ -209,6 +248,11 @@ function bakeSet() {
      left with nothing but the base fill - a black background and no sprite. */
   SET.canopies = [bakeCanopy(21, 19, PAL.leaf, r), bakeCanopy(26, 23, PAL.leaf, r)];
   SET.tufts = [bakeTuft(9, 6, PAL.leaf, r), bakeTuft(7, 4, PAL.leaf, r)];
+  /* Three bushes at three sizes, because one shrub repeated along the whole
+     seam is a fringe rather than undergrowth. The drawn width is set per bush
+     by the painter (14-26px), so these are the SOURCE sizes it scales from. */
+  SET.bushes = [bakeBush(20, 13, PAL.leaf, r), bakeBush(26, 16, PAL.leaf, r),
+                bakeBush(15, 10, PAL.leaf, r)];
   SET.blooms = FLOWERS.map(function (petals) {
     var pal = { stem: PAL.leaf.stem, leaf: PAL.leaf.mid,
                 petal: petals.petal, petalDim: petals.petalDim, core: petals.core };
@@ -244,10 +288,9 @@ function applySheets(a) {
     SET.conifers = [a.trees[0]];
     SET.canopies = a.trees.length > 1 ? [a.trees[1]] : [a.trees[0]];
   }
-  if (a.tufts.length) SET.tufts = a.tufts;
-  if (a.bushes.length) SET.bushes = a.bushes;
-  SET.turf = a.turf;
-  SET.dirt = a.dirt;
+  /* Nothing else is taken from the sheets. The tufts, bushes, grass and dirt
+     tile are all drawn now, so this only swaps the trees for the real pixel art;
+     the drawn canopies baked in bakeSet() below stay as the fallback. */
   return true;
 }
 /* Fires `cb` once, when the sheets land either way. main.js waits on this
@@ -259,4 +302,11 @@ function whenSheets(cb) {
 
 /* Public surface of this module, collected here so that not one line of the
     code above needed a keyword added to it. */
-export { SET, PAL, FLOWERS, px, bakeSet, applySheets, whenSheets };
+/* bakeCanopy and bakeTuft are exported so the pixel probe can bake them and
+   assert on the SHAPE, rather than on whatever sprite happens to be in
+   SET.canopies when the assertions run. applySheets() replaces SET with the
+   sheet crops, so a check that reads SET measures the PNG and leaves the baker
+   under test completely unexamined - which is exactly how a sheared-crown
+   mutation came to be reported as NOT CAUGHT. */
+export { SET, PAL, FLOWERS, px, bakeSet, applySheets, whenSheets,
+         bakeCanopy, bakeTuft, bakeBush };

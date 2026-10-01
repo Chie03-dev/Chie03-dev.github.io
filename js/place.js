@@ -25,12 +25,26 @@ function blit(spr, x, y, room) {
                 spr.width * k, spr.height * k);
 }
 /* Blit with the sprite's FEET on `base` instead of its top-left corner. This is
-   the only correct way to stand a tree on a horizon. */
-function blitOn(spr, x, base, room) {
+   the only correct way to stand a tree on a horizon.
+
+   `wantW` is an optional target width in CSS pixels, and it is the only way to
+   draw a sprite SMALLER than it is. scaleFor() is an integer magnifier that
+   bottoms out at 1, so without this an 83px-wide sheet tree can only ever be
+   drawn at 83px or 166px - and the desktop gutter is about 48px, so exactly one
+   tree fitted per gutter and the meadow read as a hedge of two or three.
+
+   The destination is rounded to whole pixels whatever the scale. A fractional
+   destination makes a sprite drift against its own placement by a different
+   sub-pixel amount each frame, which the tree-stability check in smoke.mjs reads
+   as the trees moving. */
+function blitOn(spr, x, base, room, wantW) {
   if (!spr) return;
-  var k = scaleFor(spr, room);
-  ctx.drawImage(spr, Math.round(x), Math.round(base - spr.height * k),
-                spr.width * k, spr.height * k);
+  var k = (wantW && spr.width)
+    ? Math.max(0.15, Math.min(2, wantW / spr.width))
+    : scaleFor(spr, room);
+  var w = Math.max(1, Math.round(spr.width * k));
+  var h = Math.max(1, Math.round(spr.height * k));
+  ctx.drawImage(spr, Math.round(x), Math.round(base - h), w, h);
 }
 
 export { scaleFor, blit, blitOn };

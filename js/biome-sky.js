@@ -17,7 +17,7 @@
    ========================================================================== */
 
 import {
-  ctx, viewW, viewH, scrollY, mulberry32, layers
+  ctx, viewW, viewH, scrollY, mulberry32, layers, seamY
 } from './layers.js';
 import { reduced } from './deck.js';
 import { SET, px } from './sprites.js';
@@ -190,7 +190,7 @@ function skyBiome(g, bandTop, bandBottom, layer, i, now) {
     ctx.fillStyle = far ? 'rgba(126,170,188,0.55)' : 'rgba(86,138,118,0.78)';
     ctx.fill();
   }
-  skySurface(g, bandTop, ground, r, clock, surfaceVisible);
+  skySurface(g, bandTop, ground, below, r, clock, surfaceVisible);
 }
 
 /* --- Turf and props --------------------------------------------------
@@ -210,11 +210,11 @@ function skyBiome(g, bandTop, bandBottom, layer, i, now) {
    the soil line is usually below the fold while the clouds are plainly in view.
    Only the turf and the trees are skipped, because they stand ON that line and
    cannot be drawn when it is not there. */
-/* Cached turf pattern, built lazily: SET.turf only exists once the pixel-art
-   sheets have decoded, so creating it at module load would always capture
-   null. */
-var turfPattern = null;
-function skySurface(g, bandTop, ground, r, clock, surfaceVisible) {
+/* How far ABOVE the soil line the grass reaches at its highest. The seam wanders
+   +/-13px, so the grass band is between 17 and 43px tall; this is the tall end
+   and the clip below cuts it back to the seam wherever the seam runs high. */
+var TURF_TOP = 1130;
+function skySurface(g, bandTop, ground, below, r, clock, surfaceVisible) {
   var n, x, gu;
 
   /* --- The turf: a band of ground, not a 1px line ----------------------
@@ -222,42 +222,66 @@ function skySurface(g, bandTop, ground, r, clock, surfaceVisible) {
      line off screen there is nothing to stand on and drawing it would put
      grass in the middle of the sky. */
   if (surfaceVisible) {
-    /* The turf is the tileset's own grass-topped dirt cell, tiled across the
-       full width. It replaces three stacked rects, which read as flat bands
-       from across the room rather than as ground.
+    /* CLIPPED TO ABOVE THE SEAM, and that is the whole point.
+
+       The seam is the top of the soil and it wanders +/-13px, so "the surface"
+       has no single Y: a band of a fixed height sits above the grass line in one
+       column and below it in the next. The turf used to be a flat 32px rect
+       ending at ground+2, which put its lower 23 rows - the cell's own SOIL -
+       above the grass line wherever the seam ran high, and left a bare gap below
+       it wherever the seam ran low. Clipping both this and the soil in
+       render.js to the same curve makes the seam the boundary in both
+       directions: grass above, soil below, at every x. */
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(-40, ground - TURF_TOP);
+    for (x = -40; x <= viewW + 40; x += 12) ctx.lineTo(x, seamY(below, x));
+    ctx.lineTo(viewW + 40, ground - TURF_TOP);
+    ctx.closePath();
+    ctx.clip();
+
+    /* Three flat bands, brightest on top. This used to be the fallback for a
+       missing sheet and is now the only grass there is.
+
+       A flat band is still a band, and three of them at these offsets is a
+       stepped edge rather than a soft one. That is deliberate: the alternative
+       was a 32px tile, and a tile is worse. A band has no motif, so there is
+       nothing for the eye to count, whereas the tile's dark blob repeated ~45
+       times across the width and made the surface read as a chain of copies.
 
        Painted CONTINUOUS terrain, so full width and not per gutter: it is the
        surface the props stand on, and a background with a gap beside the
-       panel looks broken rather than framed. The pattern is cached because
-       createPattern is not free and this runs on every frame. */
-    if (SET.turf) {
-      if (!turfPattern) turfPattern = ctx.createPattern(SET.turf, 'repeat');
-      if (turfPattern) {
-        ctx.fillStyle = turfPattern;
-        ctx.fillRect(-40, ground - 30, viewW + 80, 32);
-      } else {
-        ctx.fillStyle = '#4e7a30';
-        ctx.fillRect(-40, ground - 8, viewW + 80, 10);
-      }
-    } else {
-      var bands = [[9, -4, '#3f6b28'], [5, -7, '#5c9a3e'], [2, -9, '#8fd06a']];
-      for (var bi = 0; bi < bands.length; bi++) {
-        ctx.fillStyle = bands[bi][2];
-        ctx.fillRect(-40, ground + bands[bi][1], viewW + 80, bands[bi][0]);
-      }
+       panel looks broken rather than framed.
+
+       The rects are the full clipped height, not three thin strips at fixed
+       offsets from `ground`. The clip already cuts them to the seam, so sizing
+       them to the seam would be the same curve twice; making them span the
+       whole clip means each colour simply occupies however much of the varying
+       band it happens to cover. */
+    var bands = [[9, -4, '#3f6b28'], [5, -7, '#5c9a3e'], [2, -9, '#8fd06a']];
+    for (var bi = 0; bi < bands.length; bi++) {
+      ctx.fillStyle = bands[bi][2];
+      /* From the band's own offset down to well past the lowest the seam can
+         get, so the clip can never run off the end of a fill and leave bare sky
+         showing through. */
+      ctx.fillRect(-40, ground + bands[bi][1], viewW + 80, TURF_TOP + 30);
     }
 
-    /* Grass tufts standing off the turf, from grass.png. These are what make
-       the surface read as a surface from across the room, rather than as a
-       green rule. Spaced on a coarse stride so one tuft is always clear of
-       its neighbour. blitOn is used rather than blit so the tuft sits ON the
-       line instead of hanging from it. */
+    /* Grass tufts, standing ON the seam. These are what make the surface read as a
+       surface from across the room, rather than as a green rule. Baked by
+       bakeTuft() in sprites.js - the grass.png crop that used to feed this was
+       dropped, so what draws here is the procedural version. */
     var gt = SET.tufts[(r() * SET.tufts.length) | 0];
     if (gt) {
       for (x = -20; x < viewW + 20; x += 26) {
-        blitOn(gt, x + ((r() * 10) | 0), ground + 2, viewW);
+        /* Standing ON the curve at this tuft's own x, not on a horizontal line
+           that is only right in some columns. blitOn anchors the feet, so each
+           tuft sits on the grass rather than floating over it or under it. */
+        var tx = x + ((r() * 10) | 0);
+        blitOn(gt, tx, seamY(below, tx) - 1, viewW);
       }
     }
+    ctx.restore();          /* release the grass clip */
   }
 
   /* --- Clouds ------------------------------------------------------------
@@ -321,53 +345,98 @@ var PROP_SEED = 0x5EA51DE;
 /* How far a trunk is pushed BELOW the soil line. The trees are drawn after the
    soil rather than before it, so this is what plants them in the ground
    instead of balancing them on top of it. */
-var TREE_SINK = 4;
+var TREE_SINK = -3;
 
-function skyProps(g, ground) {
-  var r = mulberry32(PROP_SEED);
+/* === Why the meadow looked bare, and what actually fixes it ==================
+   Not a matter of taste. Three ceilings, each of which capped the result:
+
+   1. scaleFor() returns 1 or 2 - it is an integer MAGNIFIER, and it bottoms out
+      at 1. The sheet crops are 83x96 and 62x72. So a tree could only ever be
+      drawn at 83px or 166px wide, never smaller. The desktop gutter - the strip
+      of band the opaque panel does not cover - is about 48px. ONE TREE WAS
+      WIDER THAN THE STRIP IT STOOD IN. Shrinking the gap to 1px changed
+      nothing, because after the first tree the walk cursor was already past the
+      end of the gutter and the loop exited. Two trees on the whole page.
+
+   2. Flowers were drawn at `r() < 0.6` INSIDE the tree loop, so the number of
+      flowers was capped by the number of trees: 0.6 flowers per page.
+
+   3. There was no bush at all. SET.bushes does not exist.
+
+   The fix is a target DRAWN width rather than an integer scale, which is what
+   blitOn()'s new `wantW` argument is for. */
+
+/* Target widths in CSS pixels. The crops are 83 and 62 wide, so these are real
+   downscales of roughly 0.3-0.5x, and blitOn() anchors the FEET - a 96px tree
+   at 34px wide stands about 39px tall. Varying the width per tree is what stops
+   the stand reading as a row of identical copies. */
+var TREE_W = [30, 38, 24, 42];
+/* Gap between crowns. `8 + r()*26` was sized for 17-30px drawn conifers; against
+   a 24-42px tree that is a fifth of a crown, so they read as one hedge. */
+var TREE_GAP = 4;
+var TREE_JITTER = 8;
+var TREE_CLEAR_CHANCE = 0.20;
+var TREE_CLEAR = 20;
+
+/* Ground cover on its OWN pass, not as a side effect of the trees. This is the
+   decoupling that lets flowers be dense where the trees are sparse, and it is
+   why a flower no longer requires a tree to exist.
+
+   Drawn FIRST, so the tree paints over it - that ordering is what makes it read
+   as growth at the foot of a trunk rather than tufts floating on the canopy. */
+var COVER_STEP = 10;
+var COVER_TUFT_CHANCE = 0.8;
+var COVER_BUSH_CHANCE = 0.45;
+var COVER_FLOWER_CHANCE = 0.7;
+
+function skyProps(g, ground, below) {
+  /* TWO independent streams, and the reason is the coupling above. The cover
+     pass draws a different number of things than the tree pass, so sharing one
+     stream would make every tree's position depend on how many flowers happened
+     to be planted first - and the density is exactly what is changing here. */
+  var rt = mulberry32(PROP_SEED);
+  var rc = mulberry32(PROP_SEED ^ 0x9E37);
   var n, gu, walk, spr, wide, placed = 0;
   for (n = 0; n < g.length; n++) {
     gu = g[n];
-    if (gu.w < 12) continue;
+    if (gu.w < 16) continue;
 
-    /* Walk the gutter, dropping trees with a guaranteed gap between crowns so
-       the meadow stays open instead of becoming a wall of foliage. The step is
-       sized from the sprite below, not fixed: the step used to be a literal
-       20-58px, which was sized for the drawn conifers (17-30px wide). The sheet
-       trees are 62 and 83px wide, so that step made every crown overlap its
-       neighbour and the meadow read as one hedge. Scaling by the sprite's own
-       drawn width keeps the gap the same whichever crop is placed. */
-    walk = gu.x - 6;
+    /* --- Ground cover first, so the tree paints over it. ------------------ */
+    for (walk = gu.x; walk < gu.x + gu.w; walk += COVER_STEP) {
+      var fx = walk + ((rc() * 7) | 0);
+      if (fx + 8 > gu.x + gu.w) break;
+      var fy = seamY(below, fx) + 2;
+      if (rc() < COVER_TUFT_CHANCE && SET.tufts.length) {
+        blitOn(SET.tufts[(rc() * SET.tufts.length) | 0], fx, fy, gu.w, 8);
+      }
+      if (rc() < COVER_BUSH_CHANCE && SET.bushes.length) {
+        blitOn(SET.bushes[(rc() * SET.bushes.length) | 0], fx, fy, gu.w,
+               14 + ((rc() * 12) | 0));
+      }
+      if (rc() < COVER_FLOWER_CHANCE && SET.blooms.length) {
+        var bed = SET.blooms[(rc() * SET.blooms.length) | 0];
+        blitOn(bed[(rc() * bed.length) | 0], fx, fy, gu.w, 7);
+      }
+    }
+
+    /* --- Then the trees, sized to FIT the gutter. ------------------------- */
+    walk = gu.x - 4;
     while (walk < gu.x + gu.w) {
-      spr = r() < 0.6
-        ? SET.conifers[(r() * SET.conifers.length) | 0]
-        : SET.canopies[(r() * SET.canopies.length) | 0];
-      wide = spr.width * scaleFor(spr, gu.w);
+      spr = rt() < 0.6
+        ? SET.conifers[(rt() * SET.conifers.length) | 0]
+        : SET.canopies[(rt() * SET.canopies.length) | 0];
+      if (!spr) break;
+      /* Cap at the gutter as well as the target, so on a phone - where the one
+         gutter can be 16px - a tree shrinks to fit rather than overhanging the
+         panel it stands beside. */
+      wide = TREE_W[(rt() * TREE_W.length) | 0];
+      if (wide > gu.w) wide = gu.w;
 
-      /* Ground cover and a flower, drawn FIRST so the tree and the bush paint
-         over them. Ordered this way round they read as growth at the foot of
-         the trunk rather than tufts floating on top of the canopy. */
-      if (r() < 0.7 && SET.tufts.length) {
-        blitOn(SET.tufts[(r() * SET.tufts.length) | 0],
-               walk + ((r() * wide) | 0), ground + 2, gu.w);
-      }
-      if (r() < 0.6 && SET.blooms.length) {
-        var bed = SET.blooms[(r() * SET.blooms.length) | 0];
-        blitOn(bed[(r() * bed.length) | 0], walk + ((r() * wide) | 0), ground + 2, gu.w);
-      }
-
-      blitOn(spr, walk, ground + TREE_SINK, gu.w);
+      blitOn(spr, walk, seamY(below, walk + wide / 2) + TREE_SINK, gu.w, wide);
       placed++;
 
-      /* Bush from bush.png, over the base of the trunk. Drawn AFTER the tree so
-         it overlaps it, which is what stops the tree looking pasted onto the
-         grass rather than growing out of it. */
-      if (SET.bushes && SET.bushes.length && r() < 0.55) {
-        blitOn(SET.bushes[(r() * SET.bushes.length) | 0],
-               walk + ((r() * wide) | 0), ground + 2, gu.w);
-      }
-
-      walk += wide + 8 + ((r() * 26) | 0) + (r() < 0.22 ? 40 : 0);
+      walk += wide + TREE_GAP + ((rt() * TREE_JITTER) | 0)
+            + (rt() < TREE_CLEAR_CHANCE ? TREE_CLEAR : 0);
     }
   }
   return placed;
