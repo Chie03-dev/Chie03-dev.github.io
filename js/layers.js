@@ -99,6 +99,13 @@ var maxScroll = 1;
    inserting one, cannot silently move the stops - a layer index would. */
 var travelFrom = 0, travelTo = 0;
 
+/* Document-space Y of the GRASS SURFACE - the sky band's seam. This is the line
+   the parked elevator and the sprite stand on, and it is deliberately NOT
+   travelFrom: that is the top of the dirt room, a layout box that sits below the
+   visible grass. One number for "where the ground is", separate from the travel
+   window's own anchors. */
+var surfaceFrom = 0;
+
 /* Document-space Y of the first element matching `sel`, or -1 if there is none.
    The -1 matters: it is how the caller tells "not found" from "found at 0",
    which a falsy check would conflate. */
@@ -241,6 +248,29 @@ function measure() {
      smoke.mjs exist to prevent. A document-space stop is monotonic by
      construction, so nothing about the motion model changes. */
   var dirt = docTopOf('[data-layer="dirt"]');
+
+  /* THE GRASS SURFACE, measured separately from travelFrom. These are two
+     different lines and conflating them is what put the parked elevator below
+     ground: travelFrom is the top of the DIRT room - the layout box that starts
+     the chambers - while the visible surface is where the SKY band ends and the
+     soil begins, the jagged seam the reader actually sees.
+
+     IT IS THE SKY BAND'S BOTTOM, NOT ITS TOP. The first attempt at this read
+     layers[0].top, which is 0: the sky band runs from the top of the document
+     down to the grass, so its top is not the surface at all. Worse, the `> 0`
+     guard on that read silently fell back to `dirt`, which made surfaceFrom
+     identical to travelFrom - the two lines the change exists to separate. A
+     mutation swapping surfaceFrom back for travelFrom passed, and that is how it
+     was caught.
+
+     Read from the same layers[] the band art is derived from, so the elevator
+     rests on the seam the renderer strokes rather than on a second guess at where
+     the surface is. */
+  surfaceFrom = (layers.length > 0 && layers[0].bottom > 0) ? layers[0].bottom : dirt;
+  /* A missing surface falls back to the dirt room rather than to 0, so an
+     unmeasured page parks the car somewhere sensible instead of at the very top
+     of the document. */
+  if (!(surfaceFrom > 0)) surfaceFrom = dirt;
   /* The stop is the bottom edge of the LAST room, and that has to be the same
      edge the cave derives its own ceiling from. It was Education's bottom, back
      when the cave had no section and was simply the airspace below the dig; the
@@ -612,6 +642,7 @@ export {
   maxScroll,
   travelFrom,
   travelTo,
+  surfaceFrom,
   spriteScale,
   resizeViewport
 };

@@ -21,7 +21,7 @@
    ========================================================================== */
 
 import {
-  clamp, scrollY, viewH, maxScroll, travelFrom, travelTo, SPRITE_H
+  clamp, scrollY, viewH, maxScroll, travelFrom, travelTo, surfaceFrom, SPRITE_H
 } from './layers.js';
 
 /* === Motion preference ====================================================
@@ -211,10 +211,21 @@ function travelWindow() {
    the band, so a missing number never deletes the elevator. */
 function parkedY() {
   var b = deckBounds();
-  if (!isFinite(travelFrom) || travelFrom <= 0) return b.top;
-  var soil = travelFrom - scrollY;
+  if (!isFinite(surfaceFrom) || surfaceFrom <= 0) return b.top;
+  var soil = surfaceFrom - scrollY;
   if (!isFinite(soil)) return b.top;
-  return soil > b.top ? soil : b.top;
+  /* THE GRASS LINE, unconditionally. An earlier version took the GREATER of the
+     soil and the band top, reasoning that the band should take over once the
+     ground rose above it. That left the car at band.top 510 while the grass was
+     at 417 - standing 93px BELOW the surface, in what looks like solid earth,
+     which is the exact complaint this change exists to fix. The band is a
+     viewport-relative range for a car that is DESCENDING; it has no authority
+     over where the car waits at rest, and letting it clamp the parked position is
+     what buried the elevator underground.
+
+     So the parked line is the grass and nothing else, and seatDeck() opens both
+     ends of its range to match rather than pulling the car back into the band. */
+  return soil;
 }
 
 function carTarget() {

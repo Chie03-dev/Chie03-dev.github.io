@@ -681,17 +681,32 @@ async function run() {
        It is still STATIONARY: `settle` runs 250 frames, so a car that merely eased
        down toward the soil would be caught. That distinction is the point - parked
        ON the surface, not sliding to it. */
-    const soilAtTop = L.travelFrom;
-    const expectedTop = soilAtTop > band.top ? soilAtTop : band.top;
-    if (!near(settle(0), expectedTop)) {
-      fail(label + ' car is not parked at the top of its range at scroll 0 (car at ' +
-           settle(0).toFixed(0) + ', expected ' + expectedTop.toFixed(0) + ', soil at ' +
-           soilAtTop.toFixed(0) + ', band top at ' + band.top.toFixed(0) + ')');
+    /* THE CAR IS PARKED ON THE GRASS at scroll 0, and on the grass again right up
+       to the moment the travel window opens. L.surfaceFrom is the sky band's
+       bottom - the seam the reader sees - and NOT L.travelFrom, which is the top
+       of the dirt room's layout box and sits below the visible surface.
+
+       The band is deliberately NOT part of this. An earlier version asserted the
+       car sat at max(grass, bandTop), which passed while the car stood 93px below
+       the grass on a 1920x1200 window - the band quietly overriding the surface,
+       which is precisely the fault being fixed. The car waits on the ground; the
+       band only governs it once it is descending.
+
+       Still STATIONARY: `settle` runs 250 frames, so a car easing down toward the
+       grass rather than parking on it would be caught here. */
+    const grassAtTop = L.surfaceFrom;
+    if (!near(settle(0), grassAtTop)) {
+      fail(label + ' car is not parked on the grass at scroll 0 (car at ' +
+           settle(0).toFixed(0) + ', grass at ' + grassAtTop.toFixed(0) +
+           ', band top at ' + band.top.toFixed(0) + ')');
     }
-    /* And it is back in the band, at its top, one step before the dirt room. */
+    /* And still on the grass one step before travel begins: the last parked
+       frame, since the car hands over to the band at `start`. */
     const justBefore = Math.max(0, start - 1);
-    if (!near(settle(justBefore), band.top)) {
-      fail(label + ' car is not back at the top of the band just before the dirt room');
+    if (!near(settle(justBefore), L.surfaceFrom - justBefore)) {
+      fail(label + ' car is not on the grass just before travel begins (car at ' +
+           settle(justBefore).toFixed(0) + ', grass at ' +
+           (L.surfaceFrom - justBefore).toFixed(0) + ')');
     }
     if (!near(settle(end), band.bot)) fail(label + ' car is not at the bottom at the treasure room');
 
@@ -758,10 +773,10 @@ async function run() {
         if (y < prev - 0.01) reversals++;
         if (y < band.top - 0.01 || y > band.bot + 0.01) outOfBand++;
       } else {
-        const soilY = L.travelFrom - sc;
-        /* The soil governs only while it is below the band top; once the ground has
-           risen past the band the band takes over, and that handover is correct. */
-        const want = soilY > band.top ? soilY : band.top;
+        /* The resting line is the GRASS, unconditionally. It is NOT
+           max(grass, bandTop): that let the band bury the car below the surface,
+           which is the bug this spec exists to prevent. */
+        const want = L.surfaceFrom - sc;
         if (Math.abs(y - want) > 0.01) offSoil++;
         if (y > prevParked + 0.01) parkedFell++;
         prevParked = y;
@@ -771,7 +786,11 @@ async function run() {
          entirely, and the reader is meant to be off the car there - so this check
          is scoped to the shaft rather than being allowed to blame the cave for
          standing somewhere the cave intends them to stand. */
-      if (!G.player.inCave && G.player.y + G.player.h > y + 0.01) sunk++;
+      /* Only while the car is the surface being ridden. In the parked phase the
+         player is placed from the same groundY(), so this holds by construction;
+         scoping it to the travel window keeps the assertion about the one thing
+         it was written for - the character sinking through a MOVING floor. */
+      if (!G.player.inCave && sc >= start && G.player.y + G.player.h > y + 0.01) sunk++;
       /* ON A SHORT VIEWPORT THE SOIL IS BELOW THE FOLD, so a car parked ON it is
          legitimately below the screen at scroll 0 - the ground is not on screen
          yet and standing on it would put the elevator off the bottom. That is the
@@ -1981,12 +2000,35 @@ async function run() {
            moving yet - so the sprite is one settle behind and reads as floating
            above the soil on a single frame. Car first, then player. */
         for (let i2 = 0; i2 < 200; i2++) D.advanceCar(1 / 60);
-        G.snapPlayerToGround();        const soilY = L.travelFrom - sc;
+        G.snapPlayerToGround();        const soilY = L.surfaceFrom - sc;
         countRects(() => R.render(16));
         if (R.carDrawn > 0) carSeen++;
         if (R.playerDrawn > 0) spriteSeen++;
         if (D.groundY() < soilY - 1) carAbove++;
         if (G.player.y + G.player.h < soilY - 1) { spriteAbove++; }      }
+      /* The SPRITE'S FEET ARE ON THE GRASS, not merely near it. The sprite is
+         placed at groundY() - player.h, so it follows the car exactly - but only
+         because the car's resting line IS the grass. This asserts the composed
+         result rather than trusting that chain, because a change to either half
+         would move the character off the surface while both still looked right. */
+      let feetOff = 0, feetWorst = 0;
+      for (let sc = 0; sc < skyEnd; sc += 25) {
+        globalThis.window.scrollY = sc;
+        L.syncScroll();
+        M.main.resize();
+        G.player.inCave = false;
+        for (let i2 = 0; i2 < 200; i2++) D.advanceCar(1 / 60);
+        G.snapPlayerToGround();
+        const grass = L.surfaceFrom - sc;
+        const d = G.player.y + G.player.h - grass;
+        if (Math.abs(d) > 1) { feetOff++; if (Math.abs(d) > Math.abs(feetWorst)) feetWorst = d; }
+      }
+      if (feetOff) {
+        fail('the SPRITE stands ' + feetOff + ' time(s) off the grass surface while ' +
+             'the elevator is parked (worst ' + feetWorst.toFixed(1) +
+             'px). It rides the car, and the car rests on the surface, so the ' +
+             'character has to be standing ON the grass - not below it in the dirt');
+      }
       if (carAbove > 0) {
         fail('the mine car sits ' + carAbove + ' time(s) ABOVE the soil line while ' +
              'scrolling the sky (0..' + Math.round(skyEnd) + '). carTarget() must ' +
