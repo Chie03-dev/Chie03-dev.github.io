@@ -1165,6 +1165,37 @@ async function run() {
                (rb - ra).toFixed(1) + 'px, not 120 - the floor is pinned to the ' +
                'viewport, so the room stops scrolling with the rock');
         }
+        /* AND THE ROOM NEVER RISES ABOVE ITS OWN CELL. This is the overlap
+           report: a room on the dirt layer drawing up into the sky layer's band.
+
+           Asserted as the strongest form of the claim - the roof is not above
+           the cell's top - rather than as "it looks about right", because the
+           previous behaviour was not a few pixels over: the floor sat at the
+           cell's TOP with the roof a fixed 220px above it, so the entire room
+           was outside its own cell and up in the layer above.
+
+           Checked at several scroll positions, since both the floor and the cell
+           top move and a cap that only holds at one of them is not a cap. */
+        for (const sy of [tops[i] - 300, tops[i], tops[i] + 200]) {
+          globalThis.window.scrollY = sy;
+          const rf = R.roofY(i);
+          const floorHere = R.screenFloorY(i, (b.left + b.right) / 2);
+          const cellTop = R.cellTopY(i);
+          const cellBot = R.cellBottomY(i);
+          if (isFinite(rf) && isFinite(cellTop) && rf < cellTop - 0.5) {
+            fail('room ' + R.DEFS[i].id + ' at scrollY ' + sy + ' has its roof at y=' +
+                 rf.toFixed(1) + ', which is ABOVE its own cell top at y=' +
+                 cellTop.toFixed(1) + ' - the room is drawn outside its layer and ' +
+                 'overlaps the one above it');
+          }
+          if (isFinite(floorHere) && isFinite(cellBot) && floorHere > cellBot + 0.5) {
+            fail('room ' + R.DEFS[i].id + ' at scrollY ' + sy + ' has its floor at y=' +
+                 floorHere.toFixed(1) + ', BELOW its own cell bottom at y=' +
+                 cellBot.toFixed(1) + ' - the room spills out of its layer');
+          }
+        }
+        globalThis.window.scrollY = tops[i] - 300;
+
         /* The walls must be inside the measured column, not the viewport - a
            full-width room would look correct and be walkable off both sides. */
         if (b.left < 0 || b.right > W) {

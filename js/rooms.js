@@ -56,6 +56,12 @@ var ROOM_MARGIN = 10;
    the bottom cave's module state into this one, which is the coupling this
    module exists to avoid. game.js owns the real player height. */
 var ROOM_SPRITE_MIN = 64;
+/* How tall a room would LIKE to be. The real height is whatever its cell has room
+   for - see roofY() - so this is a ceiling, not a size. */
+var ROOM_HEIGHT = 220;
+/* Gap between the cell's bottom edge and the drawn floor line, so the floor
+   slab has somewhere to sit without drawing over the row boundary. */
+var ROOM_FLOOR_INSET = 8;
 
 /* The four rooms. `layer` selects the palette and the depth-rail entry, so a
    room and its panel cannot drift out of step - the art reads the layer, not a
@@ -494,29 +500,40 @@ function floorMinY() {
    Clamped ONLY to floorMinY(), which is the sprite-fits constraint and nothing
    else. The floor therefore tracks the room through the document exactly as the
    text beside it does. */
+/* THE FLOOR SITS AT THE BOTTOM OF ITS OWN CELL.
+
+   It used to sit at the cell's TOP, with the roof a fixed 220px above that -
+   which put the entire room ABOVE its own grid cell, up in the row gap and into
+   the layer above. That is the overlap: a room on the dirt layer drawing into
+   the sky layer's band.
+
+   The cell is a real grid item stretched to the row's height, so its bottom is a
+   document position like any other and the floor tracks the page exactly as it
+   did. This moves where it sits WITHIN the cell; it does not reintroduce any
+   viewport-relative pinning - see the note above this function. */
 function screenFloorY(i, screenX) {
   if (!roomActive(i)) return NaN;
   var box = rooms[i].box;
-  /* THE TRUE DOCUMENT POSITION. NO CLAMP, AND THE ABSENCE IS THE FIX.
+  /* A few px above the cell's bottom edge, so the floor slab has somewhere to
+     go and the room does not draw over the boundary of the row. */
+  var base = box.bottom - ROOM_FLOOR_INSET;
 
-     This used to be clamped to floorMinY(), copied from the bottom cave, where
-     the clamp is correct: the reader is standing in that room and the floor must
-     not rise above their head on a short viewport.
+  /* THE PROFILE IS BOUNDED BY THE SPACE BELOW THE DATUM. The floor undulates by
+     up to ROOM_RELIEF in both directions, and adding that straight onto a datum
+     sitting ROOM_FLOOR_INSET above the cell edge pushed the high points past the
+     boundary - the room's own rubble spilling into the layer below:
 
-     A side room has nobody standing in it. The only thing the clamp did there was
-     pin the drawn floor to a fixed line near the top of the frame, and the effect
-     was that the room STOPPED SCROLLING. For the ore gallery that is roughly 400px
-     of scroll - from about 540 to 934 - during which the cell slid up and out of
-     view while its floor sat pinned at y=80, still being painted because
-     visibleRooms() counts a sliver. That is the "the room follows me" report: the
-     room is welded to the viewport while the text beside it slides away.
+       "room stone has its floor at y=602.0, BELOW its own cell bottom at y=600.0"
 
-     The clamp belonged to the model where the player could be put into these rooms.
-     That model is gone - see the teleport removal - so the clamp went with it, and
-     it should not come back with a walk-through either. When the player can walk
-     in, the constraint that the floor fits below their head belongs in COLLISION,
-     where it keeps them on screen, and not in the number the renderer draws. */
-  return floorAt(i, screenX) + box.top - (window.scrollY || 0);
+     So the undulation may rise no further than the inset itself. That makes the
+     room shallower on its high side than its low side, which is true of most real
+     cave floors anyway, and it is the one asymmetry that costs nothing - what
+     matters to a reader is the shape, not its symmetry. */
+  var p = floorAt(i, screenX);
+  if (p > ROOM_FLOOR_INSET) p = ROOM_FLOOR_INSET;
+  else if (p < -ROOM_RELIEF) p = -ROOM_RELIEF;
+
+  return base + p - (window.scrollY || 0);
 }
 
 /* === The entrance ==========================================================
@@ -550,14 +567,40 @@ function entranceX(i) {
    it. Derived from the FLOOR rather than from the viewport - that is the bound
    that actually constrains it, and deriving it from the viewport instead was
    tried and fixed nothing. */
+/* The roof, in screen space, from the floor.
+
+   IT CANNOT RISE ABOVE ITS OWN CELL. This is the second half of the overlap fix:
+   the floor now sits at the cell's bottom, and a fixed-height room built upward
+   from there would still poke into the layer above wherever the cell is shorter
+   than the room's nominal height. So the height is capped by the distance from
+   the floor up to the cell's own top edge.
+
+   THE CAP IS AGAINST THE CELL, NOT THE VIEWPORT, and that distinction is the
+   whole point. The cell's top is a DOCUMENT position and it moves as the reader
+   scrolls, so a room capped by it scrolls with its own layer and cannot stick to
+   the frame. Capping against the viewport is what pinned the rooms to the screen
+   and was reported as "the rooms follow me". */
+/* The cell's own top and bottom, in screen space. Exported because "the room
+   stays inside its cell" is a claim about two numbers, and a test cannot check
+   it without being able to read the cell it is claiming to stay inside. Document
+   positions converted once, exactly as the floor is. */
+function cellTopY(i) {
+  if (!roomActive(i)) return NaN;
+  return rooms[i].box.top - (window.scrollY || 0);
+}
+function cellBottomY(i) {
+  if (!roomActive(i)) return NaN;
+  return rooms[i].box.bottom - (window.scrollY || 0);
+}
+
 function roofY(i) {
   if (!roomActive(i)) return NaN;
   var floor = screenFloorY(i, 0);
   if (!isFinite(floor)) return NaN;
-  var maxByHead = floor - ROOM_SPRITE_MIN - 1;
-  if (maxByHead < 0) maxByHead = 0;
-  var want = Math.min(220, maxByHead);
-  if (want < 1) want = 1;
+  var cellTop = rooms[i].box.top - (window.scrollY || 0);
+  var room = floor - cellTop;                 /* how much of the cell is left */
+  if (!(room > 1)) room = 1;
+  var want = Math.min(ROOM_HEIGHT, room);
   return floor - want;
 }
 
@@ -639,6 +682,8 @@ export {
   entranceSide,
   screenFloorY,
   roofY,
+  cellTopY,
+  cellBottomY,
   bounds,
   enterRoom,
   leaveRoom,
