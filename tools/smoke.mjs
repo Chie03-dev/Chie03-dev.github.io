@@ -1207,6 +1207,70 @@ async function run() {
   }
 
 
+  /* 7d. The depth rail must agree with LAYER_DEFS.
+
+     The rail is hand-written markup in index.html and the layers are a table in
+     layers.js, and NOTHING connected them. They currently agree - six entries,
+     six layers, matching ids and labels - but they agree by hand, and the first
+     person to add a seventh layer would get a page that silently lost a rail
+     entry, or worse, one whose entries point at the wrong sections.
+
+     The failure mode is quiet. ui.js wires the rail to layers BY INDEX
+     (`depthLinks[i]` against `layers[i]`), so a rail with five entries against
+     six layers does not error: the last layer simply has no rail entry, the
+     Cave never highlights, and a reader at the bottom of the dig is told they
+     are somewhere else.
+
+     So the two are checked against each other: same count, and each entry's href
+     target and visible label matching its layer's id and name. Asserting the
+     href matters more than it looks - it is what ui.js navigates to, and a
+     typo there is a link that goes nowhere while still looking correct.
+
+     The rail is read from index.html as TEXT, not from the DOM: the stub's
+     querySelectorAll returns [] for everything, so a DOM read reports zero
+     entries and this check passes or fails for reasons that have nothing to do
+     with the markup - which is exactly what the first version did. The file is
+     the source of truth here anyway: it is the markup that has to match. */
+  {
+    const defs = L.LAYER_DEFS || M.layers.LAYER_DEFS;
+    if (!defs) {
+      fail('layers.js does not expose LAYER_DEFS, so the depth rail cannot be ' +
+           'checked against it');
+    } else {
+      const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+      /* Single-line regex and a manual exec loop rather than a spread over
+         matchAll spread across lines: the multi-line form tripped the parser
+         when this block was written through a shell, and the point of the
+         check is the markup, not the parsing. */
+      const RE = /<li><a href="#([A-Za-z]+)"><span>([^<]+)<\/span>/g;
+      const rail = [];
+      let mm;
+      while ((mm = RE.exec(html)) !== null) rail.push({ id: mm[1], name: mm[2] });
+
+      if (rail.length !== defs.length) {
+        fail('the depth rail has ' + rail.length + ' entries but layers.js defines ' +
+             defs.length + ' layers (' + defs.map(d => d.id).join(', ') + ') - ' +
+             'ui.js wires them together BY INDEX, so the extra layers get no rail ' +
+             'entry at all and never highlight');
+      } else {
+        for (let i = 0; i < defs.length; i++) {
+          if (rail[i].id !== defs[i].id) {
+            fail('depth rail entry ' + i + ' points at "#' + rail[i].id + '" but its ' +
+                 'layer is "' + defs[i].id + '" - the two are matched by index, so a ' +
+                 'mismatch here sends the reader to the wrong section');
+          }
+          if (rail[i].name !== defs[i].name) {
+            fail('depth rail entry ' + i + ' is labelled "' + rail[i].name + '" but its ' +
+                 'layer is named "' + defs[i].name + '" - the reader sees the rail, ' +
+                 'not the table');
+          }
+        }
+      }
+      console.log('  rail       ' + rail.length + ' rail entries match the ' +
+                  defs.length + ' layers, in order');
+    }
+  }
+
   /* 8. The pixel-art sheets must actually have produced art. See the note
        above: the drawn foliage is still baked as a fallback, so without
 
