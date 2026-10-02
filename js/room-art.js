@@ -313,6 +313,67 @@ function drawMob(ctx, kind, x, floorY, h, pose) {
    deliberate exception of the entrance's passage, which is drawn OUTSIDE b on
    purpose, because a doorway that stops at the wall is a doorway to nowhere.
    That is the point at which the shaft is. */
+  /* How many live in each gallery. More than one is the point now: a cave with a
+   single animal in it reads as a diorama, and a cave with three reads as a cave
+   somebody lives in. Kept low deliberately - they are the thing you notice last
+   when you scroll past, and a crowded cave stops being a gallery and becomes
+   wallpaper.
+
+   DECLARED HERE, AT MODULE SCOPE, NOT NEXT TO drawResidents. It was declared
+   inside drawRoom's body, below the line that reads it. `var` hoists, so the
+   name existed and was `undefined` rather than a ReferenceError - and
+   `for (i = 0; i < undefined; i++)` runs zero times. Every gallery rendered
+   silently empty, with no error anywhere, and the suite reported it as "the
+   resident is missing", which reads as the creatures failing to draw rather than
+   as a loop that never ran. */
+var PER_ROOM = 3;
+
+/* THE POPULATION.
+
+   Each beast gets its own TERRITORY - a slice of the room's width - and patrols
+   only within it. Without that they all walk the full width and pass through each
+   other, which on a still frame reads as two creatures occupying one pixel and is
+   the single ugliest thing a room like this can do.
+
+   Each territory also gets its own SLICE OF THE CLOCK, so neighbours are never
+   in step: two golems planted 200px apart and sharing a clock look like one
+   creature copied and pasted, which is precisely the failure the mob layer work
+   was about. Offsetting time is free - the poses are pure, so a shifted clock is
+   just a shifted number. */
+function drawResidents(ctx, b, floorY, roofY, index, r, now, reduced) {
+  var mh = floorY - roofY;
+  var mt = reduced ? 0 : now / 1000;
+
+  var roomW = b.right - b.left;
+  /* The margin the old single-mob placement used, kept so a turning beast never
+     paints over the rock at the walls. */
+  var margin = 70;
+  var usable = Math.max(60, roomW - margin * 2);
+  /* Gaps between territories, so neighbours cannot brush at a shared edge. */
+  var gap = Math.min(40, usable / (PER_ROOM * 2));
+  var span = Math.max(24, (usable - gap * (PER_ROOM - 1)) / PER_ROOM);
+
+  for (var i = 0; i < PER_ROOM; i++) {
+    /* The FIRST resident of each room is the room's signature, so the
+       "four caves, four different creatures" showcase still reads. The rest are
+       drawn from the same list, offset so they do not all match their own room's
+       head creature. */
+    var kind = MOBS[(index + i) % MOBS.length];
+
+    /* Territory i's left edge, and a small seeded offset inside it. The offset is
+       what stops every resident standing dead-centre in its own lane. */
+    var laneX = b.left + margin + i * (span + gap);
+    var home = Math.round(laneX + r() * Math.max(1, span - 40));
+
+    /* Each beast runs its own clock, at its own rate - a golem should not be
+       keeping a spider's time. The factor is per-room AND per-lane, so no two
+       creatures anywhere on the page are ever in step. */
+    var laneT = mt / (1 + i * 0.37) + index * 3.1 + i * 2.7;
+
+    drawMob(ctx, kind, home, floorY, mh, beastPose(kind, laneT, span));
+  }
+}
+
 function drawRoom(ctx, layer, b, floorY, roofY, index, side, now, reduced) {
   if (!isFinite(floorY) || !isFinite(roofY)) return;
   var t = TINT[layer] || FALLBACK;
@@ -345,7 +406,7 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side, now, reduced) {
      line and its lip always read as the ground everything stands on. */
   drawCave(ctx, t, b, floorY, roofY, r, side);
 
-  /* The mobs are drawn to THEIR OWN LAYER, and this is the reason it works.
+/* The mobs are drawn to THEIR OWN LAYER, and this is the reason it works.
 
      They used to share the room's layer, which made them untestable: the shape
      tests could not tell a stalactite from a golem, because both were opaque
@@ -363,32 +424,8 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side, now, reduced) {
      Deliberately NOT composited with the room here. Compositing would put the
      creature back in the same bucket for any test that walks the context, and the
      point is that they are countable on their own. */
-  if (ctx.mobLayer) {
-    var mh = floorY - roofY;
-    var mx = Math.round(b.left + 70 + r() * Math.max(1, (b.right - b.left) - 150));
-    /* The animation clock, in seconds. Divided out of the render's millisecond
-       `now` so every creature's frequencies are in readable units rather than
-       "times 7000".
+  if (ctx.mobLayer) drawResidents(ctx.mobLayer, b, floorY, roofY, index, r, now, reduced);
 
-       `reduced ? 0 :` is the whole prefers-reduced-motion story for the
-       creatures, and it is one expression rather than a branch in each of four
-       bodies - see the note above drawMob. */
-    var mt = reduced ? 0 : now / 1000;
-    var kind = MOBS[index % MOBS.length];
-    /* The patrol span. The anchor is the room's CENTRE, not a jittered spot - the
-       creature used to be pinned to one jittered x forever, which is exactly the
-       thing this change exists to remove. The jitter survives only as a small
-       per-room offset, so two rooms' residents do not walk in lockstep and the
-       spans do not overlap into one continuous patrol line.
-
-       Inset from the walls on both sides so a creature turning around never
-       paints over the rock it is supposed to be standing in. */
-    var cx = (b.left + b.right) / 2;
-    var span = Math.max(40, (b.right - b.left) - 200);
-    var home = Math.round(cx + (r() - 0.5) * (span * 0.4));
-    drawMob(ctx.mobLayer, kind, home, floorY, mh,
-            beastPose(kind, mt, span));
-  }
 
   /* --- props, drawn BEFORE the floor line so the floor always reads as the
      ground they stand on rather than being cut through by them --- */

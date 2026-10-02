@@ -1470,20 +1470,29 @@ async function run() {
         }
 /* ---- the beasts must actually be DRAWN where they walked. ----
 
-             This is the check that was missing, and its absence is why two
-             creatures looked broken while every test passed. Everything above
-             asks beastPose() where the animal is; those answers were correct, and
-             drawMob then ignored them and painted at a fixed x. The pose module
-             could have been perfect and the page would still show four creatures
-             waving their limbs in place.
+             This is the check that was missing when two creatures stood still
+             while every test passed. Everything else asks beastPose() where the
+             animal IS; nothing asked whether it was DRAWN there. The pose module
+             could have been flawless and the page would still have shown
+             creatures twitching in place - which is exactly what happened.
 
-             So this measures the PIXELS. Mean x of what was painted, sampled over
-             a long window. A pinned creature has a flat mean no matter how much
-             its legs work, because wiggling does not move the average. */
+             So this measures the PIXELS. A pinned creature has a flat position no
+             matter how hard its legs work, because wiggling does not move it.
+
+             THE WIDEST SPREAD, NOT THE MEAN, and that is not a style choice. Each
+             gallery now holds several residents at once, and the mean of several
+             moving things moves less than any one of them - so a mean-based check
+             quietly weakens as the population grows, which is precisely how a test
+             rots. The widest spread across the cycle survives that. */
           const drawnTravel = (idx) => {
-            const xs = [];
-            for (let s = 0; s <= 40; s++) {
-              const now = s * 400;
+            /* Per frame, the painted rectangles are clustered into creatures, then
+               each creature's CENTRE is tracked over the whole cycle. It has to be
+               per creature: one frame's overall spread says nothing, because a
+               gallery full of pinned creatures still spans the entire room. What
+               proves movement is a single creature's centre moving. */
+            const tracks = [];
+            for (let s = 0; s <= 90; s++) {
+              const now = s * 250;
               const rects = [];
               const mc = {
                 fillStyle: '', globalAlpha: 1,
@@ -1497,24 +1506,92 @@ async function run() {
                               mobLayer: mc },
                             ['dirt', 'stone', 'caves', 'bedrock'][idx],
                             { left: 48, right: 568 }, 600, 300, idx, 1, now, false);
-              /* the centre of the painted mass, which is the creature's position
-                 however it is shaped */
-              let sx = 0, sw = 0;
-              for (const r of rects) { sx += (r[0] + r[2] / 2) * r[2]; sw += r[2]; }
-              if (sw) xs.push(sx / sw);
+              if (!rects.length) continue;
+
+              /* Cluster by horizontal gap. Gaps BETWEEN creatures are a territory
+                 gap; gaps WITHIN one are the gaps between its own blocks. 12px
+                 sits between the two - and the worm's own segments are 4px apart,
+                 which is the tight case that decides it. */
+              rects.sort((p, q) => p[0] - q[0]);
+              const groups = [];
+              for (const r of rects) {
+                const last = groups[groups.length - 1];
+                if (last && r[0] - last.right <= 12) {
+                  last.right = Math.max(last.right, r[0] + r[2]);
+                  last.weight += r[2];
+                  last.cx += (r[0] + r[2] / 2) * r[2];
+                } else {
+                  groups.push({ left: r[0], right: r[0] + r[2], weight: r[2],
+                                cx: (r[0] + r[2] / 2) * r[2] });
+                }
+              }
+              groups.forEach((g, i) => {
+                if (!tracks[i]) tracks[i] = [];
+                tracks[i].push(g.cx / g.weight);
+              });
             }
-            return Math.max(...xs) - Math.min(...xs);
+            /* The furthest any ONE creature travelled. Not the population's spread
+               - see above. Taking the max over tracks keeps this honest as the
+               population grows. */
+            return tracks.reduce(
+              (best, t) => Math.max(best, Math.max(...t) - Math.min(...t)), 0);
           };
-          /* The bat spends part of its cycle roosting, so it is sampled over a
-             window long enough to contain a whole flight, and its threshold is
-             lower - it really does hold still for four or five seconds. */
+
+          /* More than one resident per gallery. A cave with a single animal in it reads as a
+             diorama; a cave with three reads as somewhere somebody lives. Counted
+             from the painted clusters, so this fails if the population silently
+             drops back to one - which is exactly what happened during this change,
+             and it failed as an EMPTY room rather than as a wrong count. */
+          const population = (idx) => {
+            const rects = [];
+            const mc = {
+              fillStyle: '', globalAlpha: 1,
+              fillRect: (x, y, w, h) => rects.push([Math.round(x), Math.round(w)])
+            };
+            art.drawRoom({ fillStyle: '', strokeStyle: '', lineWidth: 0,
+                            globalAlpha: 1,
+                            createLinearGradient: () => ({ addColorStop() {} }),
+                            fillRect: () => {}, strokeRect: () => {},
+                            mobLayer: mc },
+                          ['dirt', 'stone', 'caves', 'bedrock'][idx],
+                          { left: 48, right: 568 }, 600, 300, idx, 1, 0, false);
+            rects.sort((p, q) => p[0] - q[0]);
+            let groups = 0, reach = -Infinity;
+            for (const r of rects) {
+              if (r[0] - reach > 12) groups++;
+              reach = Math.max(reach, r[0] + r[1]);
+            }
+            return groups;
+          };
+          for (let i = 0; i < 4; i++) {
+            const pop = population(i);
+            if (pop < 3) {
+              fail(['mine', 'stone', 'deep', 'bed'][i] + ' has only ' + pop +
+                   ' creatures in it - the galleries are meant to be inhabited');
+            }
+          }
+
+          /* How far a creature must be seen to travel.
+
+             DERIVED, NOT GUESSED, and the number changed when the population did.
+             With one resident per room its territory was the whole room and the
+             bar was 150px. Now each resident owns a slice: usable room (520 minus
+             two 70px margins) minus two gaps, divided three ways = about 100px.
+             Asking for 150 was asking a beast to leave its own lane and walk
+             through its neighbours - and the suite caught the population change
+             as though the creatures had broken.
+
+             So the bar is a FRACTION OF THE TERRITORY, which is the quantity that
+             actually matters: did it cross its own ground, or stand still? Pinned
+             measured 0-15px, so this has plenty of room and is not tuned to pass. */
+          const TERRITORY = (520 - 140 - 80) / 3;      /* ~100px */
           for (let i = 0; i < 4; i++) {
             const travel = drawnTravel(i);
-            const min = i === 0 ? 100 : 150;
-            if (travel < min) {
-              fail(['mine', 'stone', 'deep', 'bed'][i] + "'s creature is painted " +
-                   'within ' + Math.round(travel) + 'px over a whole cycle - it is ' +
-                   'standing still. The pose is being computed and then ignored.');
+            if (travel < TERRITORY * 0.55) {
+              fail(['mine', 'stone', 'deep', 'bed'][i] + "'s creature only moves " +
+                   Math.round(travel) + 'px of its ~' + Math.round(TERRITORY) +
+                   'px territory - it is standing still. The pose is being ' +
+                   'computed and then ignored.');
             }
           }
 
