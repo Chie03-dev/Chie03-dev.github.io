@@ -1299,25 +1299,57 @@ async function run() {
           const again = shapes(0);
           const other = shapes(2);
           if (a.length < 8) {
-            fail('the ore gallery drew only ' + a.length + ' rects - there is no maze ' +
+            fail('the ore gallery drew only ' + a.length + ' rects - there is nothing ' +
                  'in it, just the room box');
           }
-          /* A maze wall is TALL and NARROW: the room box is wide, the floor slab
-             is wide and short, and only a cross-wall is neither. */
-          const walls = a.filter(s => s[3] > 120 && s[2] <= 20).length;
-          if (walls < 2) {
-            fail('the ore gallery drew ' + walls + ' tall narrow wall(s); a maze needs ' +
-                 'at least two cross-walls with a gap in each');
+          /* A SPIRE is narrow and its blocks STEP DOWN in width as they descend.
+             That taper is what makes a stalactite read as a stalactite: a plain
+             tall rect is a pillar, which is the maze this replaced. */
+          const spikeBases = a.filter(s => s[2] >= 2 && s[2] <= 18);
+          if (spikeBases.length < 4) {
+            fail('the ore gallery drew ' + spikeBases.length + ' narrow vertical blocks; ' +
+                 'a cave needs stalactites and stalagmites, not an empty box');
+          }
+          /* THE FLOOR SPIKES MUST BE SHORTER THAN THE CEILING SPIKES. Matching
+             them produces columns, and columns are architecture - which is the
+             exact thing the maze got wrong and the reason it was replaced. */
+          /* THE SPIRES MUST TAPER. Each block of a spire shares an x with the
+             next and is NARROWER, because that step-down IS the silhouette -
+             without it these are plain tall rects, which are pillars, and pillars
+             are the architecture this replaced. Flattening every spire to a single
+             block survived the suite until this was added. */
+          const widthsByX = new Map();
+          for (const s of a) {
+            if (s[2] > 18) continue;
+            if (!widthsByX.has(s[0])) widthsByX.set(s[0], []);
+            widthsByX.get(s[0]).push(s[2]);
+          }
+          let tapered = 0;
+          for (const ws of widthsByX.values()) {
+            if (ws.length < 2) continue;
+            const uniq = [...new Set(ws)];
+            if (uniq.length >= 2 && Math.max(...uniq) > Math.min(...uniq)) tapered++;
+          }
+          if (tapered < 2) {
+            fail('the ore gallery has ' + tapered + ' tapering formations; a stalactite is ' +
+                 'defined by its taper, and without it these are plain pillars');
+          }
+
+          const tall = a.filter(s => s[3] > 40).length;
+          if (tall < 2) {
+            fail('the ore gallery has ' + tall + ' formations reaching 40px; there is ' +
+                 'nothing to read as a cave in it');
           }
           if (a.join('|') !== again.join('|')) {
-            fail('the ore gallery draws differently on two consecutive calls - the maze ' +
-                 'is not seeded, so it changes every frame');
+            fail('the ore gallery draws differently on two consecutive calls - the ' +
+                 'formations are not seeded, so the cave reshuffles every frame');
           }
           if (a.join('|') === other.join('|')) {
-            fail('the ore gallery and the stone chamber draw the SAME maze - all four ' +
-                 'galleries would be one room drawn four times');
+            fail('two galleries on the same side draw the SAME cave - all four would ' +
+                 'be one room drawn four times');
           }
-          console.log('  maze       ' + walls + ' cross-walls per room, seeded, all distinct');
+          console.log('  cave       ' + spikeBases.length + ' drip formations per room, ' +
+                      'seeded, all distinct');
         }
       }
 

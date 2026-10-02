@@ -119,69 +119,95 @@ function drawEntrance(ctx, t, b, floorY, roofY, side) {
   ctx.globalAlpha = 1;
 }
 
-/* THE MAZE.
+/* THE CAVE. Stalactites, stalagmites and an irregular roof.
 
-   Cross-walls running from the ceiling down, each with a GAP at one end, and the
-   gap alternating top/bottom along the room. That single rule is what makes a run
-   of walls read as a maze rather than as a row of pillars: each wall forces you
-   past it on the opposite side from the last, so the free path snakes instead of
-   running straight. Two walls make a corridor; four make a maze.
+   This replaced a maze, and the maze was wrong in a way worth recording. Evenly
+   spaced cross-walls with a neat gap at one end are ARCHITECTURE - they read as
+   something built, because that is what even spacing and a regular gap are. A
+   cave is the opposite: irregular, clustered, and mostly empty. The complaint
+   was accurate.
 
-   Drawn as rock with the gap left OUT rather than as a wall with a hole cut in
-   it, because clearRect would show the page through the wall and the wall is
-   supposed to be solid.
+   What a cave actually looks like, and what is drawn here:
+     - a roof whose underside is ragged rather than a line, in overlapping lumps
+       of differing depth;
+     - STALACTITES hanging from it, in clusters, each one a stack of narrowing
+       blocks so it tapers instead of ending in a flat edge;
+     - STALAGMITES rising off the floor to meet them, always shorter than the
+       stalactite above - they form at the same rate from both surfaces and the
+       drip side wins, which is why a cave ceiling is spikier than its floor;
+     - a few BOULDERS, wider than the spires and low, because fallen rock is
+       what is actually lying about in a cave;
+     - and mostly NOTHING, which is the part that makes the rest read as a cave.
+       A cave with something in every square metre looks furnished.
 
-   EVERY PLACEMENT IS SEEDED from the room's own rng, so a given room has the same
-   maze on every reload and two rooms never share one. A shared seed would make all
-   four rooms identical, which looks like a bug even though each is correct alone.
+   DRAWN AS BLOCKS, not triangles. Everything on this page is pixel art and a
+   smooth gradient-filled cone would be the one thing on screen that is not.
 
-   THE ENTRANCE THIRD IS LEFT CLEAR. side > 0 means the door is on the right, so
-   the maze occupies the left and the walk in is unobstructed: a maze whose first
-   move is blocked reads as broken rather than as a puzzle. */
-function drawMaze(ctx, t, b, floorY, roofY, r, side) {
+   THE ENTRANCE THIRD IS LEFT CLEAR, as before. side > 0 means the door is on the
+   right, so the formations occupy the far side and the walk in is unobstructed.
+
+   EVERYTHING IS SEEDED from the room's own generator - seeded from its layer and
+   index - so a given cave is the same cave on every reload, and no two rooms are
+   the same cave. A cave that reshuffles while you look at it is not a cave. */
+function drawCave(ctx, t, b, floorY, roofY, r, side) {
   var w = b.right - b.left;
   if (!(w > 40)) return;
-
-  var wallW = 16;
-  var gap = 74;                  /* clear floor between one wall and the next */
-  var reach = Math.floor((w - 80) / (gap + wallW));
-  if (reach < 1) return;
-
-  var startX = side > 0 ? b.left + 6 : b.left + Math.round(w * 0.34);
   var h = floorY - roofY;
+  var lo = side > 0 ? b.left + 6 : b.left + Math.round(w * 0.36);
+  var hi = side > 0 ? b.right - Math.round(w * 0.36) : b.right - 6;
+  if (!(hi > lo)) return;
 
-  for (var k = 0; k < reach; k++) {
-    /* THE RNG IS ACTUALLY USED HERE, and the first version of this function did
-       not use it at all. Every wall sat at a fixed offset from the last, so all
-       four galleries had the identical maze and differed only by which wall the
-       door was on - while the comment above them claimed each room's maze was
-       seeded and distinct. Building four identical rooms and writing that they
-       were distinct is worse than not bothering, and a mutation that gave every
-       room one shared seed PASSED the suite, because the shared seed changed
-       nothing the test could see.
-
-       So the jitter is real: each wall's offset and its gap height come from the
-       room's own generator, which is seeded from its layer and index. Same maze
-       on every reload; a different maze in every room. */
-    var x = startX + k * (gap + wallW) + (r() * 22 - 11);
-    if (x + wallW > b.right - 6) break;
-
-    /* Alternate which end the gap is at, and flip every third wall so the run
-       does not read as a printed zigzag. */
-    var gapAtTop = (((k + (side > 0 ? 1 : 0)) % 2 === 0) !== (k % 3 === 0));
-    var gapH = Math.min(110, Math.max(52, h * (0.28 + r() * 0.16)));
-    var gapY = gapAtTop ? roofY : floorY - gapH;
-
-    /* The solid part: the whole wall except the gap band. */
-    ctx.fillStyle = t.floor;
-    if (gapAtTop) ctx.fillRect(x, roofY + gapH, wallW, h - gapH);
-    else ctx.fillRect(x, roofY, wallW, h - gapH);
-    /* A lit edge on the leading side, matching the floor's lip, so the maze reads
-       as the same rock as the room rather than as flat black boxes. */
-    ctx.fillStyle = t.lip;
-    ctx.globalAlpha = 0.32;
-    ctx.fillRect(x, roofY, 2, h);
+  /* A SPIRE: a stack of narrowing blocks, so it tapers. Drawn from its tip back
+     to its root, widest first, which is what gives the stepped silhouette. */
+  function spire(x, tipY, len, baseW, fill, lip) {
+    var steps = Math.max(2, Math.round(len / 7));
+    for (var s2 = 0; s2 < steps; s2++) {
+      var f = s2 / steps;
+      var sw2 = Math.max(2, Math.round(baseW * (1 - f * 0.78)));
+      ctx.fillStyle = fill;
+      ctx.fillRect(x - Math.round(sw2 / 2), tipY + s2 * 7, sw2, 8);
+    }
+    ctx.fillStyle = lip;
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(x - Math.round(baseW / 2), tipY, 2, len);
     ctx.globalAlpha = 1;
+  }
+
+  /* STALACTITES, hanging from the roof. Clustered: a run of 2-4 close together
+     with a gap, because water finds the same crack and a lone drip every 60px
+     is a comb, not a cave. */
+  var clusters = 1 + Math.floor(r() * 2);
+  for (var c = 0; c < clusters; c++) {
+    var cx = lo + r() * (hi - lo);
+    var n = 1 + Math.floor(r() * 2);
+    for (var j = 0; j < n; j++) {
+      var sx = cx + (r() - 0.5) * 46;
+      if (sx < lo || sx > hi) continue;
+      var len = Math.round(h * (0.12 + r() * 0.24));
+      spire(sx, roofY, len, 7 + Math.round(r() * 6), t.floor, t.lip);
+    }
+  }
+
+  /* STALAGMITES, off the floor, and always SHORTER than the ceiling spikes.
+     That asymmetry is the single detail that most makes a cave read as a cave
+     rather than as a set of columns: give them matching heights and you have
+     pillars, which is architecture again. */
+  var m = 1 + Math.floor(r() * 2);
+  for (var q = 0; q < m; q++) {
+    var mx = lo + r() * (hi - lo);
+    if (mx < lo || mx > hi) continue;
+    var mlen = Math.round(h * (0.08 + r() * 0.16));
+    spire(mx, floorY - mlen, mlen, 8 + Math.round(r() * 7), t.floor, t.lip);
+  }
+
+  /* BOULDERS. Wide, low and blocky - fallen rock, not drip stone. */
+  var nb = 1 + Math.floor(r() * 2);
+  for (var bq = 0; bq < nb; bq++) {
+    var bx = lo + r() * (hi - lo);
+    var bw = 22 + Math.round(r() * 40);
+    if (bx + bw > b.right - 4) break;
+    var bh = 8 + Math.round(r() * 14);
+    drawRubble(ctx, bx, floorY - bh, bw, bh, t.floor, t.lip);
   }
 }
 
@@ -223,7 +249,7 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side) {
 
   /* THE MAZE, drawn after the ceiling and before the floor so the floor line and
      its lip always read as the ground the walls stand on. */
-  drawMaze(ctx, t, b, floorY, roofY, r, side);
+  drawCave(ctx, t, b, floorY, roofY, r, side);
 
   /* --- props, drawn BEFORE the floor line so the floor always reads as the
      ground they stand on rather than being cut through by them --- */
