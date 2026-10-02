@@ -736,7 +736,28 @@ function render(now) {
      the player walks across the cave, so keying each band to their position at a
      different fraction is what makes the room slide behind them. That is the
      single change that turns this from a corridor into a level. */
-  var px0 = player.x + player.w / 2;
+  /* PARALLAX IS KEYED TO THE PAGE, NOT TO THE PLAYER.
+
+     It used to be `player.x + player.w / 2`, and the comment above it claimed
+     that was deliberate and load-bearing: "the single change that turns this from
+     a corridor into a level". It was deliberate. It was also the reason the reader
+     reported, three separate times, that the rooms follow them.
+
+     Every layer shifts as the player walks sideways, so the whole cave slid around
+     them. That reads as the world tracking the character rather than the character
+     moving through the world - which is the same complaint as the side rooms, from
+     the same inversion, and I had diagnosed those correctly and left this one
+     standing on the strength of a comment.
+
+     Keying to scrollY keeps the thing parallax is FOR - nearer layers moving faster
+     than distant ones as you descend - and drops the lateral tracking. Depth still
+     reads. Nothing following you sideways is a real loss, and it is the correct
+     trade for a page whose whole subject is descending.
+
+     SCROLL IS HELD IN A LOCAL, not read inside the layers. Five separate
+     functions each used to be handed px0; they now take one number derived here,
+     so the source of the motion is decided in one place and cannot drift. */
+  var px0 = window.scrollY || 0;
   drawCaveVoid();
   /* Every side room currently on screen, drawn shallowest first so the deeper
      one paints over the shallower where they overlap.
