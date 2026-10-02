@@ -15,10 +15,6 @@ import { player, keys, WALK_SPEED, movePlayer, snapPlayerToGround } from './game
 import { seedMotes, drawMotes, render } from './render.js';
 import { updateDepth, updateCue } from './ui.js';
 import { initContact } from './contact.js';
-/* Only for resetSettle(): a resize moves every side-room box under the reader,
-   which would otherwise read as the scroll having changed and drop them back on
-   the car mid-room. */
-import { resetSettle } from './rooms.js';
 /* treasure.js is GONE, along with the hoard it opened. Two things went with it:
    initHoard(), which ran once at boot to wire the chest buttons and tally the
    gold, and stepCave(), which ran every frame to highlight whichever chest the
@@ -223,7 +219,6 @@ function resize() {
 
      Deliberately in resize() rather than in measure(): measure() also runs on
      every scroll, and clearing on scroll would defeat the entire settle rule. */
-  resetSettle();
   /* measureShaft() BEFORE measure(). measure() is what hands the cage at the
      foot of the shaft its x and width, and layers.js holds those numbers in
      shaftX/shaftW - which are still 0 at this point on the first boot, so the

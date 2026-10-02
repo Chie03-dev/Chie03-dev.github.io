@@ -1076,47 +1076,44 @@ async function run() {
         }
       }
 
-      /* ACTIVATION. The rooms are 634px apart in the fixture and each is 300px
-         tall, so in a 900px viewport roughly 1.4 of them are on screen at any
-         moment and "the room is visible" is not a question with one answer.
-         That is not a fixture problem, it is the real page: a tall monitor sees
-         two layers at once. So this tests the rule activeRoom() actually
-         documents - the DEEPEST room on screen wins - rather than pretending
-         each room is alone.
+      /* WHICH ROOMS ARE PAINTED. This replaced a block that tested activeRoom(),
+         which asked "which room OWNS the player". That question is gone - there is
+         no ownership any more and rooms own nobody. What the renderer asks is
+         "which rooms are on screen", which is a different question with more than
+         one right answer on a tall viewport.
 
-         A scroll of tops[i] - 300 puts room i's top 300px down the screen, with
-         the next room's top 634px lower - just past the 900px fold - and the
-         previous room's bottom 34px above it. Exactly one room qualifies. */
+         Two rules matter: a room is painted whenever ANY part of its cell is on
+         screen, and MORE THAN ONE can be painted at once. The old test asserted
+         "the deepest one wins" - true of a function that no longer exists, and
+         meaningless for one that returns a list. */
       const tops = [634, 1268, 1902, 2536];
       globalThis.window.scrollY = 0;
-      if (R.activeRoom() !== -1) {
-        fail('a side room was active at the top of the page (scrollY 0), before ' +
-             'the reader has even left the surface camp');
+      const atTop = R.visibleRooms();
+      if (atTop.length !== 1 || atTop[0] !== 0) {
+        fail('at the top of the page the visible rooms are [' + atTop.join(',') +
+             '], expected [0] - a gallery whose cell is even partly on screen has ' +
+             'to be painted');
       }
-      for (let i = 0; i < tops.length; i++) {
-        globalThis.window.scrollY = tops[i] - 300;
-        const got = R.activeRoom();
-        if (got !== i) {
-          fail('scrolled to room ' + i + ' (' + R.DEFS[i].id + ') but activeRoom() ' +
-               'returned ' + got + ' - the wrong room owns the player');
-        }
-      }
-      /* THE OVERLAP RULE ITSELF. Halfway between two rooms both are on screen,
-         and the DEEPEST must win: that is the one the reader is looking at, and
-         returning the shallowest would hand the player to a room they are
-         leaving. Pinned separately because the loop above deliberately avoids
-         the overlap and so cannot see this rule at all. */
-      globalThis.window.scrollY = 870;
-      if (R.activeRoom() !== 1) {
-        fail('with rooms 0 and 1 both on screen, activeRoom() returned ' +
-             R.activeRoom() + ' - the deepest one must win');
-      }
-      /* Below every room, nothing is active: the reader is in the bedrock band
-         between the last room and the bottom cave. */
+      /* Below every one of them, none are. A room that never goes away is an
+         overlay, not scenery. */
       globalThis.window.scrollY = 3400;
-      if (R.activeRoom() !== -1) {
-        fail('a side room was still active below the last one, in the band ' +
-             'between the bedrock gallery and the bottom cave');
+      const atBottom = R.visibleRooms();
+      if (atBottom.length !== 0) {
+        fail('visibleRooms() still reports [' + atBottom.join(',') + '] well below ' +
+             'the last gallery - a room that never leaves the screen is an overlay, ' +
+             'not scenery');
+      }
+      /* AND MORE THAN ONE AT A TIME, shallowest first. scrollY 700 is chosen to
+         overlap them: room 0's bottom is at 934, so it is still on screen at 700,
+         and room 1's top is at 1268, so it is 568px down the frame. At 1000 - the
+         obvious "somewhere in the middle" - room 0 has already scrolled off and
+         only one is visible, which is correct behaviour and made an earlier
+         version of this fail for the wrong reason. */
+      globalThis.window.scrollY = 700;
+      const vis2 = R.visibleRooms();
+      if (vis2.length < 2 || vis2[0] >= vis2[1]) {
+        fail('with rooms 0 and 1 both on screen, visibleRooms() returned [' +
+             vis2.join(',') + '] - it must list EVERY visible room, shallowest first');
       }
 
       /* FLOOR AND WALLS. For every room at every x across its own column, the
@@ -1127,14 +1124,21 @@ async function run() {
       for (let i = 0; i < R.DEFS.length; i++) {
         const b = R.bounds(i);
         const roof = R.roofY(i);
-        /* Only meaningful while the room is actually on screen. Now that the
-           floor is no longer clamped, a room scrolled off the top has a floor and
-           a roof far negative - which is CORRECT, not a fault: it is above the
+        /* Only meaningful when the WHOLE cell is on screen. Now that the floor
+           is no longer clamped, a room scrolled off the top has a floor and a
+           roof far negative - which is CORRECT, not a fault: it is above the
            frame and simply not painted. Asserting roof >= 0 unconditionally was
-           only ever true because the clamp kept the floor on screen, and it is
-           the same clamp being removed. */
+           only ever true because the clamp kept the floor on screen.
+
+           It ALSO fired wrongly on a room that is only half on screen - the
+           bottom of the room visible while the ceiling is legitimately above the
+           fold, which is exactly what a reader scrolling past sees. So the cell's
+           own top has to be on screen before "the roof is above the frame" means
+           anything. */
         const onScreenFloor = R.screenFloorY(i, (b.left + b.right) / 2);
-        if (onScreenFloor > 0 && onScreenFloor < H && roof < 0) {
+        const cellTopNow = R.cellTopY(i);
+        if (isFinite(cellTopNow) && cellTopNow >= 0 && isFinite(onScreenFloor) &&
+            onScreenFloor < H && roof < 0) {
           fail('room ' + R.DEFS[i].id + ' is on screen with its floor at y=' +
                onScreenFloor.toFixed(0) + ' but its roof is at y=' + roof.toFixed(1) +
                ', above the top of the frame - it would have no ceiling to stand under');
