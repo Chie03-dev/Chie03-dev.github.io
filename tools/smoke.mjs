@@ -700,13 +700,37 @@ async function run() {
            settle(0).toFixed(0) + ', grass at ' + grassAtTop.toFixed(0) +
            ', band top at ' + band.top.toFixed(0) + ')');
     }
-    /* And still on the grass one step before travel begins: the last parked
-       frame, since the car hands over to the band at `start`. */
-    const justBefore = Math.max(0, start - 1);
-    if (!near(settle(justBefore), L.surfaceFrom - justBefore)) {
-      fail(label + ' car is not on the grass just before travel begins (car at ' +
-           settle(justBefore).toFixed(0) + ', grass at ' +
-           (L.surfaceFrom - justBefore).toFixed(0) + ')');
+    /* THE CAR DESCENDS FROM THE SURFACE rather than waiting on it. The travel
+       window now starts at surfaceFrom, so the elevator travels from the first
+       pixel of scroll: by the midpoint of the journey it must be strictly between
+       the top of its travel and the bottom of the band, and it must NOT still be
+       level with the grass.
+
+       This replaces an assertion that the car sat on the grass right up to the dirt
+       room, which encoded the freeze being removed. The band is viewport-relative
+       and the grass is a document line, so on a tall window they never meet and
+       waiting for the band meant the car never moved at all. */
+    /* AT SCROLL 0 THE CAR IS ON THE GRASS - which is the band's top being
+       anchored to the surface. This is the assertion the earlier version lacked: it
+       checked the midpoint of the journey, which passes whether or not the band
+       knows about the surface at all, because the band alone still produces a
+       descent. Mutating the surface anchor out survived on that check.
+
+       So the start is asserted directly against L.surfaceFrom. */
+    if (!near(settle(0), L.surfaceFrom)) {
+      fail(label + ' car does not start on the grass (car at ' +
+           settle(0).toFixed(0) + ', grass at ' + L.surfaceFrom.toFixed(0) +
+           ', band top at ' + band.top.toFixed(0) + ')');
+    }
+    const midScroll = (L.surfaceFrom + end) / 2;
+    const midCar = settle(midScroll);
+    if (!(midCar > L.surfaceFrom - midScroll + 1 && midCar < band.bot - 1)) {
+      fail(label + ' car does not descend from the surface (mid-journey at ' +
+           midCar.toFixed(0) + ', band bottom ' + band.bot.toFixed(0) + ')');
+    }
+    if (near(midCar, L.surfaceFrom - midScroll)) {
+      fail(label + ' car is still level with the grass halfway down the page, so ' +
+           'the elevator never travels - the freeze this change removes');
     }
     if (!near(settle(end), band.bot)) fail(label + ' car is not at the bottom at the treasure room');
 
@@ -745,72 +769,54 @@ async function run() {
       fail(label + ' car is already fully down but the treasure room is still below the fold');
     }
 
-    const midY = settle((start + end) / 2);
-    if (!(midY > band.top + 1 && midY < band.bot - 1)) {
-      fail(label + ' car does not actually travel between the dirt and the treasure room');
-    }
+
 
 
     /* Walk the whole page: monotonic, in band, and the character never sinks.
        This is the check that would have caught the original "the elevator goes
        up while I scroll down" bug, which measured 140 direction reversals. */
     let prev = -Infinity, reversals = 0, sunk = 0, offscreen = 0, outOfBand = 0;
-    let prevParked = Infinity, parkedFell = 0, offSoil = 0;
+    let prevParked = Infinity, parkedFell = 0, offSurface = 0;
     for (let sc = 0; sc <= L.maxScroll; sc += 50) {
       const y = settle(sc);
       /* MONOTONICITY IS SCOPED TO THE TRAVEL WINDOW, and that scoping is the fix
-         rather than a loosening. The car now rests ON the soil, so before the dirt
-         room opens its screen y is (travelFrom - scrollY): the ground rises up the
-         screen as the reader scrolls down and the car rises with it, because it is
-         standing on the ground. That is what every scroll-driven object on this
-         page does, and counting it as a reversal produced "3 direction reversals".
+         rather than a loosening. The car is parked on the ground above the
+         surface, and the ground RISES as the reader scrolls down, so those frames
+         are a rise by definition and counting them as reversals is what reported
+         the freeze as 4 direction reversals.
 
-         The rule is really about the original bug - the car dragged back up by a
-         target it could not reach - and that can only happen once it is inside the
-         window and descending. Before the window it should move the OTHER way, in
-         step with the soil, and that is asserted separately rather than ignored. */
-      if (sc >= start) {
+         The window now starts at the surface, so everything below it is a descent
+         and is checked as one. */
+      if (sc >= L.surfaceFrom) {
         if (y < prev - 0.01) reversals++;
         if (y < band.top - 0.01 || y > band.bot + 0.01) outOfBand++;
+        if (y > h + 0.01 || G.player.y < -0.01) offscreen++;
+        if (!G.player.inCave && G.player.y + G.player.h > y + 0.01) sunk++;
       } else {
-        /* The resting line is the GRASS, unconditionally. It is NOT
-           max(grass, bandTop): that let the band bury the car below the surface,
-           which is the bug this spec exists to prevent. */
-        const want = L.surfaceFrom - sc;
-        if (Math.abs(y - want) > 0.01) offSoil++;
+        /* ABOVE THE SURFACE THE CAR RIDES THE GRASS. The grass rises as the page
+           scrolls, so the car rises with it - correct, because it is standing on
+           the ground and the ground is passing beneath it. The band top is the
+           anchor the journey starts from, NOT a resting line the car must stay
+           inside while it is still in the sky.
+
+           So what is asserted is exactly that: the car is ON the surface at every
+           scroll position above it. Asserting it stayed inside the band reported it
+           8px out, because it was at the grass while the band started lower down.
+           The band is simply not where the car is while it is still in the sky. */
+        const surf = L.surfaceFrom - sc;
+        if (Math.abs(y - surf) > 1) offSurface++;
         if (y > prevParked + 0.01) parkedFell++;
         prevParked = y;
-      }
-      /* The car floor only means anything while the player is RIDING it. In the
-         bedrock cave they are on the cave's own floor, which is a different line
-         entirely, and the reader is meant to be off the car there - so this check
-         is scoped to the shaft rather than being allowed to blame the cave for
-         standing somewhere the cave intends them to stand. */
-      /* Only while the car is the surface being ridden. In the parked phase the
-         player is placed from the same groundY(), so this holds by construction;
-         scoping it to the travel window keeps the assertion about the one thing
-         it was written for - the character sinking through a MOVING floor. */
-      if (!G.player.inCave && sc >= start && G.player.y + G.player.h > y + 0.01) sunk++;
-      /* ON A SHORT VIEWPORT THE SOIL IS BELOW THE FOLD, so a car parked ON it is
-         legitimately below the screen at scroll 0 - the ground is not on screen
-         yet and standing on it would put the elevator off the bottom. That is the
-         requested behaviour working as intended on a 300x200 window, not the
-         sprite escaping the viewport, so the parked phase is exempt. Once the car
-         is travelling, or the soil is on screen, the rule applies unchanged. */
-      const soilOnScreen = (L.travelFrom - sc) < h;
-      if (y > h + 0.01 || G.player.y < -0.01) {
-        if (sc >= start || soilOnScreen) offscreen++;
       }
       prev = y;
     }
     if (parkedFell) {
-      fail(label + ' the parked car moved DOWN the screen on ' + parkedFell +
-           ' frame(s) while scrolling up through the sky; standing on the ground ' +
-           'means it rises as the soil rises');
+      fail(label + ' the car on the surface moved DOWN the screen on ' + parkedFell +
+           ' frame(s); standing on the ground means it rises as the ground rises');
     }
-    if (offSoil) {
-      fail(label + ' the parked car left its resting line (soil or band top) on ' +
-           offSoil + ' frame(s)');
+    if (offSurface) {
+      fail(label + ' the car left the grass surface on ' + offSurface +
+           ' frame(s) while above it');
     }
     if (reversals) fail(label + ' ' + reversals + ' direction reversals');
     if (outOfBand) fail(label + ' ' + outOfBand + ' frames outside the band');

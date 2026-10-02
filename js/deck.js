@@ -101,6 +101,48 @@ function deckBounds() {
 
   var top = centre - half;
   var bot = centre + half;
+  /* THE TOP OF THE BAND FOLLOWS THE SURFACE UP TO THE BAND'S OWN TOP. This is the
+     handover, and it happens HERE rather than between carTarget() and parkedY(),
+     because these are the two lines that have to meet: the grass is a document
+     line sweeping up the screen, the band is a fixed viewport range. On a tall
+     window at scroll 0 the grass is at 417 and the band starts at 510, so the two
+     never coincide on their own.
+
+     Taking the LOWER of the two makes the band's top the ground while the ground
+     is below it, and the band itself once the ground has risen past. So the car
+     rides the grass, the band takes over as it overtakes, and the two are equal
+     at the moment of handover - there is no jump, because there is no gap to
+     jump across. `max` here would be wrong: it would push the band's top above
+     the ground and bury the car underground, which is the bug this all undoes.
+
+     Only the top moves. The bottom stays viewport-relative, so the car still ends
+     up in the same place at the foot of the page and the journey's shape is
+     unchanged - it just starts from the surface instead of from a room. */
+  /* THE TOP OF THE BAND IS THE SURFACE AT THE START OF THE JOURNEY - a constant,
+     not a scroll-dependent line, and that is the correction after two wrong
+     attempts at a scroll-dependent one.
+
+     The band is VIEWPORT-relative and the grass is a DOCUMENT line sweeping up
+     the screen. On 1920x1200 at scroll 0 the grass is at 417 and the band spans
+     510..690, so the grass is ABOVE the whole band and stays above it forever -
+     it only rises further away. So there is no scroll position at which the two
+     meet, and no way to hand the car from one to the other.
+
+     Anchoring the band's top to the grass where it stood at scroll 0 (417) makes
+     the descent one continuous line from the surface to the foot of the page: the
+     car stands on the grass at the top, and descends as the reader scrolls. That
+     is the behaviour asked for - rides the grass briefly, then travels down the
+     shaft - and it is monotonic, because the band's top no longer moves.
+
+     The two wrong versions, both of which are why this is a constant:
+       - following the grass (`top = surface`) kept the car glued to the surface
+         for the whole page and it never descended at all;
+       - following it only when above the band (`>`) left the top at 510 while the
+         car stood at 417, so the band never came down to meet the car.
+
+     Clamped to the band's own top when the surface is below it, so a viewport too
+     short to show the surface still gets a sane band rather than an inverted one. */
+  if (surfaceFrom > 0 && surfaceFrom < top) top = surfaceFrom;
   /* No room at all, or nothing measured yet: fall back rather than inverting. */
   if (!isFinite(top) || !isFinite(bot) || bot - top < DECK_MARGIN) {
     top = viewH * DECK_FALLBACK_TOP + SPRITE_H;
@@ -159,7 +201,23 @@ var TRAVEL_EASE = 9;   /* how hard the car is pulled to target, per second */
    If the anchors are missing or inverted the fallback lets the whole page drive
    it, so the car still moves on a page that has not finished laying out. */
 function travelWindow() {
-  var start = travelFrom;
+  /* THE WINDOW NOW STARTS AT THE SURFACE, not at the dirt room. travelFrom is
+     still measured from the markup and still marks the dirt room, but the car's
+     journey begins at `surfaceFrom` - the grass - so it sets off from the ground
+     rather than waiting for a room to open underneath it.
+
+     Why this is the only way to make the elevator MOVE. The band is
+     VIEWPORT-relative (a fixed fraction of the window) while the grass is a
+     DOCUMENT line that sweeps upward as the reader scrolls. On a 1920x1200 window
+     at scroll 0 the grass sits at 417 and the band spans 510..690 - the band is
+     entirely UNDERGROUND while the car is standing on the surface. Those two
+     coordinate systems never meet on a tall window, so "park the car on the grass"
+     and "hand it to the band" cannot both be true, and the car sat frozen on the
+     grass for the whole sky section and then lurched when the dirt room arrived.
+
+     Starting the window at the surface makes it one continuous descent instead,
+     with no handover to jump across. */
+  var start = surfaceFrom > 0 ? surfaceFrom : travelFrom;
   var end = travelTo;
   if (!(end > start)) end = maxScroll + 1;    /* unmeasured: use the whole page */
   return { start: start, end: end };
