@@ -21,8 +21,7 @@ import { caveActive, caveBounds, screenFloorY, enterCave, leaveCave,
    gives in its header: cave.js owns one room and its tests must keep meaning
    what they meant. */
 import {
-  visibleRooms, entranceSide, bounds as roomBounds,
-  setShaftEdges, surfaceAt, shaftWallBlocks
+  visibleRooms, entranceSide, bounds as roomBounds
 } from './rooms.js';
 /* The cage standing at the foot of the shaft: one more solid surface inside the
    room, and the only one that is not part of the floor profile. */
@@ -305,11 +304,29 @@ function movePlayerShaft(dt, player) {
    up walks the player out again. Both directions go through the same pair of
    calls, so the two worlds can never each decide they own the player. */
 function movePlayer(dt) {
-  /* THE SHAFT'S OWN EDGES GO TO rooms.js, once per frame. They live in
-     layers.js and importing them here would close the layers <- game dependency
-     this module is built on. */
-  setShaftEdges(shaftLeft(), shaftRight());
+  /* THE SHAFT'S OWN EDGES AND THE WHOLE-PAGE FLOOR FUNCTION ARE GONE.
 
+     They existed for a walk-through that was never finished: surfaceAt() answered
+     "what is under this x" across the whole page, and shaftWallBlocks() decided
+     whether the shaft wall was a doorway at this depth.
+
+     Keeping them was not neutral - it was a live bug. The gallery walls are drawn
+     solid now, but shaftWallBlocks() still returned false at a tunnel, and that
+     skipped the shaft clamp ENTIRELY:
+
+       if (shaftWallBlocks(...)) { clamp the player inside the shaft }
+
+     So the page had a door the reader could walk through and no door they could
+     see: they stepped through solid-looking rock into a gallery they had been told
+     was sealed, and landed on a floor up to 400px from the deck. Worse than
+     having a door, worse than not having one, and invisible until it was looked
+     for.
+
+     Removing the doorways removes the bug rather than papering over it. The
+     galleries are scenery and the shaft is a shaft, which is what both look
+     like. */
+  var deck = groundY();
+  var surface = deck;
   /* THE BOTTOM CAVE GOES FIRST AND LEAVES IMMEDIATELY, exactly as it always has.
      It is a room at the very END of the document that the reader is genuinely
      inside, reached by riding the car down, and it has the lift cage in it. Its
@@ -330,16 +347,7 @@ function movePlayer(dt) {
   if (player.inCave) { movePlayerCave(dt, player); return; }
 
   var deck = groundY();
-  /* THE FLOOR UNDER THE PLAYER, CHOSEN BY X AND RESOLVED ONCE.
-
-     Inside the shaft this is exactly groundY(), from exactly the same call the
-     old code made - surfaceAt() returns the deck for any x between the shaft
-     walls - so the elevator behaves identically and its tests keep testing it.
-     Only once the player is through a doorway does a tunnel ramp or a room floor
-     come into play. That is the risk control for this whole feature: the shaft
-     path is untouched, so the new code is reachable only from outside it. */
-  var surf = surfaceAt(player.x + player.w / 2, deck);
-  var surface = isFinite(surf.y) ? surf.y : deck;
+  var surface = deck;
 
   /* --- horizontal: integrate, then whichever walls apply here --- */
   player.x += player.vx * dt;
@@ -360,14 +368,10 @@ function movePlayer(dt) {
     }
   }
 
-  /* THE SHAFT WALLS, SOLID EXCEPT WHERE A TUNNEL PASSES THROUGH AT THIS DEPTH.
-     This is the door: everywhere else the reader is walled in and must ride the
-     car, and at a tunnel the wall simply is not there.
-
-     The feet y and the deck are both passed because the ramp runs from the car
-     to the room floor and needs both ends - and because a doorway is a hole at
-     one depth, not a column of holes down the whole page. */
-  if (shaftWallBlocks(player.x, player.w, player.y + player.h, deck)) {
+  /* THE SHAFT WALLS ARE ALWAYS SOLID. The height-aware doorway is gone with the
+     rest of the walk-through; this clamps the reader into the car and does
+     nothing else. */
+  {
     var minX = shaftLeft() + 4;
     var maxX = shaftRight() - 4 - player.w;
     if (maxX < minX) maxX = minX;
@@ -399,7 +403,7 @@ function movePlayer(dt) {
 
        So the rule is scoped to surfaces the player walks along. Inside the
        shaft the behaviour is once again exactly what it always was. */
-    if (surf.kind !== 'shaft' && player.vy > 0 && rise > CAVE_STEP && !player.onGround) {
+    if (player.vy > 0 && rise > CAVE_STEP && !player.onGround) {
       player.vy = 0;
     } else {
       player.y = surface - player.h;

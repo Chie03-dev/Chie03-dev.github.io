@@ -1375,7 +1375,50 @@ async function run() {
         }
       }
 
-      console.log('  rooms     4 measured, mirrored, painted, and never seize the player');
+      /* THE SHAFT IS SEALED. THE PLAYER CANNOT LEAVE IT.
+
+         This is a real bug that was live for a whole commit, so it is worth
+         stating exactly what it was. The gallery walls were drawn solid while the
+         COLLISION still opened them, because movePlayer clamped the player into
+         the shaft only on a condition:
+
+           if (shaftWallBlocks(...)) { clamp }
+
+         and that function returned false at a tunnel. So a reader who held the
+         walk key drifted sideways out through solid-looking rock, into a gallery
+         they had been told was sealed, and landed on a floor that could be
+         hundreds of pixels from the deck.
+
+         Worse than having a door, worse than not having one, and invisible to the
+         suite: every assertion here was about the shaft or about the rooms, and
+         nobody had asked whether the two were still connected.
+
+         So this is the assertion nobody had: walk hard in each direction at every
+         room's depth, and the player must not end up outside the shaft. x only -
+         y legitimately changes as the car moves. */
+      {
+        for (let i = 0; i < R.DEFS.length; i++) {
+          globalThis.window.scrollY = tops[i] - 300;
+          R.measureRooms(W, H);
+          L.syncScroll();
+          for (const dir of [1, -1]) {
+            G.player.inCave = false;
+            G.snapPlayerToGround();
+            G.player.vx = dir * 95;
+            for (let f = 0; f < 400; f++) G.movePlayer(1 / 60);
+            const lo = L.shaftLeft() + 4;
+            const hi = L.shaftRight() - 4 - G.player.w;
+            if (G.player.x < lo - 0.5 || G.player.x > hi + 0.5) {
+              fail('walking ' + (dir > 0 ? 'right' : 'left') + ' at the ' +
+                   R.DEFS[i].id + ' left the player at x=' + G.player.x.toFixed(1) +
+                   ', outside the shaft (' + lo + '..' + hi + ') - the galleries are ' +
+                   'sealed, so a wall that looks solid has to actually stop them');
+            }
+          }
+        }
+      }
+
+      console.log('  rooms     4 measured, mirrored, sealed, and never seize the player');
     }
   }
 
