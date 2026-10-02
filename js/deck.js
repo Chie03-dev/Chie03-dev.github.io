@@ -228,11 +228,26 @@ function parkedY() {
   return soil;
 }
 
-function carTarget() {
-  var b = deckBounds();
+/* Is the car in its parked phase right now - i.e. is the target the ground
+   rather than a point on the band?
+
+   ONE PREDICATE, read by carTarget() and advanceCar(). They were originally two
+   separate expressions of "where is the car in its journey", and when the parked
+   case stopped being eased this had to agree with the target exactly: if the two
+   disagreed on a single frame the car would snap to the ground and then ease away
+   from it, which looks worse than either behaviour alone. The test is the same
+   `p <= 0` that selects the target, factored out so there is one of it. */
+function travelProgress() {
   var w = travelWindow();
   var span = w.end - w.start;
-  var p = span > 0 ? clamp((scrollY - w.start) / span, 0, 1) : 0;
+  return span > 0 ? clamp((scrollY - w.start) / span, 0, 1) : 0;
+}
+
+function snapToParked() { return travelProgress() <= 0; }
+
+function carTarget() {
+  var b = deckBounds();
+  var p = travelProgress();
   /* While parked (p <= 0) the target is the ground, not the band - that is what
      actually MOVES the car down onto the surface. seatDeck() below only bounds
      it, and on its own left the car sitting at band.top. */
@@ -259,7 +274,19 @@ function carTarget() {
    surface on every rotation. */
 function seatDeck(centre) {
   var b = deckBounds();
-  if (centre) { deckY = (b.top + b.bot) / 2; return; }
+  /* `centre` seats the car mid-band, which is what a re-measure wants for a car
+     that is DESCENDING. But while the car is PARKED its position is the ground,
+     not a point in the band - seating it mid-band there strands it in mid-air,
+     and it then has to be walked back down to the reader's feet, which is the
+     elevator arriving late. So the parked car is seated on the ground even on a
+     re-measure.
+
+     This is the same snapToParked() the target uses, so the two cannot disagree
+     about which phase the car is in. */
+  if (centre) {
+    deckY = snapToParked() ? parkedY() : (b.top + b.bot) / 2;
+    return;
+  }
   var floor = b.top, ceil = b.bot;
   var rest = parkedY();
   if (rest < floor) floor = rest;
@@ -269,14 +296,28 @@ function seatDeck(centre) {
 /* One frame of travel, called from the loop right after syncScroll().
    Exponential smoothing rather than a fixed fraction per frame, so the car
    settles at the same rate whatever the frame rate: a naive lerp visibly lags
-   at 30fps and snaps at 144fps. dt is already clamped in main.js. */
+   at 30fps and snaps at 144fps. dt is already clamped in main.js.
+
+   THE PARKED PHASE IS NOT EASED. This is the fix for the car taking a second or
+   two to reach the reader's feet after a scroll. While parked, the target is the
+   ground, and the ground moves EXACTLY 1:1 with scrollY - so easing it means the
+   car is always trailing the surface by an amount proportional to scroll speed,
+   and then has to spend the easing time catching up once the reader stops. The
+   reported symptom was precisely that: scroll, stop, wait, and only then does the
+   elevator floor arrive under the character.
+
+   Easing is for the DESCENT, where the car is a mechanism responding to the
+   reader moving through the page and a little softness reads as weight. Parking
+   is not that: the car is standing on the ground, and the ground is not
+   something the car should lag behind. So the parked case snaps, and it snaps in
+   the same way under reduced motion - there is no animation left to remove,
+   because there is no animation.
+
+   snapToParked() is derived from the same predicate as the target itself, so
+   "eased" and "snapped" can never disagree about which phase the car is in. */
 function advanceCar(dt) {
   var target = carTarget();
-  if (reduced) {
-    /* Under reduced motion the car still follows the scroll - that is the
-       mechanic, and it is driven by the reader's own input rather than played
-       at them. What goes is the easing, which is the part that is animation
-       instead of response. */
+  if (reduced || snapToParked()) {
     deckY = target;
   } else {
     deckY += (target - deckY) * (1 - Math.exp(-TRAVEL_EASE * dt));

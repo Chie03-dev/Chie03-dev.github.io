@@ -139,6 +139,8 @@ Mutate 'seatDeck clamps the car back into the band' 'js\deck.js' '  deckY = clam
 Mutate 'parked on the dirt room, not the grass' 'js\deck.js' '  var soil = surfaceFrom - scrollY;' '  var soil = travelFrom - scrollY;'
 Mutate 'the band overrides the grass line' 'js\deck.js' '  return soil;' '  return soil > b.top ? soil : b.top;'
 Mutate 'target ignores the ground' 'js\deck.js' '  if (p <= 0) return parkedY();' '  // mutant'
+Mutate 'the parked car eases toward the ground' 'js\deck.js' '  if (reduced || snapToParked()) {' '  if (reduced) {'
+Mutate 'a re-seat centres the parked car' 'js\deck.js' '    deckY = snapToParked() ? parkedY() : (b.top + b.bot) / 2;' '    deckY = (b.top + b.bot) / 2;'
 Mutate '7. travel window never closes' 'js\deck.js' 'if (!(end > start)) end = maxScroll + 1;' 'if (end > start) end = start;'
 Mutate '8. no barrier above the cave' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
 # 9, 9b, 10 and 11 are GONE. They attacked the shaft channel: a CSS mask cut into

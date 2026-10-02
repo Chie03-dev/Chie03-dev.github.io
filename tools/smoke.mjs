@@ -2006,6 +2006,66 @@ async function run() {
         if (R.playerDrawn > 0) spriteSeen++;
         if (D.groundY() < soilY - 1) carAbove++;
         if (G.player.y + G.player.h < soilY - 1) { spriteAbove++; }      }
+      /* THE PARKED CAR IS ON THE GRASS WITHIN ONE FRAME OF A SCROLL JUMP.
+
+         The reported symptom was not a wrong resting place - the car did end up on
+         the surface - it was that it took a second or two to GET there, so the
+         elevator floor arrived under the character well after the reader stopped
+         scrolling. Every other check on this path settles 200-250 frames before
+         measuring, so all of them were blind to it by construction.
+
+         So this one does the opposite: it jumps the scroll, advances a SINGLE
+         frame, and reads the car immediately. Parked motion tracks the ground 1:1
+         with scrollY, so one frame is enough and anything else is the exponential
+         easing still catching up. Measured as a worst case over the whole parked
+         range, because the lag scales with how far the ground moved. */
+      let worstLag = 0, lagAt = 0;
+      for (let sc = 0; sc < skyEnd; sc += 25) {
+        globalThis.window.scrollY = sc - 25 < 0 ? 0 : sc - 25;
+        L.syncScroll();
+        M.main.resize();
+        G.player.inCave = false;
+        for (let i2 = 0; i2 < 200; i2++) D.advanceCar(1 / 60);
+        /* Now jump 25px and give it exactly one frame. */
+        globalThis.window.scrollY = sc;
+        L.syncScroll();
+        D.advanceCar(1 / 60);
+        G.snapPlayerToGround();
+        const grass = L.surfaceFrom - sc;
+        const lag = Math.abs(D.groundY() - grass);
+        if (lag > worstLag) { worstLag = lag; lagAt = sc; }
+      }
+      /* AND A GENUINE RESIZE MUST NOT STRAND IT. main.js re-seats the car through
+         seatDeck(true) when the viewport really changed. That path used to centre
+         the car mid-band unconditionally, which parks a PARKED car in mid-air -
+         and because the non-centred clamp below recovers it on the next frame, no
+         settled-position assertion could see it. This one calls seatDeck(true)
+         directly and reads the car immediately, with no frame in between to heal
+         it. */
+      {
+        const sc = Math.max(0, Math.min(skyEnd - 1, 100));
+        globalThis.window.scrollY = sc;
+        L.syncScroll();
+        M.main.resize();
+        for (let i2 = 0; i2 < 200; i2++) D.advanceCar(1 / 60);
+        D.seatDeck(true);
+        const grass = L.surfaceFrom - sc;
+        if (Math.abs(D.groundY() - grass) > 1) {
+          fail('a re-seat with centre=true stranded the PARKED car off the grass ' +
+               '(car at ' + D.groundY().toFixed(0) + ', grass at ' +
+               grass.toFixed(0) + '). seatDeck() must seat a parked car on the ' +
+               'surface rather than centring it in the band, or the elevator ' +
+               'visibly jumps away from the reader on rotate');
+        }
+      }
+      if (worstLag > 1) {
+        fail('the parked car lags the ground by up to ' + worstLag.toFixed(1) +
+             'px after a single frame at scroll ' + lagAt + '. The car is standing ' +
+             'on the surface, and the surface moves 1:1 with the scroll, so the ' +
+             'parked phase must SNAP rather than ease - otherwise the elevator ' +
+             'floor arrives under the character seconds after the reader stops. ' +
+             'advanceCar() must not apply TRAVEL_EASE while snapToParked() is true');
+      }
       /* The SPRITE'S FEET ARE ON THE GRASS, not merely near it. The sprite is
          placed at groundY() - player.h, so it follows the car exactly - but only
          because the car's resting line IS the grass. This asserts the composed
