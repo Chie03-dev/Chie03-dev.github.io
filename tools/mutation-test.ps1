@@ -147,12 +147,12 @@ Mutate 'the surface anchor is unclamped' 'js\deck.js' '  if (surfaceFrom > 0 && 
 Mutate 'the descent is stretched over the whole page' 'js\deck.js' '  var end = Math.min(travelTo, start + viewH);' '  var end = travelTo;'
 Mutate 'the contact email accepts a missing half' 'js\contact.js' '  if (!user || !domain) return '''';' '  // mutant'
 Mutate 'the contact email loses its @ separator' 'js\contact.js' 'user + (at || ''@'') + domain' 'user + domain'
-Mutate 'a side room is pinned to the viewport instead of scrolling' 'js\rooms.js' '  var min = floorMinY();' '  var min = Math.max(viewH * 0.34, floorMinY());'
 Mutate 'a side room drops the player away from its doorway' 'js\rooms.js' '  player.x = Math.max(b.left, Math.min(player.x, b.right - player.w));' '  player.x = b.left + 100;'
 Mutate 'a side room puts its door on the wrong wall' 'js\rooms.js' '  return mid < (viewW / 2) ? 1 : -1;' '  return 1;'
 Mutate 'no side room is ever painted' 'js\rooms.js' '  var out = [];' '  var out = []; if (true) return out;'
 Mutate 'only the deepest side room is ever painted' 'js\rooms.js' '    if (bot > 0 && top < h) out.push(i);' '    if (bot > 0 && top < h && i === rooms.length - 1) out.push(i);'
 Mutate 'a side room never leaves the screen' 'js\rooms.js' '    if (bot > 0 && top < h) out.push(i);' '    out.push(i);'
+Mutate 'a side room floor is pinned to the viewport' 'js\rooms.js' '  return floorAt(i, screenX) + box.top - (window.scrollY || 0);' '  var yy = floorAt(i, screenX) + box.top - (window.scrollY || 0); return yy < floorMinY() ? floorMinY() : yy;'
 Mutate 'a side room grabs the player mid-descent' 'js\rooms.js' '  return stillFrames >= SETTLE_FRAMES ? i : -1;' '  return i;'
 Mutate 'a side room activates on any visible sliver' 'js\rooms.js' 'bot > 0 && top < h * 0.5' 'bot > 0 && top < h'
 Mutate 'a side room hands over the shallowest of two on screen' 'js\rooms.js' 'rm.box.top > bestTop' 'false'
@@ -378,7 +378,7 @@ Mutate '34. cave floor sampled at the feet, not the centre' 'js\game.js' '  var 
 # 35: the car stays drawn while the player has left it - an empty car hanging over
 # the room. Nothing in the smoke suite checks this, because it is a rendering
 # judgement rather than a coordinate: the hoist simply stops being drawn.
-Mutate '35. the car stays visible after the player leaves it' 'js\render.js' '  if (player.inCave || player.inRoom !== -1) return;' '  if (false) return;'
+Mutate '35. the car stays visible after the player leaves it' 'js\render.js' '  if (player.inCave) return;' '  if (false) return;'
 # 36: the roof's small-viewport guard. CAVE_HEIGHT itself is NOT worth a fault: it
 # is only ever an upper bound, and caveRoof() clamps it against the floor before
 # applying it, so multiplying it by four produces an identical result - an

@@ -1127,21 +1127,43 @@ async function run() {
       for (let i = 0; i < R.DEFS.length; i++) {
         const b = R.bounds(i);
         const roof = R.roofY(i);
-        if (roof < 0) {
-          fail('room ' + R.DEFS[i].id + ' has a roof at y=' + roof.toFixed(1) +
-               ', above the top of the frame');
+        /* Only meaningful while the room is actually on screen. Now that the
+           floor is no longer clamped, a room scrolled off the top has a floor and
+           a roof far negative - which is CORRECT, not a fault: it is above the
+           frame and simply not painted. Asserting roof >= 0 unconditionally was
+           only ever true because the clamp kept the floor on screen, and it is
+           the same clamp being removed. */
+        const onScreenFloor = R.screenFloorY(i, (b.left + b.right) / 2);
+        if (onScreenFloor > 0 && onScreenFloor < H && roof < 0) {
+          fail('room ' + R.DEFS[i].id + ' is on screen with its floor at y=' +
+               onScreenFloor.toFixed(0) + ' but its roof is at y=' + roof.toFixed(1) +
+               ', above the top of the frame - it would have no ceiling to stand under');
         }
         for (let k = 0; k <= 10; k++) {
           const x = b.left + (b.right - b.left) * (k / 10);
           const f = R.screenFloorY(i, x);
           if (!isFinite(f)) {
             fail('room ' + R.DEFS[i].id + ' has a non-finite floor at x=' + x.toFixed(0));
-          } else if (f < R.floorMinY() - 0.5) {
-            fail('room ' + R.DEFS[i].id + ' floor at x=' + x.toFixed(0) + ' is y=' +
-                 f.toFixed(1) + ', above its own minimum floor line ' +
-                 R.floorMinY().toFixed(1) + ' - the player would stand above the ' +
-                 'top of the screen');
           }
+        }
+        /* THE FLOOR MUST TRACK THE SCROLL ALL THE WAY OUT, with no floor on the
+           way. The old assertion here checked the OPPOSITE thing - that the floor
+           never rose above a viewport-relative minimum - and that minimum was the
+           bug: it pinned the room to the frame for ~400px of scroll while its
+           cell slid away, which is precisely the "the room follows me" report.
+
+           So the assertion is now a DIFFERENCE, sampled across the whole range the
+           room is painted for, including the part where it used to be pinned. Any
+           single flat run here is the clamp back. */
+        const xm = (b.left + b.right) / 2;
+        const rb = R.screenFloorY(i, xm);
+        globalThis.window.scrollY += 120;
+        const ra = R.screenFloorY(i, xm);
+        globalThis.window.scrollY -= 120;
+        if (Math.abs((rb - ra) - 120) > 0.5) {
+          fail('room ' + R.DEFS[i].id + ': scrolling 120px moved its floor by ' +
+               (rb - ra).toFixed(1) + 'px, not 120 - the floor is pinned to the ' +
+               'viewport, so the room stops scrolling with the rock');
         }
         /* The walls must be inside the measured column, not the viewport - a
            full-width room would look correct and be walkable off both sides. */

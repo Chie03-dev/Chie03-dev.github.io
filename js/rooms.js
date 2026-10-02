@@ -360,27 +360,40 @@ function floorMinY() {
 function screenFloorY(i, screenX) {
   if (!roomActive(i)) return NaN;
   var box = rooms[i].box;
-  var y = floorAt(i, screenX) + box.top - (window.scrollY || 0);
-  var min = floorMinY();
-  if (y < min) y = min;
-  return y;
+  /* THE TRUE DOCUMENT POSITION. NO CLAMP, AND THE ABSENCE IS THE FIX.
+
+     This used to be clamped to floorMinY(), copied from the bottom cave, where
+     the clamp is correct: the reader is standing in that room and the floor must
+     not rise above their head on a short viewport.
+
+     A side room has nobody standing in it. The only thing the clamp did there was
+     pin the drawn floor to a fixed line near the top of the frame, and the effect
+     was that the room STOPPED SCROLLING. For the ore gallery that is roughly 400px
+     of scroll - from about 540 to 934 - during which the cell slid up and out of
+     view while its floor sat pinned at y=80, still being painted because
+     visibleRooms() counts a sliver. That is the "the room follows me" report: the
+     room is welded to the viewport while the text beside it slides away.
+
+     The clamp belonged to the model where the player could be put into these rooms.
+     That model is gone - see the teleport removal - so the clamp went with it, and
+     it should not come back with a walk-through either. When the player can walk
+     in, the constraint that the floor fits below their head belongs in COLLISION,
+     where it keeps them on screen, and not in the number the renderer draws. */
+  return floorAt(i, screenX) + box.top - (window.scrollY || 0);
 }
 
 /* === The entrance ==========================================================
-   The doorway between the shaft and a room, so the reader WALKS in rather than
-   being teleported. The player is placed just inside it on arrival and has to
-   walk back out through it to leave, which is the difference between a room and
-   a cutscene.
+   The doorway on the wall facing the shaft. It is drawn, and it is on the correct
+   side, but nothing walks through it yet: there is no path from the shaft into a
+   room, and the teleport that used to fake one is gone. See movePlayer() in
+   game.js. The artwork and the geometry are here so the walk-through is a
+   collision change rather than a redraw.
 
-   It goes on the wall FACING THE SHAFT, because that is the only wall a reader
-   could arrive from: the shaft is the centre column, so a room in the left
-   column is entered from its right edge and a room in the right column from its
-   left. Choosing by the room's own geometry rather than by a per-room flag
-   means the door cannot end up on the outside wall of the page.
-
-   Returned as an x and a side, because the drawing (room-art.js) needs to know
-   which way the opening faces and the collision needs to know where to put the
-   player - one number cannot answer both. */
+   It goes on the wall FACING THE SHAFT - a left-column room's door is on its
+   right edge, a right-column room's on its left - chosen from the room's own
+   geometry rather than a per-room flag, so it cannot land on the outside wall
+   of the page. Returned as an x and a side because the drawing needs to know
+   which way it faces and the collision needs to know where to put the player. */
 function entranceSide(i) {
   if (!roomActive(i)) return 0;
   var box = rooms[i].box;
