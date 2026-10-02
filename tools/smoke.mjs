@@ -1352,28 +1352,58 @@ async function run() {
             fail('two galleries on the same side draw the SAME cave - all four would ' +
                  'be one room drawn four times');
           }
-          /* All four galleries differ from one another. This is WEAKER than it
-             looks and is not a mob test: the per-room rng makes every gallery
-             differ even if all four mobs were the same creature, so giving every
-             room an identical mob still passes. What it does catch is a gallery
-             whose whole drawing collapsed onto another's - a shared seed, or a
-             room drawn from the wrong index.
+          /* THE MOBS, COUNTED ON THEIR OWN LAYER.
 
-             See the note below for the mob coverage that is missing. */
-          const all = [0, 1, 2, 3].map(shapes).map(s => s.join('|'));
+             This is the check that could not be written before. drawRoom used to
+             draw creatures and rock into one context, so "is the mob drawn" was
+             answered by the BOULDERS and "is each mob different" by the per-room
+             jitter - and both survived deleting the mobs outright. They now go to
+             ctx.mobLayer, so a test can look at the creatures and nothing else.
+
+             Two claims that only this separation can make:
+               - every gallery draws SOMETHING onto the creature layer;
+               - the four galleries draw FOUR DIFFERENT shapes on it, which they
+                 cannot do by accident now that the rng jitter around them is not
+                 in the same bucket. */
+          const mobShapes = (idx) => {
+            const creatures = [];
+            const mobCtx = {
+              fillStyle: '', globalAlpha: 1,
+              fillRect: (x, y, w, h) => creatures.push([Math.round(x), Math.round(y),
+                                                         Math.round(w), Math.round(h)])
+            };
+            const ctx2 = {
+              fillStyle: '', strokeStyle: '', lineWidth: 0, globalAlpha: 1,
+              createLinearGradient: () => ({ addColorStop() {} }),
+              fillRect: () => {}, strokeRect: () => {},
+              mobLayer: mobCtx
+            };
+            art.drawRoom(ctx2, ['dirt', 'stone', 'caves', 'bedrock'][idx],
+                         { left: 48, right: 568 }, 600, 300, idx, 1);
+            /* SHAPE ONLY - width and height, never x. The creature's x is
+               jittered per room from the rng, so comparing positions makes every
+               gallery differ even when all four mobs are the same one, and the
+               "different mob" check passed against four identical bats. A golem
+               and a bat differ in their SIZES; a bat at two x positions does not. */
+            return creatures.map(c => c[2] + 'x' + c[3]).join('|');
+          };
+          const mobSets = [0, 1, 2, 3].map(mobShapes);
+          for (let i = 0; i < 4; i++) {
+            if (!mobSets[i]) {
+              fail('gallery ' + i + ' (' + ['mine', 'stone', 'deep', 'bed'][i] +
+                   ') drew nothing onto the creature layer - its resident is missing');
+            }
+          }
           for (let i = 0; i < 4; i++) {
             for (let j = i + 1; j < 4; j++) {
-              if (all[i] === all[j]) {
-                fail('galleries ' + i + ' and ' + j + ' draw identically - their caves ' +
-                     'should not be the same cave');
+              if (mobSets[i] && mobSets[i] === mobSets[j]) {
+                fail('galleries ' + i + ' and ' + j + ' draw the SAME creature - ' +
+                     'four galleries with the same mob is not a showcase');
               }
             }
           }
-          /* Note what is NOT asserted here, because it was tried and did not work:
-             that the mob itself is drawn. The check for it counted body-sized
-             blocks, and the BOULDERS in drawCave satisfy it - removing drawMob
-             entirely still passed. Catching it needs the mob drawn to its own
-             layer so its rects can be told from the rock's. Not done. */
+
+          /* The taper check, now that it can be made about the right shapes. */
           console.log('  cave       ' + spikeBases.length + ' drip formations per room, ' +
                       'seeded, all distinct');
         }

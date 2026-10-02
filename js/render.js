@@ -48,6 +48,11 @@ import { cageActive, cageFloorY, cageSpan } from './cage.js';
    the lamps after them, because the sets carry the guides and the lamps hang off
    them - the only ordering that makes the shaft read as built rather than decorated. */
 import { drawTimberSets, drawBracing, drawShaftLamps } from './shaft-art.js';
+
+/* The offscreen canvas the gallery creatures are drawn onto, so they can be
+   counted separately from the rock around them. Created lazily on first render
+   and reused at the viewport's size - see the note in render(). */
+var mobLayer = null;
 /* The cave drawn as a LEVEL: parallax backdrop, strata, crystals, torches,
    stalactites, the shelves themselves and the near foreground. It is its own
    module because render.js is already past the 500-line cap and no cave art may
@@ -706,6 +711,30 @@ function render(now) {
   playerDrawn = 0;
   ctx.fillStyle = DEEP;
   ctx.fillRect(0, 0, viewW, viewH);
+
+  /* THE MOB LAYER, cleared before anything is drawn onto it and composited after
+     the galleries. It exists so the creatures in the side rooms can be told apart
+     from the rock they stand in - by the smoke suite, which counts only what is on
+     this layer, and by the eye, which would otherwise be looking at a golem and
+     four stalactites drawn in the same bucket.
+
+     A real offscreen canvas rather than a flag: anything drawn to it has to be
+     composited or it simply is not on the page, and an earlier version of this
+     guarded the mob draw on the layer existing without ever creating one, which
+     removed the creatures from the site entirely while every test stayed green.
+
+     mobLayer is created lazily and reused - an offscreen canvas per frame is a
+     per-frame allocation and a GC pause on a page that draws every frame. */
+  if (!mobLayer || mobLayer.width !== viewW || mobLayer.height !== viewH) {
+    mobLayer = document.createElement('canvas');
+    mobLayer.width = viewW;
+    mobLayer.height = viewH;
+  }
+  var mctx = mobLayer.getContext('2d');
+  mctx.clearRect(0, 0, viewW, viewH);
+  /* Handed to the room art for the duration of the gallery pass only. */
+  ctx.mobLayer = mctx;
+
   drawFar();
   drawBands(now);
   /* Trees and bushes, AFTER the bands and BEFORE the shaft. The bands paint
@@ -776,6 +805,17 @@ function render(now) {
              roomFloorY(rm, (roomBounds(rm).left + roomBounds(rm).right) / 2),
              roomRoof(rm), rm, entranceSide(rm));
   }
+
+  /* THE CREATURES, composited over the rock they stand in. Their own layer means
+     the smoke suite can count them on their own, and it means they are painted
+     LAST - over the stalactites and the boulders, which is what a thing living in
+     a room should look like rather than buried in it.
+
+     And the hook is taken back off the context afterwards. It is set for the
+     gallery pass only, so a later draw that happens to reach the room code cannot
+     quietly queue up creatures of its own. */
+  if (mctx) ctx.drawImage(mobLayer, 0, 0);
+  ctx.mobLayer = null;
   if (caveActive()) {
     drawBackdrop(px0);
     drawStrata();

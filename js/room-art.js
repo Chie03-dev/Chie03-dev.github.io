@@ -306,15 +306,28 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side) {
      line and its lip always read as the ground everything stands on. */
   drawCave(ctx, t, b, floorY, roofY, r, side);
 
-  /* THE MOB, standing in the room. Its x is jittered off the room's own rng, so
-     it is in the same place every reload without being dead centre - a creature
-     posed in the middle of a shot looks like a sprite sheet, not like something
-     living there. Inset from both walls so it never reads as part of the
-     masonry. */
-  {
+  /* The mobs are drawn to THEIR OWN LAYER, and this is the reason it works.
+
+     They used to share the room's layer, which made them untestable: the shape
+     tests could not tell a stalactite from a golem, because both were opaque
+     rectangles in one bucket. Two checks were written against them and both
+     survived being deleted or flattened - "the mob is drawn" was satisfied by the
+     BOULDERS, and "each room has a different mob" was satisfied by the per-room rng
+     jitter, so four identical creatures passed.
+
+     Putting the creatures on ctx.mobLayer means a test can count only them. It
+     also means the pixel probe can prove they are VISIBLE, which matters more than
+     any of this: a creature drawn underneath the rock is a creature nobody has
+     ever seen. The layer is positioned by the caller each frame and cleared with
+     it, so it cannot accumulate.
+
+     Deliberately NOT composited with the room here. Compositing would put the
+     creature back in the same bucket for any test that walks the context, and the
+     point is that they are countable on their own. */
+  if (ctx.mobLayer) {
     var mh = floorY - roofY;
     var mx = Math.round(b.left + 70 + r() * Math.max(1, (b.right - b.left) - 150));
-    drawMob(ctx, t, MOBS[index % MOBS.length], mx, floorY, r, mh);
+    drawMob(ctx.mobLayer, t, MOBS[index % MOBS.length], mx, floorY, r, mh);
   }
 
   /* --- props, drawn BEFORE the floor line so the floor always reads as the
