@@ -141,17 +141,22 @@ function wormPose(t, span) {
   var SEGMENTS = 5;
   var LAG = 0.055;                    /* seconds behind the one in front */
   var head = patrol(t / 11);
+  var headX = Math.round((head - 0.5) * span);
   var pts = [];
   for (var i = 0; i < SEGMENTS; i++) {
     var h = patrol((t - i * LAG) / 11);
-    /* the body undulates: a wave running backwards down the segments */
+    /* RELATIVE to the head, not to the room. The head's own travel is carried by
+       pose.x, which drawMob applies to every beast uniformly; if the segments
+       were absolute as well, the worm would travel twice as far as the other
+       three - which is what happened the moment pose.x started being applied
+       here rather than inside the worm's own drawing. */
     pts.push({
-      x: Math.round((h - 0.5) * span),
+      x: Math.round((h - 0.5) * span) - headX,
       y: Math.round(Math.sin(t * 5 - i * 0.9) * 3)
     });
   }
   return {
-    x: Math.round((head - 0.5) * span),
+    x: headX,
     y: 0,
     segments: pts,
     face: head < 0.5 ? 1 : -1

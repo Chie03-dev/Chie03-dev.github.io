@@ -1468,7 +1468,57 @@ async function run() {
           console.log('  cave       ' + spikeBases.length + ' drip formations per room, ' +
                       'seeded, all distinct');
         }
-/* ---- the beasts actually TRAVEL, not just twitch. ----
+/* ---- the beasts must actually be DRAWN where they walked. ----
+
+             This is the check that was missing, and its absence is why two
+             creatures looked broken while every test passed. Everything above
+             asks beastPose() where the animal is; those answers were correct, and
+             drawMob then ignored them and painted at a fixed x. The pose module
+             could have been perfect and the page would still show four creatures
+             waving their limbs in place.
+
+             So this measures the PIXELS. Mean x of what was painted, sampled over
+             a long window. A pinned creature has a flat mean no matter how much
+             its legs work, because wiggling does not move the average. */
+          const drawnTravel = (idx) => {
+            const xs = [];
+            for (let s = 0; s <= 40; s++) {
+              const now = s * 400;
+              const rects = [];
+              const mc = {
+                fillStyle: '', globalAlpha: 1,
+                fillRect: (x, y, w, h) => rects.push([Math.round(x), Math.round(y),
+                                                     Math.round(w), Math.round(h)])
+              };
+              art.drawRoom({ fillStyle: '', strokeStyle: '', lineWidth: 0,
+                              globalAlpha: 1,
+                              createLinearGradient: () => ({ addColorStop() {} }),
+                              fillRect: () => {}, strokeRect: () => {},
+                              mobLayer: mc },
+                            ['dirt', 'stone', 'caves', 'bedrock'][idx],
+                            { left: 48, right: 568 }, 600, 300, idx, 1, now, false);
+              /* the centre of the painted mass, which is the creature's position
+                 however it is shaped */
+              let sx = 0, sw = 0;
+              for (const r of rects) { sx += (r[0] + r[2] / 2) * r[2]; sw += r[2]; }
+              if (sw) xs.push(sx / sw);
+            }
+            return Math.max(...xs) - Math.min(...xs);
+          };
+          /* The bat spends part of its cycle roosting, so it is sampled over a
+             window long enough to contain a whole flight, and its threshold is
+             lower - it really does hold still for four or five seconds. */
+          for (let i = 0; i < 4; i++) {
+            const travel = drawnTravel(i);
+            const min = i === 0 ? 100 : 150;
+            if (travel < min) {
+              fail(['mine', 'stone', 'deep', 'bed'][i] + "'s creature is painted " +
+                   'within ' + Math.round(travel) + 'px over a whole cycle - it is ' +
+                   'standing still. The pose is being computed and then ignored.');
+            }
+          }
+
+          /* ---- the beasts actually TRAVEL, not just twitch. ----
 
              The previous version offset pixels around a fixed anchor: every
              creature was nailed to one spot forever. All the old checks above

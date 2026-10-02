@@ -227,6 +227,19 @@ function drawMob(ctx, kind, x, floorY, h, pose) {
   var eye = '#ffd24a';
   var dark = '#0d1116';
 
+  /* THE TRAVEL. `x` arrives as the beast's HOME - the middle of its room - and the
+     pose carries how far it has walked from there. Without this line the pose's
+     x is computed, returned, tested and then thrown away, and every beast stands
+     still at the centre of its room waving its limbs. That is exactly what
+     happened: three of the four creatures ignored their own x, because the line
+     existed only for the worm, whose segments happen to carry absolute
+     positions. One missing addition, and two beasts looked broken while their
+     gait code ran perfectly.
+
+     Everything below draws relative to this, so a creature turns around in its
+     room for free. */
+  x += (pose.x || 0);
+
   function eyes(dx, y, gap, size) {
     ctx.fillStyle = eye;
     ctx.fillRect(Math.round(x + dx - gap), y, size, size);
