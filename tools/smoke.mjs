@@ -1136,10 +1136,10 @@ async function run() {
           const f = R.screenFloorY(i, x);
           if (!isFinite(f)) {
             fail('room ' + R.DEFS[i].id + ' has a non-finite floor at x=' + x.toFixed(0));
-          } else if (f < R.floorParkY() - 0.5) {
+          } else if (f < R.floorMinY() - 0.5) {
             fail('room ' + R.DEFS[i].id + ' floor at x=' + x.toFixed(0) + ' is y=' +
-                 f.toFixed(1) + ', above its own park line ' +
-                 R.floorParkY().toFixed(1) + ' - the player would stand above the ' +
+                 f.toFixed(1) + ', above its own minimum floor line ' +
+                 R.floorMinY().toFixed(1) + ' - the player would stand above the ' +
                  'top of the screen');
           }
         }
@@ -1195,11 +1195,56 @@ async function run() {
          and not hovering above it. */
       for (let f = 0; f < 90; f++) G.movePlayer(1 / 60);
       const feet = G.player.y + G.player.h;
+      /* AND THE PLAYER ARRIVES IN THE DOORWAY. Checked HERE, immediately after the
+         settle check, and not at the end of this section: further down the suite
+         deliberately walks them into both walls and then scrolls away, so by the
+         end they are back in the shaft and the assertion would be measuring the
+         wrong moment entirely.
+
+         They must be standing in the opening rather than dropped at the far wall
+         or left at whatever x they happened to hold in the shaft, which is what
+         enterRoom used to do. */
+      {
+        const bx = R.bounds(0);
+        const sx = R.entranceSide(0);
+        const atDoor = sx > 0
+          ? Math.abs((G.player.x + G.player.w) - (bx.right - 4)) < 1
+          : Math.abs(G.player.x - (bx.left + 4)) < 1;
+        if (!atDoor) {
+          fail('after walking into the ore gallery the player is at x=' +
+               G.player.x.toFixed(1) + ', not at the entrance (side ' + sx +
+               ', bounds ' + bx.left + '..' + bx.right + ') - they should arrive ' +
+               'in the doorway, not at the far wall');
+        }
+      }
       const floorNow = R.screenFloorY(0, G.player.x + G.player.w / 2);
       if (Math.abs(feet - floorNow) > 1.5) {
         fail('in the ore gallery the player settled with feet at ' + feet.toFixed(1) +
              ' but the floor is at ' + floorNow.toFixed(1) + ' - ' +
              (feet > floorNow ? 'sunk through the floor' : 'hovering above it'));
+      /* AND THE PLAYER ARRIVES IN THE DOORWAY. Checked HERE, immediately after the
+         settle check, and not at the end of this section: further down the suite
+         deliberately walks them into both walls and then scrolls away, so by the
+         end they are back in the shaft and the assertion would be measuring the
+         wrong moment entirely.
+
+         They must be standing in the opening rather than dropped at the far wall
+         or left at whatever x they happened to hold in the shaft, which is what
+         enterRoom used to do. */
+      {
+        const bx = R.bounds(0);
+        const sx = R.entranceSide(0);
+        const atDoor = sx > 0
+          ? Math.abs((G.player.x + G.player.w) - (bx.right - 4)) < 1
+          : Math.abs(G.player.x - (bx.left + 4)) < 1;
+        if (!atDoor) {
+          fail('after walking into the ore gallery the player is at x=' +
+               G.player.x.toFixed(1) + ', not at the entrance (side ' + sx +
+               ', bounds ' + bx.left + '..' + bx.right + ') - they should arrive ' +
+               'in the doorway, not at the far wall');
+        }
+      }
+
       }
 
       /* THE WALLS ARE SOLID. Held hard against each edge for two seconds of
@@ -1226,6 +1271,52 @@ async function run() {
       if (G.player.inRoom !== -1) {
         fail('after scrolling back to the top the player is still in room ' +
              G.player.inRoom + ' - leaving a room has to work as well as entering');
+      }
+
+      /* THE FLOOR SCROLLS WITH THE DOCUMENT. This is the regression the park
+         line caused, and it is asserted as a DIFFERENCE rather than as a value:
+         scroll down by a known amount and the floor must move up by the same
+         amount. A value check would have passed against the old buggy clamp,
+         because the clamped floor was also a perfectly finite number in the
+         right general area - it just never moved.
+
+         This is the check that would have caught "the room is fixed and does not
+         move with the character" on the first run. */
+      {
+        const xm = (R.bounds(0).left + R.bounds(0).right) / 2;
+        globalThis.window.scrollY = tops[0] - 300;
+        R.measureRooms(W, H);
+        const before = R.screenFloorY(0, xm);
+        globalThis.window.scrollY = tops[0] - 300 + 120;
+        const after = R.screenFloorY(0, xm);
+        /* 120px of scroll moves the floor 120px up the screen. Comparing only
+           while both are above the minimum, because below it the clamp takes
+           over by design and the difference is legitimately smaller. */
+        if (before > R.floorMinY() + 130 && Math.abs((before - after) - 120) > 0.5) {
+          fail('scrolling down 120px moved the ore gallery floor by ' +
+               (before - after).toFixed(1) + 'px, not 120 - the room is pinned to ' +
+               'the viewport instead of scrolling with the rock');
+        }
+      }
+
+      /* THE ENTRANCE. Each room's door must be on the wall FACING THE SHAFT, so
+         that a reader in the shaft column is always on the same side of it as
+         the opening. A room in the left column with a door on its LEFT wall is
+         a room you cannot enter from the shaft. */
+      for (let i = 0; i < R.DEFS.length; i++) {
+        const b = R.bounds(i);
+        const side = R.entranceSide(i);
+        const expected = ((b.left + b.right) / 2) < W / 2 ? 1 : -1;
+        if (side !== expected) {
+          fail('room ' + R.DEFS[i].id + ' has its entrance on the wrong wall ' +
+               '(side ' + side + ', expected ' + expected + ') - the door has to ' +
+               'face the shaft or there is no way in');
+        }
+        if (R.entranceX(i) !== (side > 0 ? b.right : b.left)) {
+          fail('room ' + R.DEFS[i].id + ' entrance x (' + R.entranceX(i) +
+               ') is not on the wall bounds() reports (' + b.left + '..' + b.right +
+               ') - the drawing and the collision disagree about where the door is');
+        }
       }
 
       console.log('  rooms     4 measured, mirrored, activating and holding the player');

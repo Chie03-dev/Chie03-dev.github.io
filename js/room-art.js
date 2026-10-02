@@ -74,14 +74,60 @@ function drawRubble(ctx, x, y, w, h, fill, lip) {
 }
 
 
-/* Draw one room. `b` is the wall box from rooms.js bounds(), `floorY` and
-   `roofY` are its screen-space floor and roof, `layer` is its palette key.
+/* The ENTRANCE: a doorway in the wall facing the shaft, drawn as a lit opening
+   with a short passage running out of the room toward the shaft column.
 
-   Every x here is bounded by `b`, which is the room's own column. That is what
-   stops the art spilling out across the text panel beside it: the room is
-   narrower than the page by construction, and nothing in this function is
-   allowed to forget that. */
-function drawRoom(ctx, layer, b, floorY, roofY, index) {
+   `side` is +1 when the room is left of the shaft (door on its right wall) and
+   -1 when it is right of the shaft (door on its left wall). The passage is
+   drawn OUTWARD from the wall, in that direction, which is why the sign matters:
+   drawing it the wrong way puts the tunnel inside the room and the opening on
+   the far side, so the reader would appear to walk out through solid rock.
+
+   Drawn BEFORE the walls below, so the walls can be interrupted by it - see the
+   note on that call. A door drawn on top of a solid wall reads as a poster. */
+function drawEntrance(ctx, t, b, floorY, roofY, side) {
+  if (!side) return;
+  /* The opening is tall enough to walk through and narrow enough to read as a
+     door. Its bottom sits ON the floor rather than near it, so the player
+     standing in the room is standing in the doorway, not beside a hole. */
+  var w = 46;
+  var h = Math.min(120, Math.max(64, floorY - roofY - 20));
+  var y = floorY - h;
+  var x = side > 0 ? b.right - w / 2 : b.left - w / 2;
+
+  /* The passage: a darker rectangle running from the opening away from the
+     room, which is what sells "this goes somewhere" rather than "this is a
+     painted rectangle". */
+  var passW = 34;
+  var px = side > 0 ? x + w / 2 - passW / 2 : x - passW / 2;
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.fillRect(px, y, passW, h);
+
+  /* The opening itself, lit from within. Warmer than the room, because the shaft
+     is the one warm thing on the page and this is the way back to it. */
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = t.lip;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+  /* A vertical jamb on each side, so the door has a frame rather than being an
+     outline drawn on a rectangle. */
+  ctx.fillStyle = t.lip;
+  ctx.globalAlpha = 0.75;
+  ctx.fillRect(x - 3, y, 3, h);
+  ctx.fillRect(x + w, y, 3, h);
+  ctx.globalAlpha = 1;
+}
+
+/* Draw one room. `b` is the wall box from rooms.js bounds(), `floorY` and
+   `roofY` are its screen-space floor and roof, `layer` is its palette key and
+   `side` is which wall the entrance is in (+1 right, -1 left, 0 none).
+
+   Every x here is bounded by `b`, which is the room's own column - with the one
+   deliberate exception of the entrance's passage, which is drawn OUTSIDE b on
+   purpose, because a doorway that stops at the wall is a doorway to nowhere.
+   That is the point at which the shaft is. */
+function drawRoom(ctx, layer, b, floorY, roofY, index, side) {
   if (!isFinite(floorY) || !isFinite(roofY)) return;
   var t = TINT[layer] || FALLBACK;
   var w = Math.max(0, b.right - b.left);
@@ -132,12 +178,38 @@ function drawRoom(ctx, layer, b, floorY, roofY, index) {
   /* --- walls: two vertical edges closing the room off. Drawn last so nothing
      can overlap them, and exactly on the bounds the collision uses, so the
      visible wall and the solid wall are the same line rather than two lines
-     that happen to be near each other. */
+     that happen to be near each other.
+
+     THE WALL WITH THE ENTRANCE IN IT IS INTERRUPTED. Drawing a continuous wall
+     and then drawing a door over the top of it gives a poster on a wall - the
+     most convincing-looking version of this feature being broken, because the
+     doorway is right there and the player still cannot get through it. So the
+     entrance wall is drawn as two segments with the opening left out between
+     them, and the entrance is drawn into the gap.
+
+     The gap is the same width and position entranceX/entranceSide report, taken
+     from those rather than recomputed here: collision and art must agree on
+     where the hole is, or the player walks into a wall that looks open. */
+  var doorHalf = 26;
+  var doorX = side > 0 ? b.right : b.left;
+  var gapLo = doorX - doorHalf;
+  var gapHi = doorX + doorHalf;
+
   ctx.globalAlpha = 0.5;
   ctx.fillStyle = t.lip;
-  ctx.fillRect(b.left, roofY, 2, floorY - roofY);
-  ctx.fillRect(b.right - 2, roofY, 2, floorY - roofY);
+  /* Far wall: always solid. */
+  ctx.fillRect(side > 0 ? b.left : b.right - 2, roofY, 2, floorY - roofY);
+  /* Near wall: split around the doorway when there is one. */
+  if (side) {
+    var near = side > 0 ? b.right - 2 : b.left;
+    if (gapLo > near) ctx.fillRect(near, roofY, gapLo - near, floorY - roofY);
+    if (gapHi < near + 2) ctx.fillRect(gapHi, roofY, near + 2 - gapHi, floorY - roofY);
+  } else {
+    ctx.fillRect(near, roofY, 2, floorY - roofY);
+  }
   ctx.globalAlpha = 1;
+
+  drawEntrance(ctx, t, b, floorY, roofY, side);
 }
 
 

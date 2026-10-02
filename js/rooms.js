@@ -290,30 +290,70 @@ function settledRoom() {
 function resetSettle() { lastScroll = null; stillFrames = 0; }
 
 
-/* The floor's park line, in screen space. Identical in FORM to the bottom
-   cave's: never above the sprite's own height, and never higher than a third of
-   the frame. See the header for why the vertical numbers are shared rather than
-   re-derived - this is the constraint that keeps a short window from putting the
-   player above the top of the screen. */
-function floorParkY() {
-  var h = viewH || 0;
-  if (!(h > 0)) return 0;
-  return Math.max(h * 0.34, ROOM_SPRITE_MIN + 2 + ROOM_RELIEF);
+/* The floor's absolute minimum screen y: high enough that a player standing on
+   it fits entirely inside the frame.
+
+   THIS USED TO BE A VIEWPORT FRACTION (a third of the window) and that was the
+   bug. Clamping the floor to a fraction of the viewport pinned every room to a
+   fixed screen position no matter where it sat in the document - the room
+   stopped scrolling with the rock and hung in the frame like an overlay, while
+   the text beside it slid past. It is the same clamp the bottom cave needs,
+   applied for the same reason the bottom cave needs it, and it is wrong here.
+
+   The bottom cave is a short band at the very end of the document, so pinning
+   it costs nothing. A side room is a real cell in the middle of the page, so
+   pinning it is the whole feature not working.
+
+   What actually has to be true is only that the player can STAND here: the
+   floor cannot come above the sprite's own height, or there is nowhere to be.
+   That is an absolute number and does not move with the window. */
+function floorMinY() {
+  return ROOM_SPRITE_MIN + 2 + ROOM_RELIEF;
 }
 
 /* Screen-space floor y for a room at a screen x: the world profile, plus the
    room's document top, minus the live scroll - the ONE place world becomes
-   screen. A stored screen y would be stale the instant the reader scrolled. */
+   screen. A stored screen y would be stale the instant the reader scrolled.
+
+   Clamped ONLY to floorMinY(), which is the sprite-fits constraint and nothing
+   else. The floor therefore tracks the room through the document exactly as the
+   text beside it does. */
 function screenFloorY(i, screenX) {
   if (!roomActive(i)) return NaN;
   var box = rooms[i].box;
   var y = floorAt(i, screenX) + box.top - (window.scrollY || 0);
-  var park = floorParkY();
-  /* Clamped to the park line, for the same reason the bottom cave clamps: an
-     unclamped floor on a short window rises above the sprite and the player is
-     drawn off the top of the frame. */
-  if (isFinite(park) && y < park) y = park;
+  var min = floorMinY();
+  if (y < min) y = min;
   return y;
+}
+
+/* === The entrance ==========================================================
+   The doorway between the shaft and a room, so the reader WALKS in rather than
+   being teleported. The player is placed just inside it on arrival and has to
+   walk back out through it to leave, which is the difference between a room and
+   a cutscene.
+
+   It goes on the wall FACING THE SHAFT, because that is the only wall a reader
+   could arrive from: the shaft is the centre column, so a room in the left
+   column is entered from its right edge and a room in the right column from its
+   left. Choosing by the room's own geometry rather than by a per-room flag
+   means the door cannot end up on the outside wall of the page.
+
+   Returned as an x and a side, because the drawing (room-art.js) needs to know
+   which way the opening faces and the collision needs to know where to put the
+   player - one number cannot answer both. */
+function entranceSide(i) {
+  if (!roomActive(i)) return 0;
+  var box = rooms[i].box;
+  var mid = (box.left + box.right) / 2;
+  /* Left-hand room -> the shaft is to its right -> door on the right wall. */
+  return mid < (viewW / 2) ? 1 : -1;
+}
+
+function entranceX(i) {
+  if (!roomActive(i)) return NaN;
+  var b = bounds(i);
+  return entranceSide(i) > 0 ? b.right : b.left;
 }
 
 /* The roof, in screen space, from the floor. Never above the top of the frame
@@ -349,14 +389,30 @@ function bounds(i) {
   return { left: left, right: right };
 }
 
-/* Drop the player onto this room's floor, from just above it, at the x they
-   already had - clamped into the room's own column, because their x came from
-   the shaft and the shaft is nowhere near this column. Dropping rather than
-   teleporting lets gravity finish the last few pixels, so arriving does not
-   read as a glitch when the reader scrolls quickly. */
+/* Put the player just INSIDE the entrance, on the floor, rather than wherever
+   they happened to be standing in the shaft.
+
+   This is the difference between walking into a room and being teleported into
+   one: the arrival point is the doorway, so the room reads as having been
+   entered through its own door, and leaving is the same journey in reverse.
+
+   The x is nudged INWARD from the door by the player's own width, not by a
+   constant, so they never start embedded in the wall - and the nudge is signed
+   by which wall the door is on, so a room entered from its left is not dropped
+   out through it. */
 function enterRoom(i, player) {
   if (!roomActive(i)) return false;
   var b = bounds(i);
+  var side = entranceSide(i);
+  if (side > 0) {
+    player.x = b.right - player.w - 4;
+  } else if (side < 0) {
+    player.x = b.left + 4;
+  } else {
+    /* No wall faces the shaft - a degenerate room. Fall back to the middle
+       rather than picking an edge and guessing. */
+    player.x = Math.round((b.left + b.right) / 2 - player.w / 2);
+  }
   player.x = Math.max(b.left, Math.min(player.x, b.right - player.w));
   player.y = screenFloorY(i, player.x + player.w / 2) - player.h - 8;
   player.vx = 0;
@@ -388,7 +444,9 @@ export {
   roomActive,
   roomLayer,
   floorAt,
-  floorParkY,
+  floorMinY,
+  entranceX,
+  entranceSide,
   screenFloorY,
   roofY,
   bounds,

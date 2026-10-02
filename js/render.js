@@ -36,7 +36,7 @@ import {
    which is precisely how the bottom cave's floor would end up being sampled
    with the side room's function. */
 import {
-  roomLayer, screenFloorY as roomFloorY, bounds as roomBounds,
+  roomLayer, entranceSide, screenFloorY as roomFloorY, bounds as roomBounds,
   roofY as roomRoof
 } from './rooms.js';
 import { drawRoom } from './room-art.js';
@@ -751,7 +751,8 @@ function render(now) {
   var room = player.inRoom;
   if (room !== -1) {
     drawRoom(ctx, roomLayer(room), roomBounds(room),
-             roomFloorY(room, player.x + player.w / 2), roomRoof(room), room);
+             roomFloorY(room, player.x + player.w / 2), roomRoof(room), room,
+             entranceSide(room));
   }
   if (caveActive()) {
     drawBackdrop(px0);
