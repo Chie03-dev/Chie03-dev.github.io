@@ -11,7 +11,7 @@
    ========================================================================== */
 
 import {
-  clamp, shaftLeft, shaftRight, shaftMid, SPRITE_W, SPRITE_H
+  clamp, shaftLeft, shaftRight, shaftMid, viewW, SPRITE_W, SPRITE_H
 } from './layers.js';
 import { groundY, deckBounds } from './deck.js';
 import { caveActive, caveBounds, screenFloorY, enterCave, leaveCave,
@@ -20,6 +20,10 @@ import { caveActive, caveBounds, screenFloorY, enterCave, leaveCave,
    gallery). A separate world from the bottom cave, for the reason rooms.js
    gives in its header: cave.js owns one room and its tests must keep meaning
    what they meant. */
+import {
+  visibleRooms, entranceSide, bounds as roomBounds,
+  setShaftEdges, surfaceAt, shaftWallBlocks
+} from './rooms.js';
 /* The cage standing at the foot of the shaft: one more solid surface inside the
    room, and the only one that is not part of the floor profile. */
 import { cageActive, cageFloorY, overCage } from './cage.js';
@@ -301,60 +305,115 @@ function movePlayerShaft(dt, player) {
    up walks the player out again. Both directions go through the same pair of
    calls, so the two worlds can never each decide they own the player. */
 function movePlayer(dt) {
-  /* THE SIDE ROOMS ARE NOT HERE, AND THAT IS THE FIX.
+  /* THE SHAFT'S OWN EDGES GO TO rooms.js, once per frame. They live in
+     layers.js and importing them here would close the layers <- game dependency
+     this module is built on. */
+  setShaftEdges(shaftLeft(), shaftRight());
 
-     There used to be a side-room handover in this function: settledRoom() waited
-     for the reader to stop scrolling near a room, and then enterRoom() WROTE
-     player.x and player.y to put them in it. That was the teleport the reader
-     kept reporting - "it teleports the player when it's near it" - and it was
-     not a bug in the teleport, it was the teleport working exactly as written.
+  /* THE BOTTOM CAVE GOES FIRST AND LEAVES IMMEDIATELY, exactly as it always has.
+     It is a room at the very END of the document that the reader is genuinely
+     inside, reached by riding the car down, and it has the lift cage in it. Its
+     handover and its collision are untouched by this work and have their own
+     suites, so they run first and hand the frame straight back.
 
-     A room that is merely NEAR the reader must never move them. Proximity is not
-     consent. So the whole handover is gone: the four rooms are now scenery at
-     fixed document positions, painted because their cell is on screen, exactly
-     like the Skills, Experience, Education and Projects panels beside them. The
-     player rides the car and walks the shaft, and nothing on the page can pick
-     them up and put them somewhere they did not walk to.
-
-     What this deliberately does NOT do is let them walk into the rooms. There is
-     no path from the shaft into a gallery yet, and building one properly - a
-     continuous floor and doorways in the shaft wall - is the next piece of work.
-     An earlier attempt at that is described at the bottom of this file; it was
-     reverted because it introduced a car-floor regression that could not be
-     pinned down. Doing it in the right order is the job now, and it is a much
-     smaller job with the teleport already out of the way: there is no handover
-     left to accidentally resurrect.
-
-     The bottom cave keeps its own handover, below. It is genuinely a room you
-     are inside at the END of the document, reached by riding the car all the way
-     down, and it is the one place the player is still placed rather than walked. */
+     This was briefly dropped, and dropping it WAS the last surviving failure:
+     with no dispatch, the bottom cave fell through to the shaft floor below and
+     the player stood 19px off the cave floor. The suites caught it, which is the
+     only reason it did not ship. */
   var active = caveActive();
-
-  /* The floor has to be FINITE before either handover is allowed. caveActive()
-     is true whenever the room is on screen, including the window where the room
-     has been measured but its box is degenerate - and enterCave() then reads NaN
-     out of screenFloorY() and writes it into player.y, from which every later
-     frame draws NaN. The stub's zero-height .treasure box is enough to trigger
-     it, and the symptom (a silently missing lantern pool) points nowhere near
-     the cause.
-
-     So the cave is only entered when its floor is actually a number. Staying in
-     the shaft for a frame costs nothing and cannot strand the player, because
-     movePlayerShaft() re-seats them on the car every frame anyway. The same
-     guard is applied to the side rooms, for the same reason and with the same
-     consequence: rooms.js already refuses to measure a zero-area cell, but the
-     guard is about the FLOOR being a number rather than about the box existing,
-     and the two are not the same condition. */
   if (active && isFinite(screenFloorY(player.x + player.w / 2))) {
     if (!player.inCave) { enterCave(player); player.inCave = true; }
   } else if (!active && player.inCave) {
     leaveCave(player);
     player.inCave = false;
   }
+  if (player.inCave) { movePlayerCave(dt, player); return; }
 
-  /* Dispatch. Shaft is the fallback for every state that is not the cave. */
-  if (player.inCave) movePlayerCave(dt, player);
-  else movePlayerShaft(dt, player);
+  var deck = groundY();
+  /* THE FLOOR UNDER THE PLAYER, CHOSEN BY X AND RESOLVED ONCE.
+
+     Inside the shaft this is exactly groundY(), from exactly the same call the
+     old code made - surfaceAt() returns the deck for any x between the shaft
+     walls - so the elevator behaves identically and its tests keep testing it.
+     Only once the player is through a doorway does a tunnel ramp or a room floor
+     come into play. That is the risk control for this whole feature: the shaft
+     path is untouched, so the new code is reachable only from outside it. */
+  var surf = surfaceAt(player.x + player.w / 2, deck);
+  var surface = isFinite(surf.y) ? surf.y : deck;
+
+  /* --- horizontal: integrate, then whichever walls apply here --- */
+  player.x += player.vx * dt;
+
+  /* Page edges, and the rooms' OUTER walls. A room has nothing beyond its far
+     side, so the reader has to come back the way they came. */
+  player.x = clamp(player.x, 4, Math.max(4, viewW - player.w - 4));
+  var vis = visibleRooms();
+  for (var i = 0; i < vis.length; i++) {
+    var b = roomBounds(vis[i]);
+    var side = entranceSide(vis[i]);
+    if (!side) continue;
+    /* side > 0: the shaft is to the room's right, so the far wall is b.left. */
+    var far = side > 0 ? b.left : b.right;
+    if (player.x + player.w > far && player.x < far) {
+      player.x = side > 0 ? far - player.w - 2 : far + 2;
+      player.vx = 0;
+    }
+  }
+
+  /* THE SHAFT WALLS, SOLID EXCEPT WHERE A TUNNEL PASSES THROUGH AT THIS DEPTH.
+     This is the door: everywhere else the reader is walled in and must ride the
+     car, and at a tunnel the wall simply is not there.
+
+     The feet y and the deck are both passed because the ramp runs from the car
+     to the room floor and needs both ends - and because a doorway is a hole at
+     one depth, not a column of holes down the whole page. */
+  if (shaftWallBlocks(player.x, player.w, player.y + player.h, deck)) {
+    var minX = shaftLeft() + 4;
+    var maxX = shaftRight() - 4 - player.w;
+    if (maxX < minX) maxX = minX;
+    if (player.x < minX) { player.x = minX; player.vx = 0; }
+    if (player.x > maxX) { player.x = maxX; player.vx = 0; }
+  }
+
+  /* --- vertical: gravity, then the ONE surface --- */
+  player.vy += GRAVITY * dt;
+  player.y += player.vy * dt;
+
+  if (player.y + player.h >= surface) {
+    var rise = surface - (player.y + player.h);
+    /* THE STEP-UP RULE IS FOR SLOPES ONLY, AND IS DELIBERATELY NOT APPLIED OVER
+       THE DECK.
+
+       The rule exists so the player stops against a rise too steep to walk up,
+       rather than teleporting up it - correct for a cave floor and a tunnel
+       ramp. The car deck is not that: it MOVES under the player as the elevator
+       travels, so its "rise" is not an obstacle at all, it is the elevator doing
+       its job. Applying the rule there is what produced
+
+         "1920x1200 character sank through the car floor on 7 frames"
+
+       and it is precisely the shaft regression this whole feature was supposed
+       to be incapable of causing. The old movePlayerShaft() always snapped to
+       groundY() with no step-up test, and reintroducing one over the deck is the
+       single line that broke it.
+
+       So the rule is scoped to surfaces the player walks along. Inside the
+       shaft the behaviour is once again exactly what it always was. */
+    if (surf.kind !== 'shaft' && player.vy > 0 && rise > CAVE_STEP && !player.onGround) {
+      player.vy = 0;
+    } else {
+      player.y = surface - player.h;
+      player.vy = 0;
+      player.onGround = true;
+    }
+  } else {
+    player.onGround = false;
+  }
+
+  /* --- ceiling: the shaft head, so a jump cannot leave it --- */
+  var ceiling = deckBounds().top - player.h;
+  if (player.y < ceiling) { player.y = ceiling; if (player.vy < 0) player.vy = 0; }
+
 }
 
 /* === 6. Input ============================================================
@@ -403,7 +462,6 @@ export {
   keys,
   WALK_SPEED,
   movePlayer,
-  movePlayerShaft,
   movePlayerCave,
   movePlayerCage,
   caveCeiling,

@@ -243,6 +243,143 @@ function activeRoom() {
    Drawn in document order rather than by depth so the deeper room paints over
    the shallower one where they overlap, which is the back-to-front order the
    rock itself is stacked in. */
+/* === Walking between the shaft and a room =================================
+   The teleport used to put the player in a room. This is the other way: they
+   walk, and nothing anywhere is capable of moving them but their own input.
+
+   ONE FUNCTION ANSWERS "WHAT IS UNDER THIS X" FOR THE WHOLE WIDTH, and that is
+   the whole mechanism. There is no "which room owns the player" question, so
+   there is nothing that can decide the player belongs somewhere.
+
+   WHY THE SHAFT IS ASKED FIRST - AND WHY THAT IS THE ENTIRE RISK CONTROL
+   -----------------------------------------------------------------------
+   surfaceAt() returns the deck for any x strictly inside the shaft walls, so
+   for a player in the shaft this function returns exactly what the old
+   movePlayerShaft() returned: the same number, from the same source. Every
+   elevator test on this page therefore keeps testing the elevator.
+
+   The previous attempt rewrote movePlayer wholesale and produced "character sank
+   through the car floor" at three viewports that I could not diagnose. I blamed
+   the room columns overlapping the shaft, applied a fix, and the numbers did not
+   move. The mistake was changing everything at once and then guessing which
+   change did it. So the shaft path is untouched, and the new behaviour is
+   reachable only once the player is already outside the shaft.
+
+   THE RAMP. The room floor and the car deck sit at completely different heights -
+   the deck follows the scroll, the room floor is fixed in the document - so a
+   flat tunnel would be a cliff at one end. The surface eases linearly between
+   them across the gap between the two near walls, and the existing step-up rule
+   climbs it. Each endpoint is reproduced exactly, so there is no lip at either
+   end of the tunnel.
+
+   A STEEP RAMP IS THE KNOWN LIMITATION, stated rather than hidden. If the deck
+   and the room floor are a long way apart the ramp may be too steep to climb,
+   and the reader simply cannot get out at that depth. That is a far better
+   failure than the one being fixed - a room you cannot enter is missing a door,
+   where a room you are teleported into is broken physics - and it degrades to
+   "walk somewhere else" rather than to anything visibly wrong. */
+function surfaceAt(x, deckY) {
+  var d = deckY === undefined ? NaN : deckY;
+
+  /* THE SHAFT INTERIOR IS THE DECK, ALWAYS. This is both the risk control above
+     and a real correctness rule: at 1100px and below this stylesheet moves the
+     shaft to the LEFT EDGE, where the room columns can reach across it. Asking
+     the rooms first returned a room floor for x values plainly inside the shaft,
+     and the player standing on the car sank through it. */
+  if (isFinite(shaftEdgeL) && isFinite(shaftEdgeR)) {
+    if (x > shaftEdgeL && x < shaftEdgeR) return { y: d, kind: 'shaft', i: -1 };
+  }
+
+  for (var i = 0; i < rooms.length; i++) {
+    if (!roomActive(i)) continue;
+    var b = bounds(i);
+    var side = entranceSide(i);
+    var wall = side > 0 ? b.right : b.left;
+    var sw = shaftWallOnSide(side);
+    if (!isFinite(sw)) continue;
+    if (x >= b.left && x <= b.right) {
+      return { y: screenFloorY(i, x), kind: 'room', i: i };
+    }
+    var lo = Math.min(wall, sw);
+    var hi = Math.max(wall, sw);
+    if (x > lo && x < hi) {
+      var roomY = screenFloorY(i, wall);
+      if (!isFinite(roomY) || !isFinite(d)) return { y: d, kind: 'tunnel', i: i };
+      var t = (x - lo) / (hi - lo);
+      return { y: roomY + (d - roomY) * t, kind: 'tunnel', i: i };
+    }
+  }
+  return { y: d, kind: 'shaft', i: -1 };
+}
+
+/* The shaft wall nearest a room on the given side. side follows entranceSide():
+   +1 means the shaft is to the room's RIGHT, so the wall a reader steps through
+   is the shaft's LEFT one. Getting this backwards pointed the tunnel at the far
+   edge and made the doorway a hole 200px wide with the ramp in the wrong half. */
+var shaftEdgeL = NaN;
+var shaftEdgeR = NaN;
+function setShaftEdges(left, right) { shaftEdgeL = left; shaftEdgeR = right; }
+function shaftWallOnSide(side) { return side > 0 ? shaftEdgeL : shaftEdgeR; }
+
+/* Whether the shaft wall stops the player here, AND at their current height.
+   True = solid, false = a doorway and they may pass.
+
+   THE HEIGHT TEST IS NOT OPTIONAL. A doorway is a hole in a wall at ONE DEPTH.
+   Deciding it by x alone punches that hole through the shaft wall at every depth
+   on the page, so the reader could wander out of the shaft at the top of the
+   document where there is only sky.
+
+   THE SPRITE'S WIDTH COUNTS ON BOTH SIDES OF THE HORIZONTAL TEST. The first
+   version required a strict overlap inside the tunnel, while the shaft clamp held
+   the player 4px short of the wall - so they could never reach the span that
+   opened the doorway. Wall solid, therefore cannot enter tunnel, therefore the
+   wall stays solid. Neither rule was wrong; they contradicted each other. Letting
+   the sprite straddle the wall resolves it.
+
+   deckY is passed in because the ramp runs from the car to the room floor and
+   needs both ends. Without it the ramp collapses to the room floor and the
+   doorway measures 400px below a player standing on the deck - which the wall
+   then correctly reports as solid, forever. */
+function shaftWallBlocks(x, w, feetY, deckY) {
+  var feet = feetY === undefined ? NaN : feetY;
+  var deck = deckY === undefined ? NaN : deckY;
+  /* No feet to compare against, so fail closed: the only safe answer to "I do not
+     know" is that the rock is solid. */
+  if (!isFinite(feet)) return true;
+  for (var i = 0; i < rooms.length; i++) {
+    if (!roomActive(i)) continue;
+    var b = bounds(i);
+    var side = entranceSide(i);
+    var wall = side > 0 ? b.right : b.left;
+    var sw = shaftWallOnSide(side);
+    if (!isFinite(sw)) continue;
+    var lo = Math.min(wall, sw);
+    var hi = Math.max(wall, sw);
+    if (!(x + w > lo && x < hi + w)) continue;
+    /* THE RAMP IS SAMPLED AT THE PLAYER'S OWN x, CLAMPED INTO THE TUNNEL - not
+       at a fixed point.
+
+       Sampling at the shaft wall returns the DECK, because surfaceAt() treats
+       the wall itself as shaft, not tunnel. The ramp's value at the wall is
+       therefore always the player's own feet height, so the height test passed
+       for every room at every depth: the doorway was "open" exactly as long as
+       the player's box overlapped a tunnel span horizontally. That is the
+       original horizontal-only bug wearing a height test, and it is what sank
+       the player through the car floor at 1920x1200.
+
+       Sampling the player's own x asks the question that is actually being asked
+       - "am I standing on the ramp here?" - and is true at the right depth and
+       false everywhere else. */
+    var px = x + w / 2;
+    if (px < lo) px = lo;
+    if (px > hi) px = hi;
+    var tunnelY = surfaceAt(px, deck).y;
+    if (!isFinite(tunnelY)) continue;
+    if (Math.abs(feet - tunnelY) < ROOM_SPRITE_MIN + 24) return false;
+  }
+  return true;
+}
+
 function visibleRooms() {
   var sy = window.scrollY || 0;
   var h = viewH || 0;
@@ -505,6 +642,9 @@ export {
   bounds,
   enterRoom,
   leaveRoom,
+  setShaftEdges,
+  surfaceAt,
+  shaftWallBlocks,
   DEFS
 };
 
