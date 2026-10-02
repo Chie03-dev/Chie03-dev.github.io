@@ -20,11 +20,6 @@ import { caveActive, caveBounds, screenFloorY, enterCave, leaveCave,
    gallery). A separate world from the bottom cave, for the reason rooms.js
    gives in its header: cave.js owns one room and its tests must keep meaning
    what they meant. */
-import {
-  activeRoom, settledRoom, roomActive,
-  screenFloorY as roomFloorY, bounds as roomBounds,
-  roofY as roomRoof, enterRoom, leaveRoom
-} from './rooms.js';
 /* The cage standing at the foot of the shaft: one more solid surface inside the
    room, and the only one that is not part of the floor profile. */
 import { cageActive, cageFloorY, overCage } from './cage.js';
@@ -36,29 +31,19 @@ var JUMP_V     = 540;   /* px/s, negative = upward */
 var player = {
   x: 0, y: 0, w: SPRITE_W, h: SPRITE_H,
   vx: 0, vy: 0, facing: 1, onGround: true,
-  /* Which world owns the player: the shaft, the bedrock cave, or one of the
-     four side rooms. Read by movePlayer() to decide which collision function
-     runs, and by the renderer to decide whether the car is still worth drawing.
-     Starts in the shaft, because the page opens at the top where there is no
-     cave.
+  /* Whether the player is in the bottom cave - the one room they are genuinely
+     INSIDE, at the end of the dig, reached by riding the car all the way down.
+     Read by movePlayer() to pick the collision function, and by the renderer to
+     decide whether the car is still worth drawing.
 
-     THREE STATES, NOT TWO, and `inRoom` is deliberately an INDEX rather than a
-     boolean. It was tempting to make this `inCave: true, room: 2`, but that
-     lets the two disagree: `inCave` true with `room` -1 is a state nothing can
-     render, and every check for it is a check nobody wrote. A single index
-     with -1 meaning "no room" cannot be half-set, so the states below are the
-     only ones that exist:
+     There is deliberately NO side-room flag. The four galleries used to have
+     `inRoom`, set by a handover that wrote the player's position directly - the
+     teleport. They are scenery now, at fixed document positions, and nothing
+     about being near one changes where the player is. See the note in
+     movePlayer() for the whole of it.
 
-       inCave false, inRoom -1  -> the shaft and the car own the player
-       inCave true,  inRoom -1  -> the bottom cave owns them
-       inCave false, inRoom >=0 -> a side room owns them
-
-     The bottom cave stays a BOOLEAN rather than becoming room index 4, because
-     its entire tested surface - caveActive(), enterCave(), the cage, the smoke
-     and cage suites - is written in those terms. Turning it into an index would
-     have rewritten all of it to save one field. */
-  inCave: false,
-  inRoom: -1
+     Starts false, because the page opens at the top where there is no cave. */
+  inCave: false
 };
 function snapPlayerToGround() {
   var minX = shaftLeft() + 4;
@@ -316,27 +301,33 @@ function movePlayerShaft(dt, player) {
    up walks the player out again. Both directions go through the same pair of
    calls, so the two worlds can never each decide they own the player. */
 function movePlayer(dt) {
-  /* Which room is the reader actually looking at? Asked ONCE per frame and used
-     by both the handover and the dispatch below, because the two must not be
-     able to disagree about where the player is. Asking twice could return two
-     different answers if a re-measure landed between them, and the symptom of
-     that - a player owned by a room nothing is drawing - points nowhere near
-     the cause.
+  /* THE SIDE ROOMS ARE NOT HERE, AND THAT IS THE FIX.
 
-     settledRoom(), NOT activeRoom(): a room is only offered once the reader has
-     STOPPED scrolling at that layer. During a continuous descent every room's
-     cell sweeps the screen on the way past, and claiming the player there
-     lifted them off the moving car - which failed the existing car checks at
-     every viewport the moment the rooms were added to the fixture. activeRoom()
-     answers "is this cell on screen"; settledRoom() answers "is this cell on
-     screen AND has the reader stopped here", and only the second one means the
-     car has arrived.
+     There used to be a side-room handover in this function: settledRoom() waited
+     for the reader to stop scrolling near a room, and then enterRoom() WROTE
+     player.x and player.y to put them in it. That was the teleport the reader
+     kept reporting - "it teleports the player when it's near it" - and it was
+     not a bug in the teleport, it was the teleport working exactly as written.
 
-     The bottom cave is asked separately and SECOND, so it wins. Its gate is
-     caveActive(), which is deliberately stricter than a room's: the car is still
-     legitimately in the shaft until the cave's top reaches the upper half of
-     the viewport. */
-  var r = settledRoom();
+     A room that is merely NEAR the reader must never move them. Proximity is not
+     consent. So the whole handover is gone: the four rooms are now scenery at
+     fixed document positions, painted because their cell is on screen, exactly
+     like the Skills, Experience, Education and Projects panels beside them. The
+     player rides the car and walks the shaft, and nothing on the page can pick
+     them up and put them somewhere they did not walk to.
+
+     What this deliberately does NOT do is let them walk into the rooms. There is
+     no path from the shaft into a gallery yet, and building one properly - a
+     continuous floor and doorways in the shaft wall - is the next piece of work.
+     An earlier attempt at that is described at the bottom of this file; it was
+     reverted because it introduced a car-floor regression that could not be
+     pinned down. Doing it in the right order is the job now, and it is a much
+     smaller job with the teleport already out of the way: there is no handover
+     left to accidentally resurrect.
+
+     The bottom cave keeps its own handover, below. It is genuinely a room you
+     are inside at the END of the document, reached by riding the car all the way
+     down, and it is the one place the player is still placed rather than walked. */
   var active = caveActive();
 
   /* The floor has to be FINITE before either handover is allowed. caveActive()
@@ -356,77 +347,16 @@ function movePlayer(dt) {
      and the two are not the same condition. */
   if (active && isFinite(screenFloorY(player.x + player.w / 2))) {
     if (!player.inCave) { enterCave(player); player.inCave = true; }
-    /* The bottom cave takes over completely. A side room that is still "the one
-       on screen" from the previous frame must be released here, or the player
-       would be left flagged as being in both. */
-    player.inRoom = -1;
   } else if (!active && player.inCave) {
     leaveCave(player);
     player.inCave = false;
   }
 
-  /* The side-room handover, and it runs only when the bottom cave did not just
-     claim the player - so the two can never both fire in one frame. */
-  if (!player.inCave && roomActive(r) && isFinite(roomFloorY(r, player.x + player.w / 2))) {
-    if (player.inRoom !== r) { enterRoom(r, player); player.inRoom = r; }
-  } else if (!player.inCave && player.inRoom !== -1) {
-    leaveRoom(player);
-    player.inRoom = -1;
-  }
-
-  /* Dispatch. The order matters only in that the first two are mutually
-     exclusive by construction above; shaft is the fallback for every state that
-     is not a room. */
+  /* Dispatch. Shaft is the fallback for every state that is not the cave. */
   if (player.inCave) movePlayerCave(dt, player);
-  else if (player.inRoom !== -1) movePlayerRoom(dt, player);
   else movePlayerShaft(dt, player);
 }
 
-/* Collision inside a side room. Deliberately the SAME shape as movePlayerCave()
-   and deliberately a separate function: it reads different bounds, a different
-   floor and a different roof, and folding the two into one with a flag would
-   mean every line in here answered "which room?" before it could answer
-   "is the player on the floor?". The step-up rule and the single-surface
-   resolution below are copied from movePlayerCave rather than shared, because
-   the bottom cave's version also has to resolve the cage - the lift the player
-   rides - and that has no meaning in a side room. */
-function movePlayerRoom(dt, player) {
-  var i = player.inRoom;
-  var b = roomBounds(i);
-
-  /* --- horizontal: integrate, then the room's own walls --- */
-  player.x += player.vx * dt;
-  if (player.x < b.left) { player.x = b.left; player.vx = 0; }
-  if (player.x > b.right - player.w) { player.x = b.right - player.w; player.vx = 0; }
-
-  /* --- vertical: gravity, then the floor --- */
-  player.vy += GRAVITY * dt;
-  player.y += player.vy * dt;
-
-  /* ONE surface, sampled once. Two samples of one profile is the drift this
-     codebase keeps paying for - see the same note in movePlayerCave(). */
-  var cx = player.x + player.w / 2;
-  var surface = isFinite(roomFloorY(i, cx)) ? roomFloorY(i, cx) : null;
-
-  if (surface !== null && player.y + player.h >= surface) {
-    var rise = surface - (player.y + player.h);
-    /* Climbing something too steep to jump reads as hitting an invisible wall,
-       which is what it is, and beats teleporting up a slope. */
-    if (player.vy > 0 && rise > CAVE_STEP && !player.onGround) {
-      player.vy = 0;
-    } else {
-      player.y = surface - player.h;
-      player.vy = 0;
-      player.onGround = true;
-    }
-  } else if (surface === null) {
-    player.onGround = false;      /* airborne over nothing */
-  }
-
-  /* --- ceiling: the room's roof, so a jump cannot leave it --- */
-  var roof = roomRoof(i);
-  if (isFinite(roof) && player.y < roof) { player.y = roof; if (player.vy < 0) player.vy = 0; }
-}
 /* === 6. Input ============================================================
    Keyboard only, and deliberately narrow: A/D (or the left/right arrows) walk,
    W jumps. Up and down are NOT captured, and that is now load-bearing rather

@@ -326,7 +326,7 @@ function drawHoist() {
      the car would vanish the moment the reader scrolled a room into view, even
      though the player was still aboard it - the car is the reader's transport
      and it is what they are standing in until a room actually takes them. */
-  if (player.inCave || player.inRoom !== -1) return;
+  if (player.inCave) return;
 
   /* Car parked below the foot of the screen: nothing of this is visible. */
   if (y > viewH + 40) return;

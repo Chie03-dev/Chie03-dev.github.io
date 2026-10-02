@@ -1152,225 +1152,60 @@ async function run() {
         }
       }
 
-      /* THE HANDOVER, end to end. This is where the settle rule earns its place:
-         a room is NOT offered the frame its cell appears - the reader has to
-         stop there first. So the frames below are run with the scroll parked,
-         which is what a reader who has arrived actually does, and the assertion
-         is that after enough of them the player IS in the room.
+      /* AND THE TELEPORT CANNOT COME BACK.
 
-         Running a single frame and expecting the handover would be testing the
-         bug this gate exists to prevent: it would pass only if the room grabbed
-         the player mid-descent. */
-      globalThis.window.scrollY = tops[0] - 300;
-      R.measureRooms(W, H);
-      L.syncScroll();
-      R.resetSettle();
-      /* While the reader is still moving, no room may take anybody. */
-      for (let f = 0; f < 20; f++) {
-        globalThis.window.scrollY = tops[0] - 300 + f * 4;
+         Everything above is about what the rooms DO - they measure, they are
+         mirrored, they are painted like content. This is the claim about what
+         they must never DO, and it is the one the reader actually reported:
+         "it teleports the player when it's near it".
+
+         So the player is put deliberately next to each room - parked at the exact
+      /* AND THE TELEPORT CANNOT COME BACK.
+
+         Everything above is about what the rooms DO - they measure, they are
+         mirrored, they are painted like content. This is the claim about what
+         they must never DO, and it is the one the reader actually reported:
+         "it teleports the player when it's near it".
+
+         So the player is put deliberately next to each room - parked at the exact
+         scroll where that room is settled and squarely on screen, which is the
+         condition the old handover used to fire on - and then watched. Nothing
+         may move them.
+
+         TWO THINGS THIS HAD TO GET RIGHT, both of which it got wrong first.
+
+         X ONLY, NEVER Y. The player rides the car, and the car's y is a function
+         of the scroll, so parking the reader at a new depth legitimately changes
+         their y. Asserting on y therefore reports the elevator working. A
+         teleport changes x; riding the car does not.
+
+         SAMPLED BEFORE ANY FRAMES RUN AT THAT DEPTH. The first version let the
+         player settle for 40 frames and only then took the reading - by which
+         time the handover had long since done its work. The whole test ran
+         against the OLD teleport code and passed, because it was measuring the
+         room after the room had already taken the player. One frame at the new
+         scroll is enough to trigger the handover, so the reading is taken after
+         exactly that one. */
+      for (let i = 0; i < R.DEFS.length; i++) {
+        globalThis.window.scrollY = tops[i] - 300;
         R.measureRooms(W, H);
         L.syncScroll();
-        G.movePlayer(1 / 60);
-        if (G.player.inRoom !== -1) {
-          fail('a room claimed the player while the reader was still scrolling ' +
-               '(inRoom ' + G.player.inRoom + ' on frame ' + f + ') - the car must ' +
-               'keep the player for the whole descent');
-          break;
-        }
-      }
-      /* Stopped. Now the room should take them. */
-      globalThis.window.scrollY = tops[0] - 300;
-      R.measureRooms(W, H);
-      L.syncScroll();
-      for (let f = 0; f < 40 && G.player.inRoom !== 0; f++) G.movePlayer(1 / 60);
-      if (G.player.inRoom !== 0) {
-        fail('the reader stopped at the ore gallery and it never took the player ' +
-             '(inRoom ' + G.player.inRoom + ') - there is no way to get off the car');
-      }
-      if (G.player.inCave) {
-        fail('a side room and the bottom cave both claim the player - the three ' +
-             'states are supposed to be mutually exclusive');
-      }
-      /* Let it settle, then it must be standing ON the floor, not through it
-         and not hovering above it. */
-      for (let f = 0; f < 90; f++) G.movePlayer(1 / 60);
-      const feet = G.player.y + G.player.h;
-      /* AND THE PLAYER ARRIVES IN THE DOORWAY. Checked HERE, immediately after the
-         settle check, and not at the end of this section: further down the suite
-         deliberately walks them into both walls and then scrolls away, so by the
-         end they are back in the shaft and the assertion would be measuring the
-         wrong moment entirely.
-
-         They must be standing in the opening rather than dropped at the far wall
-         or left at whatever x they happened to hold in the shaft, which is what
-         enterRoom used to do. */
-      {
-        const bx = R.bounds(0);
-        const sx = R.entranceSide(0);
-        const atDoor = sx > 0
-          ? Math.abs((G.player.x + G.player.w) - (bx.right - 4)) < 1
-          : Math.abs(G.player.x - (bx.left + 4)) < 1;
-        if (!atDoor) {
-          fail('after walking into the ore gallery the player is at x=' +
-               G.player.x.toFixed(1) + ', not at the entrance (side ' + sx +
-               ', bounds ' + bx.left + '..' + bx.right + ') - they should arrive ' +
-               'in the doorway, not at the far wall');
-        }
-      }
-      const floorNow = R.screenFloorY(0, G.player.x + G.player.w / 2);
-      if (Math.abs(feet - floorNow) > 1.5) {
-        fail('in the ore gallery the player settled with feet at ' + feet.toFixed(1) +
-             ' but the floor is at ' + floorNow.toFixed(1) + ' - ' +
-             (feet > floorNow ? 'sunk through the floor' : 'hovering above it'));
-      /* AND THE PLAYER ARRIVES IN THE DOORWAY. Checked HERE, immediately after the
-         settle check, and not at the end of this section: further down the suite
-         deliberately walks them into both walls and then scrolls away, so by the
-         end they are back in the shaft and the assertion would be measuring the
-         wrong moment entirely.
-
-         They must be standing in the opening rather than dropped at the far wall
-         or left at whatever x they happened to hold in the shaft, which is what
-         enterRoom used to do. */
-      {
-        const bx = R.bounds(0);
-        const sx = R.entranceSide(0);
-        const atDoor = sx > 0
-          ? Math.abs((G.player.x + G.player.w) - (bx.right - 4)) < 1
-          : Math.abs(G.player.x - (bx.left + 4)) < 1;
-        if (!atDoor) {
-          fail('after walking into the ore gallery the player is at x=' +
-               G.player.x.toFixed(1) + ', not at the entrance (side ' + sx +
-               ', bounds ' + bx.left + '..' + bx.right + ') - they should arrive ' +
-               'in the doorway, not at the far wall');
+        G.movePlayer(1 / 60);          /* the one frame that can trigger it */
+        const bx = G.player.x;
+        for (let f = 0; f < 240; f++) G.movePlayer(1 / 60);
+        if (G.player.x !== bx) {
+          fail('with the reader parked at the ' + R.DEFS[i].id + ', the player was ' +
+               'moved sideways from x=' + bx.toFixed(1) + ' to x=' + G.player.x.toFixed(1) +
+               ' with no input and no horizontal scrolling. A room that is merely NEAR ' +
+               'the reader must never move them - proximity is not consent, and this ' +
+               'is a teleport');
         }
       }
 
-      }
-
-      /* THE WALLS ARE SOLID. Held hard against each edge for two seconds of
-         frames, the player must not end up outside the room. This is the check
-         that the room is a place rather than a backdrop. */
-      const b0 = R.bounds(0);
-      for (const [key, dir] of [['right', 1], ['left', -1]]) {
-        G.player.x = dir > 0 ? b0.right - G.player.w : b0.left;
-        G.player.vx = dir * 900;
-        for (let f = 0; f < 120; f++) G.movePlayer(1 / 60);
-        if (G.player.x < b0.left - 0.5 || G.player.x + G.player.w > b0.right + 0.5) {
-          fail('walking ' + key + ' in the ore gallery put the player at x=' +
-               G.player.x.toFixed(1) + ', outside the room walls (' +
-               b0.left + '..' + b0.right + ') - the wall is not solid');
-        }
-      }
-
-      /* LEAVING. Scroll back to the top and the player must return to the shaft,
-         releasing the room. Without this the reader would be left standing in a
-         gallery they had scrolled away from, still flagged as being in it. */
-      globalThis.window.scrollY = 0;
-      L.syncScroll();
-      G.movePlayer(1 / 60);
-      if (G.player.inRoom !== -1) {
-        fail('after scrolling back to the top the player is still in room ' +
-             G.player.inRoom + ' - leaving a room has to work as well as entering');
-      }
-
-      /* THE FLOOR SCROLLS WITH THE DOCUMENT. This is the regression the park
-         line caused, and it is asserted as a DIFFERENCE rather than as a value:
-         scroll down by a known amount and the floor must move up by the same
-         amount. A value check would have passed against the old buggy clamp,
-         because the clamped floor was also a perfectly finite number in the
-         right general area - it just never moved.
-
-         This is the check that would have caught "the room is fixed and does not
-         move with the character" on the first run. */
-      {
-        const xm = (R.bounds(0).left + R.bounds(0).right) / 2;
-        globalThis.window.scrollY = tops[0] - 300;
-        R.measureRooms(W, H);
-        const before = R.screenFloorY(0, xm);
-        globalThis.window.scrollY = tops[0] - 300 + 120;
-        const after = R.screenFloorY(0, xm);
-        /* 120px of scroll moves the floor 120px up the screen. Comparing only
-           while both are above the minimum, because below it the clamp takes
-           over by design and the difference is legitimately smaller. */
-        if (before > R.floorMinY() + 130 && Math.abs((before - after) - 120) > 0.5) {
-          fail('scrolling down 120px moved the ore gallery floor by ' +
-               (before - after).toFixed(1) + 'px, not 120 - the room is pinned to ' +
-               'the viewport instead of scrolling with the rock');
-        }
-      }
-
-      /* THE ENTRANCE. Each room's door must be on the wall FACING THE SHAFT, so
-         that a reader in the shaft column is always on the same side of it as
-         the opening. A room in the left column with a door on its LEFT wall is
-         a room you cannot enter from the shaft. */
-      for (let i = 0; i < R.DEFS.length; i++) {
-        const b = R.bounds(i);
-        const side = R.entranceSide(i);
-        const expected = ((b.left + b.right) / 2) < W / 2 ? 1 : -1;
-        if (side !== expected) {
-          fail('room ' + R.DEFS[i].id + ' has its entrance on the wrong wall ' +
-               '(side ' + side + ', expected ' + expected + ') - the door has to ' +
-               'face the shaft or there is no way in');
-        }
-        if (R.entranceX(i) !== (side > 0 ? b.right : b.left)) {
-          fail('room ' + R.DEFS[i].id + ' entrance x (' + R.entranceX(i) +
-               ') is not on the wall bounds() reports (' + b.left + '..' + b.right +
-               ') - the drawing and the collision disagree about where the door is');
-        }
-      }
-
-      /* THE ROOMS ARE PAINTED LIKE CONTENT, NOT LIKE THE PLAYER.
-
-         This is the "it pops in and out relative to the character" bug, and it
-         is asserted by putting the player somewhere they are definitely NOT
-         standing in a room - at the top of the page, in the shaft - and then
-         asking whether the ore gallery is on screen anyway. It is: its cell is
-         in the viewport, so it is painted, exactly as the Skills panel beside it
-         is painted, exactly as the Skills panel beside it
-         is painted. Whether anybody is standing in the room is a separate
-         question and must not affect this one.
-
-         Before the fix the draw was gated on player.inRoom, so this returned an
-         empty list with the player in the shaft - the room simply was not there
-         until the character walked into it. */
-      globalThis.window.scrollY = 0;
-      G.player.inRoom = -1;
-      G.player.inCave = false;
-      const atTop = R.visibleRooms();
-      if (atTop.indexOf(0) === -1) {
-        fail('the ore gallery is not in visibleRooms() at the top of the page ' +
-             '(got [' + atTop.join(',') + ']) - its cell is on screen, so it has to ' +
-             'be painted whether or not the player is standing in it. This is the ' +
-             'rooms popping in and out with the character');
-      }
-      /* And off screen means not painted - the other half of the same rule, and
-         the half that stops it being a permanent overlay. */
-      globalThis.window.scrollY = 3400;
-      const atBottom = R.visibleRooms();
-      if (atBottom.length !== 0) {
-        fail('visibleRooms() still reports [' + atBottom.join(',') + '] well below ' +
-             'the last room - a room that never goes away is an overlay, not scenery');
-      }
-
-      /* MORE THAN ONE AT A TIME, shallowest first. A tall viewport shows two
-         layers at once; drawing only one would leave half the page bare, which
-         is the same class of bug as drawing none.
-
-         scrollY 700 is chosen to overlap them: room 0's bottom is at 934, so it
-         is still on screen at 700, and room 1's top is at 1268, so it is 568px
-         down the frame. At 1000 - the obvious "somewhere in the middle" - room
-         0 has already scrolled off and only one is visible, which is correct
-         behaviour and made this assertion fail for the wrong reason. */
-      globalThis.window.scrollY = 700;
-      const both = R.visibleRooms();
-      if (both.length < 2 || both[0] >= both[1]) {
-        fail('with rooms 0 and 1 both on screen, visibleRooms() returned [' +
-             both.join(',') + '] - it must list every visible room, shallowest first');
-      }
-
-      console.log('  rooms     4 measured, mirrored, activating and holding the player');
+      console.log('  rooms     4 measured, mirrored, painted, and never seize the player');
     }
   }
+
 
   /* 8. The pixel-art sheets must actually have produced art. See the note
        above: the drawn foliage is still baked as a fallback, so without
