@@ -18,6 +18,12 @@
 
 import { bandEdges } from './bands.js';
 import { SPRITE_W, SPRITE_H, FRAME_MS, SPRITES } from './avatar.js';
+/* cave.js is a leaf - it imports nothing - so this only adds a leaf to the graph
+   rather than an edge between two modules that already know each other. It has
+   to live HERE rather than in main.js: measure() below is where the cave is
+   re-measured, because that is the one function every other re-measure already
+   passes through. */
+import { measureCave } from './cave.js';
 
 var canvas = document.getElementById('stage');
 var ctx = canvas.getContext('2d', { alpha: false });
@@ -191,6 +197,19 @@ function measure() {
   travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);
   maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
   metresPerPx = TOTAL_METRES / maxScroll;
+  /* The cave is re-measured here, from the same event that positions everything
+     else, and for the same reason: it reads the room's real box, so a reflow that
+     moves the room moves the floor with it. Measuring it on a timer or on the
+     first frame instead would leave the floor describing a layout the reader is
+     no longer looking at - and because the floor's screen position is derived
+     from the room's document top, a stale room top is a floor that scrolls at
+     the wrong rate against the HTML sitting on it. */
+  /* viewW and viewH - the numbers this canvas was actually sized from, and the
+     numbers the bands are drawn in. NOT window.innerWidth/innerHeight: those are
+     undefined under the smoke stub, and they are not what the renderer uses
+     either. Handing the cave the canvas's own size is what makes its walls agree
+     with the floor and the art, which already span the real viewport. */
+  measureCave(viewW, viewH);
 }
 
 /* Which layer owns a given document-space Y. Linear over five items, so a
@@ -297,9 +316,75 @@ var seamNoise = makeNoise(9001, 40);    /* jagged layer boundaries */
    SAME curve the renderer strokes. When biomes.js guessed its own ground line
    while render.js drew the real seam, the two drifted apart and the grass the
    trees stood on was not the grass that was drawn - which is exactly the
-   "surface floats above the soil" bug. One function, one curve. */
+   "surface floats above the soil" bug. One function, one curve.
+
+   ROUNDED TO WHOLE PIXELS, and that is not tidiness. This returns a fractional
+   y, and its two consumers disagree about that. The renderer strokes it into a
+   path, so the browser antialiases the seam and it slides smoothly; blitOn()
+   rounds the sprite's destination, so a tree only ever lands on a whole pixel.
+   The seam therefore moves continuously while the tree steps, and by a fraction
+   of a pixel in opposite directions - so the trees visibly CRAWL against the
+   soil they are planted in as the page scrolls. It is a sub-pixel shimmer rather
+   than a slide, which is why it reads as "something is moving" without pointing
+   at anything in particular.
+
+   Rounding here fixes it at the source rather than in blitOn(), because the
+   rounding has to be SHARED. Rounding only the sprite leaves the seam's edge
+   antialiased against a hard pixel edge, so the gap between them still varies
+   with sub-pixel position. Both consumers now read one integer, the seam is
+   stroked on the pixel grid, and the tree sits exactly on it at every scroll
+   offset. On art with imageSmoothingEnabled off this is also the crisper
+   result: a seam that lands on whole pixels has no soft edge to bleed into the
+   soil below it. */
 function seamY(layer, x) {
-  return layer.top - scrollY + (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 10;
+  return Math.round(layer.top - scrollY +
+                    (seamNoise(x / 260 + layer.top * 0.0007) - 0.5) * 10);
+}
+
+/* Horizontal step of the traced seam polyline. Every consumer has to agree on
+   this, because the seam is only ever APPROXIMATED by a polyline: the browser
+   joins the vertices with straight lines, so between two vertices the drawn edge
+   is the CHORD, not the curve. A prop standing at its own x is placed on the
+   true curve while the ground beneath it is that chord, and the two disagree by
+   up to ~4px on a steep section. See seamPath() for what that looked like. */
+var SEAM_STEP = 12;
+/* The x of the seam vertex at or immediately before `x`, so a caller that needs
+   to place a prop ON the drawn polyline can find the segment it belongs to
+   instead of trusting the raw curve. Exported with seamY because render.js and
+   biome-sky.js both need the pair. */
+function seamVertexX(x) {
+  return Math.floor((x + 40) / SEAM_STEP) * SEAM_STEP - 40;
+}
+
+/* The seam y a prop standing at `x` should actually use: the value on the DRAWN
+   polyline, not the raw curve.
+
+   This is the fix for trees that twitched while scrolling, and the reason only
+   SOME of them did it. The seam is traced at SEAM_STEP intervals and the browser
+   joins those vertices with straight lines, so the visible ground between two
+   vertices is the chord. A tree sampling seamY() at its own x got the true curve
+   value, which on a steep section is up to ~4px away from the chord it is
+   standing on. Scrolling then moved the two past each other in opposite
+   directions - the tree on the curve, the grass on the chord - and the tree
+   visibly twitched within its own shadow.
+
+   Flat sections did NOT reliably hide it, which is why it looked arbitrary.
+   Measured across the trees on screen, the worst disagreement ranged from 0.41px
+   (x=1292) to 3.97px (x=842) - and it is not monotonic in the local slope,
+   because it also depends on how far the prop sits from the nearest vertex. What
+   decides which trees twitch is simply whether that product happens to cross a
+   pixel boundary as the page scrolls, so the set of twitchers changes with the
+   camera and looks uncorrelated with anything visible.
+
+   Interpolating between the two bracketing vertices makes the prop and the
+   ground read from the same polyline, so they cannot disagree by construction
+   rather than by luck. */
+function seamPropY(layer, x) {
+  var x0 = seamVertexX(x);
+  var y0 = seamY(layer, x0);
+  if (x === x0) return y0;
+  /* Only ever one step along: x0 is the vertex at or before x by construction. */
+  return y0 + (seamY(layer, x0 + SEAM_STEP) - y0) * ((x - x0) / SEAM_STEP);
 }
 /* === 4. Baked textures ===================================================
    Each layer gets one small tile of pixel-block speckle, baked once at boot
@@ -443,7 +528,7 @@ export {
   mulberry32,
   makeNoise,
   seamNoise,
-  seamY,
+  seamY, seamPropY, seamVertexX, SEAM_STEP,
   TILE,
   patterns,
   buildTextures,

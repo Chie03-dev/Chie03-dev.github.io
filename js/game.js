@@ -14,6 +14,8 @@ import {
   clamp, shaftLeft, shaftRight, shaftMid, SPRITE_W, SPRITE_H
 } from './layers.js';
 import { groundY, deckBounds } from './deck.js';
+import { caveActive, caveBounds, screenFloorY, enterCave, leaveCave,
+         caveRoof } from './cave.js';
 
 /* Physics constants, in CSS pixels and seconds. */
 var WALK_SPEED = 95;    /* px/s    */
@@ -22,7 +24,12 @@ var JUMP_V     = 540;   /* px/s, negative = upward */
 
 var player = {
   x: 0, y: 0, w: SPRITE_W, h: SPRITE_H,
-  vx: 0, vy: 0, facing: 1, onGround: true
+  vx: 0, vy: 0, facing: 1, onGround: true,
+  /* Which world owns the player: the shaft, or the bedrock cave. Read by
+     movePlayer() to decide which collision function runs, and by the renderer
+     to decide whether the car is still worth drawing. Starts in the shaft,
+     because the page opens at the top where there is no cave. */
+  inCave: false
 };
 function snapPlayerToGround() {
   var minX = shaftLeft() + 4;
@@ -33,7 +40,77 @@ function snapPlayerToGround() {
   player.y = groundY() - player.h;
   player.vx = player.vy = 0;
 }
-/* === Collision ===========================================================
+/* === Cave collision =========================================================
+   Inside the treasure room the solid surfaces are the CAVE, not the shaft: the
+   floor is an undulating line and the walls are the edges of the screen. The
+   shaft keeps its own flat-deck rule, untouched, for everywhere else on the page.
+
+   Kept as a separate function rather than a branch inside movePlayer() because
+   the two are genuinely different worlds - a height field against a flat line -
+   and threading one through the other with a flag is how the shaft's carefully
+   argued flat-deck behaviour would quietly start reading a terrain sample.
+
+   Step-up is capped rather than free-climbing, for the reason the shaft's version
+   spells out: a height field sampled at the player's own x will, on a slope, ask
+   the sprite to climb a rise it could not jump. Anything steeper than the jump
+   apex (60.75px) is refused, and the player is stopped at its foot. */
+var CAVE_STEP = 14;    /* max rise the player walks up without jumping */
+
+/* The cave roof, in screen space. Delegates to cave.js's caveRoof(), which clamps
+   the height to the viewport - the 300x200 case is why that clamp exists, and
+   recomputing the height here is how it would be bypassed. */
+function caveCeiling() {
+  return caveRoof();
+}
+
+/* CAVE_HEIGHT itself lives in cave.js, next to the floor it measures up from:
+   the renderer places the void behind the rock using the same roof the collision
+   clamps the head against, and a ceiling the renderer had to restate is a
+   ceiling that can stop being the one the player bumps into. */
+
+function movePlayerCave(dt, player) {
+  var b = caveBounds();
+
+  /* --- horizontal: integrate, then the cave walls --- */
+  player.x += player.vx * dt;
+  if (player.x < b.left) { player.x = b.left; player.vx = 0; }
+  if (player.x > b.right - player.w) { player.x = b.right - player.w; player.vx = 0; }
+
+  /* --- vertical: gravity, then the floor --- */
+  player.vy += GRAVITY * dt;
+  player.y += player.vy * dt;
+
+  /* Sampled at the player's CENTRE, not at their feet. A width sample straddles
+     a rise and returns whichever end it hits first, which makes the sprite
+     judder as they walk a slope - the same class of bug as the tree crawl, and
+     for the same reason: two consumers of one curve that do not agree on where
+     to read it. */
+  var ground = screenFloorY(player.x + player.w / 2);
+
+  if (player.y + player.h >= ground) {
+    var rise = ground - (player.y + player.h);
+    /* Climbing something too steep to jump reads as hitting an invisible wall,
+       which is what it is, and beats teleporting up a slope. */
+    if (player.vy > 0 && rise > CAVE_STEP && !player.onGround) {
+      player.vy = 0;
+    } else {
+      player.y = ground - player.h;
+      player.vy = 0;
+      player.onGround = true;
+    }
+  } else {
+    player.onGround = false;      /* airborne */
+  }
+
+  /* --- ceiling: the cave roof, so a jump cannot leave the room --- */
+  var ceiling = caveCeiling() - player.h;
+  if (player.y < ceiling) {
+    player.y = ceiling;
+    if (player.vy < 0) player.vy = 0;
+  }
+}
+
+/* === Shaft collision =========================================================
    The car floor is one flat line, so the only solid surfaces in the game are
    that line and the two shaft walls. There is no height field and no step-up:
    walking is horizontal only, and the only things that move the sprite
@@ -53,8 +130,11 @@ function snapPlayerToGround() {
    sloping ground that meant the character was being shoved around by a
    function of its own horizontal position. The floor is flat now, so none of
    it is needed.
-   ======================================================================== */
-function movePlayer(dt) {
+
+   THE CAVE IS NOT THIS. It has a height field, by design, and lives in
+   movePlayerCave() above - deliberately not folded in here, so that this
+   function's flat-deck reasoning stays exactly as true as it was written. */
+function movePlayerShaft(dt, player) {
   var minX = shaftLeft() + 4;
   var maxX = shaftRight() - 4 - player.w;
   if (maxX < minX) maxX = minX;         /* shaft narrower than the sprite */
@@ -82,6 +162,41 @@ function movePlayer(dt) {
     player.y = ceiling;
     if (player.vy < 0) player.vy = 0;   /* stop rising, let gravity resume */
   }
+}
+
+/* === The handover ==========================================================
+   One frame of movement, in whichever world the player is currently in.
+
+   The transition is handled HERE rather than inside either collision function,
+   because neither of them can see the other. movePlayerShaft() knows about the
+   car and nothing else; movePlayerCave() knows about the floor profile and
+   nothing else. Neither can tell that the room has arrived, and putting that
+   knowledge in either would be exactly the coupling the split exists to avoid.
+
+   `inCave` is sticky within a frame but re-read every frame, so scrolling back
+   up walks the player out again. Both directions go through the same pair of
+   calls, so the two worlds can never each decide they own the player. */
+function movePlayer(dt) {
+  var active = caveActive();
+  /* The floor has to be FINITE before the handover is allowed. caveActive() is
+     true whenever the room is on screen, including the window where the room has
+     been measured but its box is degenerate - and enterCave() then reads NaN out
+     of screenFloorY() and writes it into player.y, from which every later frame
+     draws NaN. The stub's zero-height .treasure box is enough to trigger it, and
+     the symptom (a silently missing lantern pool) points nowhere near the cause.
+
+     So the cave is only entered when its floor is actually a number. Staying in
+     the shaft for a frame costs nothing and cannot strand the player, because
+     movePlayerShaft() re-seats them on the car every frame anyway. */
+  if (active && isFinite(screenFloorY(player.x + player.w / 2))) {
+    if (!player.inCave) { enterCave(player); player.inCave = true; }
+  } else if (!active && player.inCave) {
+    leaveCave(player);
+    player.inCave = false;
+  }
+
+  if (player.inCave) movePlayerCave(dt, player);
+  else movePlayerShaft(dt, player);
 }
 /* === 6. Input ============================================================
    Keyboard only, and deliberately narrow: A/D (or the left/right arrows) walk,
@@ -129,5 +244,8 @@ export {
   keys,
   WALK_SPEED,
   movePlayer,
+  movePlayerShaft,
+  movePlayerCave,
+  caveCeiling,
   snapPlayerToGround
 };

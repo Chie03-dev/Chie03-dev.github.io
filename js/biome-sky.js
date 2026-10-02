@@ -17,7 +17,7 @@
    ========================================================================== */
 
 import {
-  ctx, viewW, viewH, scrollY, mulberry32, layers, seamY
+  ctx, viewW, viewH, scrollY, mulberry32, layers, seamY, seamPropY, SEAM_STEP
 } from './layers.js';
 import { reduced } from './deck.js';
 import { SET, px } from './sprites.js';
@@ -235,7 +235,11 @@ function skySurface(g, bandTop, ground, below, r, clock, surfaceVisible) {
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(-40, ground - TURF_TOP);
-    for (x = -40; x <= viewW + 40; x += 12) ctx.lineTo(x, seamY(below, x));
+    /* SEAM_STEP, not a literal 12. This loop and seamPropY() have to agree on
+       where the vertices are, or a prop placed between two vertices lands on
+       the true curve while the grass beneath it is the straight chord between
+       them - up to 4px apart, which is what made the trees twitch. */
+    for (x = -40; x <= viewW + 40; x += SEAM_STEP) ctx.lineTo(x, seamY(below, x));
     ctx.lineTo(viewW + 40, ground - TURF_TOP);
     ctx.closePath();
     ctx.clip();
@@ -278,7 +282,9 @@ function skySurface(g, bandTop, ground, below, r, clock, surfaceVisible) {
            that is only right in some columns. blitOn anchors the feet, so each
            tuft sits on the grass rather than floating over it or under it. */
         var tx = x + ((r() * 10) | 0);
-        blitOn(gt, tx, seamY(below, tx) - 1, viewW);
+        /* seamPropY(), not seamY(): the tuft is between two clip vertices, so it
+           has to stand on the chord the clip actually drew. */
+        blitOn(gt, tx, seamPropY(below, tx) - 1, viewW);
       }
     }
     ctx.restore();          /* release the grass clip */
@@ -348,35 +354,71 @@ var PROP_SEED = 0x5EA51DE;
 var TREE_SINK = -3;
 
 /* === Why the meadow looked bare, and what actually fixes it ==================
-   Not a matter of taste. Three ceilings, each of which capped the result:
+   Four ceilings, each of which capped the result. None was a matter of taste.
 
    1. scaleFor() returns 1 or 2 - it is an integer MAGNIFIER, and it bottoms out
       at 1. The sheet crops are 83x96 and 62x72. So a tree could only ever be
-      drawn at 83px or 166px wide, never smaller. The desktop gutter - the strip
-      of band the opaque panel does not cover - is about 48px. ONE TREE WAS
-      WIDER THAN THE STRIP IT STOOD IN. Shrinking the gap to 1px changed
-      nothing, because after the first tree the walk cursor was already past the
-      end of the gutter and the loop exited. Two trees on the whole page.
+      drawn at 83px or 166px wide, never smaller. Shrinking the gap to 1px
+      changed nothing, because after the first tree the walk cursor was already
+      past the end of the strip and the loop exited. Two trees on the whole page.
 
    2. Flowers were drawn at `r() < 0.6` INSIDE the tree loop, so the number of
       flowers was capped by the number of trees: 0.6 flowers per page.
 
-   3. There was no bush at all. SET.bushes does not exist.
+   3. There was no bush at all. SET.bushes did not exist.
 
-   The fix is a target DRAWN width rather than an integer scale, which is what
-   blitOn()'s new `wantW` argument is for. */
+   4. The props were placed with gutters(), which excludes the panel's whole
+      horizontal column. For a painter that fills the band top to bottom that
+      is right; for props standing on the seam it is wrong, because the seam is
+      half a row-gap BELOW the panel. At 1440 the gutters came back [48, 602],
+      so the entire left half of the surface was a desert and every tree went
+      into the strip on the right. See meadowGutters() in biomes.js.
 
-/* Target widths in CSS pixels. The crops are 83 and 62 wide, so these are real
-   downscales of roughly 0.3-0.5x, and blitOn() anchors the FEET - a 96px tree
-   at 34px wide stands about 39px tall. Varying the width per tree is what stops
-   the stand reading as a row of identical copies. */
-var TREE_W = [30, 38, 24, 42];
-/* Gap between crowns. `8 + r()*26` was sized for 17-30px drawn conifers; against
-   a 24-42px tree that is a fifth of a crown, so they read as one hedge. */
-var TREE_GAP = 4;
-var TREE_JITTER = 8;
+   The fix for 1 is a target DRAWN width rather than an integer scale, which is
+   what blitOn()'s `wantW` argument is for. The fix for 2 is a separate cover
+   pass. The fix for 3 is bakeBush(). The fix for 4 is in biomes.js. */
+
+/* Target widths in CSS pixels. blitOn() anchors the FEET, so a tree is sized by
+   its crown and stands up in proportion - an 83x96 conifer at 118px wide stands
+   about 137px tall.
+
+   These now EXCEED the source crops, which is only safe because blitOn()
+   quantizes magnification up to the next half-step. The sheet crops are 83x96
+   and 62x72, so anything above those numbers is being drawn larger than the art
+   it came from; without the quantization that would be an uneven resample.
+
+   The values are chosen to LAND ON the half-steps blitOn() can actually draw.
+   That is a sharper constraint than it looks: magnification snaps to the nearest
+   0.5x, so from an 83px crop only 42, 83, 125, 166, 208 are reachable, and from
+   the 62px canopy 31, 62, 93, 124, 155. Any target between two of those silently
+   collapses onto the nearer one - a 96px entry came out at 83, because 96/83 is
+   1.16x and the nearest half-step is 1.0x. So the spread on screen is only as
+   wide as the chosen entries, and a list of arbitrary big numbers looks like
+   variety while rendering as two or three sizes.
+
+   EVERY ENTRY IS A 1.5x, 2.5x OR 3.5x MULTIPLE of its crop, never 1x, 2x or 3x,
+   and that is deliberate rather than incidental. scaleFor() - the fallback blitOn()
+   uses when no target width is passed - returns exactly those integers, so a
+   target that resolved to an integer multiple would draw the same width as the
+   broken path, and the smoke check that proves the target width reached blitOn()
+   could no longer tell the two apart. It stopped catching mutation 14b when 83
+   and 166 crept into this list, because those ARE 1x and 2x of the 83px crop:
+   dropping the target width entirely became undetectable. So the invariant is
+   that no entry here may coincide with an integer scale of either crop.
+
+   The range is wide on purpose. A sapling between two giants is what makes the
+   stand read as a wood with depth in it, and a stand where every crown is the
+   same size reads as a hedge no matter how many of them there are. */
+var TREE_W = [52, 108, 78, 142, 212, 104];
+/* Gap between crowns, scaled with the trees. `8 + r()*16` against a 78-212px
+   tree is a small fraction of a crown, so neighbouring trees read as one hedge
+   and the extra size is wasted on overlap. Still a gap rather than a lane: a
+   stand with no space at all between crowns is a solid green mass, which is the
+   failure this number exists to prevent. */
+var TREE_GAP = 14;
+var TREE_JITTER = 22;
 var TREE_CLEAR_CHANCE = 0.20;
-var TREE_CLEAR = 20;
+var TREE_CLEAR = 34;
 
 /* Ground cover on its OWN pass, not as a side effect of the trees. This is the
    decoupling that lets flowers be dense where the trees are sparse, and it is
@@ -405,7 +447,7 @@ function skyProps(g, ground, below) {
     for (walk = gu.x; walk < gu.x + gu.w; walk += COVER_STEP) {
       var fx = walk + ((rc() * 7) | 0);
       if (fx + 8 > gu.x + gu.w) break;
-      var fy = seamY(below, fx) + 2;
+      var fy = seamPropY(below, fx) + 2;
       if (rc() < COVER_TUFT_CHANCE && SET.tufts.length) {
         blitOn(SET.tufts[(rc() * SET.tufts.length) | 0], fx, fy, gu.w, 8);
       }
@@ -432,7 +474,7 @@ function skyProps(g, ground, below) {
       wide = TREE_W[(rt() * TREE_W.length) | 0];
       if (wide > gu.w) wide = gu.w;
 
-      blitOn(spr, walk, seamY(below, walk + wide / 2) + TREE_SINK, gu.w, wide);
+      blitOn(spr, walk, seamPropY(below, walk + wide / 2) + TREE_SINK, gu.w, wide);
       placed++;
 
       walk += wide + TREE_GAP + ((rt() * TREE_JITTER) | 0)
@@ -442,4 +484,11 @@ function skyProps(g, ground, below) {
   return placed;
 }
 
-export { skyBiome, skyProps, sunSpot };
+/* Exported for tools/smoke.mjs so the meadow checks test the REAL values instead
+   of restating them as literals in the test file. A copy that drifts is worse
+   than no check: it would keep passing while the painter did something else.
+   TREE_W is the set of target widths, TREE_GAP the crown spacing the coverage
+   floor has to account for, and TREE_SINK the depth the trunk is buried by -
+   smoke.mjs needs all three to reconstruct where a tree believes the ground is
+   without restating any of them. */
+export { skyBiome, skyProps, sunSpot, TREE_W, TREE_GAP, TREE_SINK };

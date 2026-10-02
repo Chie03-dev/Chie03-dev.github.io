@@ -37,8 +37,36 @@ import { ctx, viewW, viewH, shaftLeft, shaftRight, layers, scrollY } from './lay
 
    Returns [] when the panel is not measured, which is the honest answer: with
    no horizontal box there is no way to know what is covered. */
-/* Cut the viewport at every occluder edge and keep the surviving intervals.
+/* The width available to the MEADOW, which is NOT the same as the width
+   available to a band.
 
+   `gutters()` - defined below - excludes the panel's entire horizontal column,
+   which is right for a painter that fills the band from top to bottom and wrong
+   for the props pass. The trees do not stand in the middle of the band - they
+   stand on the seam, which is the BOTTOM of the sky band. The panel sits inside
+   the band, so its bottom edge is at least half a row-gap ABOVE the seam, and
+   the smallest row-gap is `clamp(14rem, ...)` = 224px, so at least 112px of
+   clear rock separates the panel from the soil. A tree is at most ~50px tall.
+
+   So nothing about a tree standing on the seam can be hidden by the panel in
+   its own band, and excluding that column just plants the trees in a desert on
+   one side. That is the bug: at 1440 the gutters came back as [48, 602], so
+   every tree on the page went into the 602px strip on the right and the 48px
+   sliver on the left got one.
+
+   The shaft is different and IS excluded here: it is a real element occupying
+   that column at the seam's own y, and a tree drawn over it would cover the
+   mine. */
+function meadowGutters() {
+  var sl = shaftLeft(), sr = shaftRight();
+  var out = [];
+  if (!isFinite(sl) || !isFinite(sr)) return out;
+  if (sl > 4) out.push({ x: 0, w: sl });
+  if (viewW - sr > 4) out.push({ x: sr, w: viewW - sr });
+  return out;
+}
+
+/* Cut the viewport at every occluder edge and keep the surviving intervals.
    The old version branched on three hand-written cases, and the case for a
    panel sitting left of the shaft returned the outboard strip and the panel
    gap and then STOPPED - it never added the region outboard of the shaft on
@@ -89,7 +117,7 @@ function gutters(layer) {
 /* The sprite-placement helpers moved to place.js and the sky painter moved to
    biome-sky.js. Both are re-exported below, so render.js and the pixel test
    keep importing from this one module and the refactor stays invisible. */
-import { skyBiome, skyProps, sunSpot } from './biome-sky.js';
+import { skyBiome, skyProps, sunSpot, TREE_W, TREE_GAP, TREE_SINK } from './biome-sky.js';
 import { scaleFor, blit, blitOn } from './place.js';
 
 
@@ -220,14 +248,19 @@ function drawSurfaceProps() {
     /* Same gate the sky painter uses: the props stand ON the soil line, so
        there is nothing to stand on while it is off screen. */
     if (ground <= -80 || ground >= viewH + 80) return 0;
-    var g = gutters(layers[i]);
+    /* meadowGutters(), NOT gutters(). The props stand on the seam at the BOTTOM
+       of this band, at least half a row-gap below the panel, so the panel's
+       column is not an occluder here - only the shaft is. See the note on
+       meadowGutters() for the measurement that made this the right call. */
+    var g = meadowGutters();
     if (!g.length) return 0;
     return skyProps(g, ground, below);
   }
   return 0;
 }
 
-/* drawBiomes and gutters are this module's own. The rest are re-exported purely
-   so that callers - render.js and tools/pixel-test.mjs - do not have to know
-   which file a helper happens to live in after the split. */
-export { drawBiomes, drawSurfaceProps, gutters, sunSpot, scaleFor, blit, blitOn };
+/* drawBiomes, gutters and meadowGutters are this module's own. The rest are
+   re-exported purely so that callers - render.js and tools/pixel-test.mjs - do
+   not have to know which file a helper happens to live in after the split. */
+export { drawBiomes, drawSurfaceProps, gutters, meadowGutters,
+         sunSpot, scaleFor, blit, blitOn, TREE_W, TREE_GAP, TREE_SINK };

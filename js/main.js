@@ -14,7 +14,7 @@ import { advanceCar, seatDeck } from './deck.js';
 import { player, keys, WALK_SPEED, movePlayer, snapPlayerToGround } from './game.js';
 import { seedMotes, drawMotes, render } from './render.js';
 import { updateDepth, updateCue } from './ui.js';
-import { initHoard } from './treasure.js';
+import { initHoard, stepCave } from './treasure.js';
 
 /* === 7. Game loop ========================================================
    requestAnimationFrame with a delta time, never setInterval. dt is clamped
@@ -41,6 +41,10 @@ function update(dt) {
   }
 
   movePlayer(dt);
+  /* After the move, never before: the highlight follows where the reader IS this
+     frame, and asking before they have moved would light the chest they are
+     walking away from. */
+  stepCave(player);
   drawMotes(dt);      /* motes integrate here, but draw themselves */
   updateDepth();      /* gated internally: only touches the DOM on change */
   updateCue();        /* likewise: fades the scroll cue once, then stops */

@@ -5,9 +5,10 @@
    resume and adds its gold to a running tally. Opening everything lights the
    room.
 
-   This module is a LEAF: it imports nothing and exports one function. That is
-   what keeps the graph acyclic, since it sits under main.js but beside
-   layers.js rather than in the middle of the layers <- game <- render chain.
+   This module is a near-leaf: it imports only cave.js, which itself
+   imports nothing, so it still sits under main.js without closing a cycle. It is no
+   longer the pure leaf it was - the room is walkable now, and the highlight that
+   follows the player has to ask where the player is.
 
    The design rule it obeys: every piece of text a chest reveals is already in
    index.html. This file only moves a class, sets an attribute and writes a
@@ -19,12 +20,61 @@
    which means re-weighting the hoard is an edit to the HTML and nothing else.
    ========================================================================== */
 
+import { caveActive, nearestChest } from './cave.js';
+
 /* The room carries --gold from 0 to 1 as the hoard fills, and treasure.css
    spends it on the room's own surface (a brighter treasure light). Writing it
    as a custom property rather than toggling a class is what lets the glow
    change CONTINUOUSLY with the count, so a half-empty hoard looks half-lit. */
 function paintRoom(room, found, total) {
   room.style.setProperty('--gold', total > 0 ? (found / total).toFixed(3) : '0');
+}
+
+/* === Exploring the cave ====================================================
+   Two things the reader can do in the room that they could not do before: see
+   which chest they are standing at, and open it by walking up to it.
+
+   Both go through cave.nearestChest(), which reads the chests' real measured
+   boxes rather than a list of positions kept here. That is deliberate - the
+   chests are HTML in the ordinary flow, so they move when the copy reflows or a
+   phone stacks the stacks into one column, and any position this module cached
+   would be describing a layout that no longer exists.
+
+   OPENING IS NOT A CLICK. dispatchEvent is used rather than .click() so this is
+   the same event a reader's own click produces, going through the same
+   aria-expanded bookkeeping in open() below - the chest state, the tally and the
+   room's --gold all move together because there is only one code path that moves
+   them. Anything that set aria-expanded directly would leave the gold counter
+   behind, and a mismatch between "the chest is open" and "0 of 9 gold" is exactly
+   the kind of drift this module already guards against elsewhere.
+
+   Nothing here runs under reduced motion any differently: walking up to a chest
+   is the reader's own input, not an animation played at them. */
+var near = null;
+
+/* Called from the frame loop, after the player has moved. */
+function stepCave(player) {
+  if (!caveActive()) {
+    /* Drop the highlight on the way out, or it sticks to a chest the reader has
+       scrolled away from and cannot act on. */
+    if (near) { near.el.classList.remove('is-near'); near = null; }
+    return;
+  }
+  var hit = nearestChest(player.x, player.w);
+  if (hit === (near && near.el) || (!hit && !near)) return;
+
+  if (near) near.el.classList.remove('is-near');
+  near = hit;
+  if (!near) return;
+
+  near.el.classList.add('is-near');
+  /* Open it. Only if it is shut: re-dispatching on an already-open chest would
+     close it again the moment the reader stopped walking, which reads as the
+     room fighting them. */
+  if (!near.open && !near.el.dataset.autoOpened) {
+    near.el.dataset.autoOpened = '1';
+    near.el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }
 }
 
 /* Wire the hoard. Called once from main.js at boot.
@@ -108,5 +158,9 @@ function initHoard() {
 }
 
 /* Public surface of this module. Collected at the bottom to match every other
-   module in this project, so the graph check in tools/smoke.mjs can read it. */
-export { initHoard };
+   module in this project, so the graph check in tools/smoke.mjs can read it.
+   stepCave() is exported rather than wired inside initHoard() because it has to
+   run every FRAME, next to the player's movement, and initHoard() runs once at
+   boot. main.js calls it from update() - the same place that moves the player -
+   so the highlight can never be a frame behind where the reader is standing. */
+export { initHoard, stepCave };

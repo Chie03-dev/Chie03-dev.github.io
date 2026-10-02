@@ -212,9 +212,42 @@
   outline-offset:2px;
 }
 
+/* ==========================================================================
+   The chest the player is STANDING AT, as opposed to the one they are reading.
+
+   .is-near is added by treasure.js from the player's real position in the cave,
+   not on hover, so it is a game state rather than a pointer state - which is why
+   it is a class rather than a :hover rule and why it survives the pointer
+   leaving. It has to read differently from a hover: the lid lifts and the rim
+   warms, saying "this is open to you", where a hover would say "you may click
+   this".
+
+   Deliberately NOT a transform on the chest. The chests sit in two stacks in a
+   three-track grid with the shaft channel between them, and translating one would
+   carry it over that channel - the reader would see a chest hovering in the
+   middle of the mine shaft. The glow grows outward instead, so nothing moves. */
+.chest.is-near{
+  border-color:var(--accent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent),
+    0 0 26px color-mix(in srgb,var(--door-glow-lit) 45%,transparent);
+}
+/* The lid lifts for the chest at the player's feet. A transition, not a keyframe,
+   so the global prefers-reduced-motion block (which forces transition-duration
+   to 0ms) lands it instantly with no motion at all - the same reason the doorway
+   uses a transition rather than an animation. */
+.chest.is-near .chest__lid{
+  transform:translateY(-4px);
+  border-color:var(--accent);
+}
+/* A chest opened by walking into it rather than clicking. The name goes warm to
+   mark it as found-by-exploration, and stays readable: --accent on the vault's
+   own surface measures well above 4.5:1 in every viewport the smoke suite
+   renders. */
+.chest[data-auto-opened="1"] .chest__name{color:var(--accent)}
+
 /* A chest that has been emptied and closed again keeps a warm rim, so a reader
    who scrolls back up can see at a glance which ones they already took.
-
    The muted name is scoped to the CLOSED state. Without the aria-expanded
    qualifier the name also went grey while the chest was open and being read,
    which said "already collected" at exactly the moment the reader was collecting

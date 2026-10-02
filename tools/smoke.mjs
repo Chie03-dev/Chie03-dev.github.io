@@ -1,3 +1,11 @@
+/* How many rects one frame drew. The counter is the stub's own, so this measures
+   what render() actually emitted rather than what any painter says it did. */
+function countRects(draw) {
+  globalThis.__rectCount = 0;
+  draw();
+  return globalThis.__rectCount;
+}
+
 /* ==========================================================================
    tools/smoke.mjs - the verification that actually works for this project
    ==========================================================================
@@ -69,7 +77,22 @@ function makeCtx() {
   return {
     fillStyle: '', strokeStyle: '', lineWidth: 1, font: '', globalAlpha: 1,
     imageSmoothingEnabled: false,
-    save: noop, restore: noop, closePath: noop, rect: noop, fill: noop,
+    save: noop, restore: noop, closePath: noop,
+    /* rect() reports its arguments. It was a noop, which is a hole: rect(NaN, ...)
+       is silently dropped by a real canvas, so art drawn at a nonsense position
+       would simply not appear and nothing anywhere would say so.
+
+       fillRect() is NOT defined here. It is defined further down this same object,
+       where the rest of the drawing methods live, and it also counts itself so a
+       check can measure how much a frame actually drew. Defining it twice is a
+       silent trap: the later key wins, the earlier one is dead code, and a counter
+       added to the dead one reads zero forever while looking entirely correct -
+       which is what happened here for an hour. */
+    rect: function (x, y, w, h) {
+      finite(x, 'rect.x'); finite(y, 'rect.y');
+      finite(w, 'rect.w'); finite(h, 'rect.h');
+    },
+    fill: noop,
     stroke: noop,
     /* Path and clip RECORDING, added for the surface-seam regression test.
 
@@ -141,6 +164,7 @@ function makeCtx() {
     fillRect: (x, y, w, h) => {
       finite(x, 'fillRect.x'); finite(y, 'fillRect.y');
       finite(w, 'fillRect.w'); finite(h, 'fillRect.h');
+      globalThis.__rectCount = (globalThis.__rectCount || 0) + 1;
     },
     createLinearGradient: (x, y) => {
       finite(x, 'linear.x'); finite(y, 'linear.y');
@@ -708,7 +732,12 @@ async function run() {
       const y = settle(sc);
       if (y < prev - 0.01) reversals++;
       if (y < band.top - 0.01 || y > band.bot + 0.01) outOfBand++;
-      if (G.player.y + G.player.h > y + 0.01) sunk++;
+      /* The car floor only means anything while the player is RIDING it. In the
+         bedrock cave they are on the cave's own floor, which is a different line
+         entirely, and the reader is meant to be off the car there - so this check
+         is scoped to the shaft rather than being allowed to blame the cave for
+         standing somewhere the cave intends them to stand. */
+      if (!G.player.inCave && G.player.y + G.player.h > y + 0.01) sunk++;
       if (y > h + 0.01 || G.player.y < -0.01) offscreen++;
       prev = y;
     }
@@ -829,6 +858,23 @@ async function run() {
       fail('no tree sprites exist, so tree stability cannot be checked');
     } else {
       const treeSet = new Set(props);
+      /* The painter's own constants, read from the module. Declared here rather
+         than beside the assertions that use them, because the twitch and crawl
+         checks come first and a const further down the block would still be in the
+         temporal dead zone at that point. */
+      const TREE_TARGETS = M.biomes.TREE_W;
+      const TREE_PITCH_GAP = M.biomes.TREE_GAP;
+      const TREE_SINK = M.biomes.TREE_SINK;
+      /* Every sprite the props pass may stand on the seam with: trees, tufts,
+         bushes and blooms. SET.blooms is an array of arrays (a palette of beds,
+         each holding three sizes), so it is flattened - without that, .has() on the
+         inner arrays is always false and the whole sweep silently checks nothing,
+         which is the failure mode this suite exists to prevent. */
+      const propSet = new Set([
+        ...(S.SET.tufts || []), ...(S.SET.bushes || []),
+        ...(S.SET.conifers || []), ...(S.SET.canopies || []),
+        ...(S.SET.blooms || []).flat()
+      ]);
       /* Settle at a scroll position where the surface is on screen - the top of
          the page - so the props pass actually has somewhere to put a tree. This
          mirrors the per-viewport settle() above, which is scoped to that loop.
@@ -871,55 +917,570 @@ async function run() {
                     .map((b) => [b.dx, b.dy, b.dw, b.dh].join(','));
       };
 
+      /* EVERY prop that stands on the seam, not just the trees: the tufts, bushes
+         and flowers are placed from the same seam and were off the chord by the
+         same up-to-5px. A tuft a few pixels off is far less noticeable than a tree,
+         which is exactly why it would have survived - mutation 14i demonstrated this
+         by leaving the tree call site alone and reverting only the tuft one, and
+         nothing failed.
+
+         So this is the unfiltered blit log over every seam prop. The tufts sit at
+         their own offsets from the seam (1px above for the grass pass, 2px for the
+         cover pass) rather than TREE_SINK, so they cannot simply share the tree
+         assertion; the sweep below therefore allows any of a small set of offsets
+         and asks only that each prop be explainable by the chord at one of them. */
+      const snapAll = (now) => {
+        blits.length = 0;
+        R.render(now);
+        return blits.filter((b) => propSet.has(b.src))
+                    .map((b) => ({ src: b.src, s: [b.dx, b.dy, b.dw, b.dh].join(',') }));
+      };
+
       /* Three times, spread over a window long enough for a cloud to drift in
          and back out of a gutter. The bug reproduced well inside this. */
       const frames = [0, 700, 1900, 4300].map(snap);
+      /* DENSER SWEEP, because four frames is thin evidence for a claim about
+         motion. A tree that jitters on a 250ms cycle passes four samples taken
+         at 700ms intervals and looks perfectly still, which is exactly the kind
+         of bug that survives a test written to catch it. Sixteen samples across
+         four seconds is enough to land on a short cycle. */
+      {
+        const dense = [];
+        for (let t = 0; t <= 4000; t += 250) dense.push(snap(t));
+        const b0 = dense[0];
+        let moved = 0, maxD = 0, countDrift = 0;
+        for (let i = 1; i < dense.length; i++) {
+          if (dense[i].length !== b0.length) countDrift++;
+          for (let j = 0; j < Math.min(b0.length, dense[i].length); j++) {
+            const a = b0[j].split(',').map(Number);
+            const c = dense[i][j].split(',').map(Number);
+            /* Every field, not just position: a tree that keeps its place but
+               changes SIZE between frames is flickering just as visibly. */
+            const d = Math.max(Math.abs(a[0] - c[0]), Math.abs(a[1] - c[1]),
+                               Math.abs(a[2] - c[2]), Math.abs(a[3] - c[3]));
+            if (d > 0) { moved++; if (d > maxD) maxD = d; }
+          }
+        }
+        if (countDrift) {
+          fail('the number of trees placed changes between frames (' +
+               countDrift + ' of ' + (dense.length - 1) + ' intervals), so the ' +
+               'meadow is repopulating while the reader watches it');
+        }
+        if (moved) {
+          fail(moved + ' tree value(s) differ between frames across a 4s sweep ' +
+               'at a 250ms stride, by up to ' + maxD + 'px. The props pass is ' +
+               'supposed to be a pure function of the gutter geometry: it seeds ' +
+               'its own stream (mulberry32(PROP_SEED)) and never reads the clock. ' +
+               'If trees are moving, something else feeds time into that pass');
+        }
+      }
+      /* THE TWITCH, and the reason only SOME trees did it.
+
+         The seam is traced as a POLYLINE: the turf clip emits a vertex every
+         SEAM_STEP and the browser joins them with straight lines, so between two
+         vertices the visible ground is the CHORD, not the curve. A tree sampled
+         seamY() at its own x - the true curve - and was therefore placed up to
+         5.1px away from the ground it was standing on. Scrolling moved the two
+         past each other and the tree juddered inside its own shadow.
+
+         The assertion is that a tree stands ON the polyline that is actually
+         drawn, reconstructed here from the same seamY() vertices the clip uses.
+
+         Note what this is NOT. An earlier version of this check asserted that no
+         tree moves UP as the page scrolls down, on the theory that the twitch was
+         a reversal - and that passed against the BROKEN code, because it was
+         measuring the wrong thing entirely. The chord error is a constant offset
+         from the tree's own x, not a reversal: the tree still descends smoothly,
+         just alongside a ground line it is not sitting on. Monotonicity was
+         always going to pass, which is why measuring it proved nothing.
+
+         A position-equality check would fail for the opposite reason: the tree is
+         supposed to move when the page scrolls, and TREE_SINK buries the trunk
+         below the line on purpose. So the invariant is specifically tree-vs-chord. */
+      {
+        const s0 = globalThis.window.scrollY;
+        const layer = L.layers[1];
+        let worst = 0, worstX = 0, checked = 0;
+        for (let q = 0; q < 8; q++) {
+          globalThis.window.scrollY = s0 + q / 4;
+          L.syncScroll();
+          /* Sweep every x the props pass could plausibly sample, rather than
+             reading x back off a blit. The painter's `walk` is unrecoverable from
+             the drawn signature - it advances by `wide + gap + jitter` and is
+             therefore fractional, while blitOn rounds it - and three separate
+             attempts to invert it produced three checks that could not tell the
+             bug from correct behaviour. Sampling the FUNCTION directly has no such
+             ambiguity: it asks the question that is actually being asked. */
+          for (let x = -40; x <= L.viewW + 40; x += 1) {
+            /* The chord the turf clip actually draws here: the two bracketing
+               vertices and the straight line between them. */
+            const x0 = L.seamVertexX(x);
+            const ya = L.seamY(layer, x0);
+            const chord = ya + (L.seamY(layer, x0 + L.SEAM_STEP) - ya) *
+                                 ((x - x0) / L.SEAM_STEP);
+            /* seamPropY() must return that, because it is what props are placed
+               with. It is the same construction, so this is the check that the
+               helper was not quietly changed into a curve reader - and it is exact,
+               so any deviation at all is a defect rather than a tolerance
+               question. */
+            const d = Math.abs(L.seamPropY(layer, x) - chord);
+            checked++;
+            if (d > worst) { worst = d; worstX = x; }
+          }
+        }
+        globalThis.window.scrollY = s0;
+        L.syncScroll();
+        /* Exact equality is the honest bar here and no threshold is needed: both
+           sides are the same expression over the same rounded vertices, so the
+           correct answer is 0 everywhere. A tolerance would only be a way of
+           hiding a change in the helper. */
+        if (worst > 1e-9) {
+          fail('seamPropY() disagrees with the drawn seam polyline by ' +
+               worst.toFixed(6) + 'px at x=' + worstX + ' (over ' + checked +
+               ' samples). The turf clip traces the seam every ' + L.SEAM_STEP +
+               'px and the browser joins those vertices with straight lines, so the ' +
+               'visible ground between two of them is the CHORD, not the curve. ' +
+               'Props placed on the raw curve sit up to 5px off the soil they ' +
+               'appear to be standing in and judder against it as the page scrolls - ' +
+               'which is why only SOME trees twitched, depending on where each one ' +
+               'fell between two vertices. seamPropY() must interpolate along the ' +
+               'polyline');
+        }
+        /* And the inverse half, which is what actually pins the PAINTER. If the
+           helpers are right but the props pass stopped using them, nothing above
+           would notice at all.
+
+           Rather than guess where the painter sampled (its `walk` advances by
+           `wide + gap + jitter` and is therefore fractional, while blitOn rounds
+           the destination), this asks the question directly: the crown centre is
+           `walk + wide / 2`, and `wide` is within the drawn span - so the sampled
+           x must lie in [p[0], p[0] + drawnWidth], give or take the half pixel the
+           rounding of walk can shift it. Whether the chord passes through the
+           drawn base ANYWHERE in that range is solved for exactly rather than
+           sampled, because the chord is a straight line and a grid sweep steps
+           straight over it: a sweep at quarter-pixel resolution flagged a quarter
+           of the trees on CORRECT code, which is worse than no check at all.
+
+           Solving instead: seamPropY() is linear within a segment, so the set of x
+           giving a particular y is a point or the whole segment, and both are
+           found exactly. */
+        {
+          let strays = 0, total = 0, worst = Infinity, worstX = 0;
+          for (let q = 0; q < 8; q++) {
+            globalThis.window.scrollY = s0 + q / 4;
+            L.syncScroll();
+            for (const b of snap(0)) {
+              const p = b.split(',').map(Number);
+              const base = p[1] + p[3];
+              const targetY = base - TREE_SINK;
+              /* The crown centre lies inside the drawn span, and the walk cursor is
+                 within half a pixel of p[0]. */
+              const lo = p[0] - 1, hi = p[0] + p[2] + 1;
+              /* A y-TOLERANCE at a real x, for the same reason as the cover props
+                 below: blitOn() rounds the base, so the drawn value sits within half
+                 a pixel of the chord's value and never exactly on it. An earlier
+                 version solved for the crossing point and demanded exactness, which
+                 rejected correct placements - the second version of this check to
+                 fail on clean code, and the reason both now test a tolerance at a
+                 real x instead. */
+              let found = false;
+              for (let x = lo; x <= hi && !found; x += 0.25) {
+                if (Math.abs(L.seamPropY(layer, x) - targetY) <= 0.5) found = true;
+              }
+              if (!found) {
+                /* Report the nearest miss in px - that is the size of the judder. */
+                let best = Infinity;
+                for (let x = lo; x <= hi; x += 0.25) {
+                  best = Math.min(best, Math.abs(L.seamPropY(layer, x) - targetY));
+                }
+                if (best < worst) { worst = best; worstX = p[0]; }
+                strays++;
+              }
+              total++;
+            }
+          }
+          globalThis.window.scrollY = s0;
+          L.syncScroll();
+          if (strays) {
+            fail(strays + ' of ' + total + ' drawn trees cannot be placed on the ' +
+                 'seam polyline anywhere in their own span (nearest miss ' +
+                 (isFinite(worst) ? worst.toFixed(2) : '>1') + 'px at x=' +
+                 worstX + '), so the props pass is standing them on something else ' +
+                 '- almost certainly the raw seamY() curve. That curve is not what ' +
+                 'gets drawn: the turf clip traces a chord, so the tree ends up up ' +
+                 'to 5px off the soil it appears to be standing in and judders ' +
+                 'against it while the page scrolls, and only SOME trees do it, ' +
+                 'depending on where each falls between two vertices. Use ' +
+                 'seamPropY()');
+          }
+        }
+        /* And the same for the OTHER seam props - tufts, bushes and flowers. They
+           are placed from the same curve at their own small offsets (-1 for the
+           grass pass, +2 for the cover pass), so the offsets are swept rather than
+           assumed, and the requirement is the same: explainable by the chord.
+
+           This exists because mutation 14i survived every other check. Reverting
+           only the tuft call site left the whole suite green, which is the honest
+           measure of how easy a small visual fault is to lose: the tufts are 9px
+           wide, so a 4px error is a third of the sprite. */
+        {
+          /* Offsets are per prop CLASS, and that distinction is the whole reason
+             this check is finicky. A tree is buried by TREE_SINK (-3), the grass
+             tufts sit 1px above the seam, and the cover props (tufts, bushes,
+             flowers) sit 2px below it. Offering every offset to every prop lets a
+             tree be "explained" by the cover pass's offset, which is not an error
+             condition at all - and it left 172 correctly-placed props looking
+             broken, because a +2 prop tested against -3 lands on a y the chord
+             never reaches.
+
+             So the offsets are tried in order and the prop matches if the FIRST
+             plausible one explains it. Trees are excluded here and asserted by the
+             stricter TREE_SINK check above; this sweep is for the cover props.
+
+             The exclusion has to read b.src, so snapAll() returns objects rather
+             than joined strings. It returned strings first, which made b.src
+             undefined, so the exclusion silently matched nothing and 28 TREES were
+             tested against offsets that are not theirs - reported as 28 broken
+             cover props, which is a long way from the truth. A filter that quietly
+             never fires looks exactly like a check that passes, so the signature
+             carries what the filter needs. */
+          const OFFSETS = [2, -1];
+          let strays = 0, total = 0;
+          for (let q = 0; q < 4; q++) {
+            globalThis.window.scrollY = s0 + q / 4;
+            L.syncScroll();
+            for (const b of snapAll(0)) {
+              const p = b.s.split(',').map(Number);
+              /* Skip the trees: they have their own assertion above, with their own
+                 offset, and mixing the two is what produced the false failures. */
+              if (treeSet.has(b.src)) continue;
+              const base = p[1] + p[3];
+              /* Cover props sample the seam at `fx`, which is `walk + (rc() * 7 | 0)` -
+                 an integer, since walk advances by the integer COVER_STEP from an
+                 integer gutter edge. So the drawn x and the sampled x agree, and the
+                 span is one pixel either side: half a pixel for the rounding of the
+                 base, plus a margin for the jitter.
+
+                 Widening this span until the strays disappear is the tempting move
+                 and it is the wrong one. A half-pixel reach reported 172 false
+                 failures and a whole-pixel reach 492, because the span is what makes
+                 the check able to fail at all - a prop standing away from its own
+                 drawn x is precisely the fault being looked for. So the span stays
+                 narrow and the strays get explained instead.
+
+                 Tested as a y-TOLERANCE at a real x, not by solving for a crossing
+                 point: blitOn() ROUNDS the base, so the drawn value sits within half
+                 a pixel of the chord's and never exactly on it. The crossing test
+                 demanded exactness and rejected correct placements. */
+              const lo = p[0] - 1, hi = p[0] + 1;
+              let found = false;
+              for (const off of OFFSETS) {
+                const ty = base - off;
+                for (let x = lo; x <= hi && !found; x += 0.25) {
+                  if (Math.abs(L.seamPropY(layer, x) - ty) <= 0.5) found = true;
+                }
+                if (found) break;
+              }
+              total++;
+              if (!found) strays++;
+            }
+          }
+          globalThis.window.scrollY = s0;
+          L.syncScroll();
+          if (strays) {
+            fail(strays + ' of ' + total + ' cover props (tufts, bushes or flowers) ' +
+                 'cannot be placed on the drawn seam polyline at either of their ' +
+                 'offsets ' + OFFSETS.join('/') + '. Every prop that stands on the ' +
+                 'surface reads its y from the seam, and the drawn seam is the ' +
+                 'polyline chord rather than the curve - so anything placed on the ' +
+                 'curve floats above or sinks into the grass. Use seamPropY() at ' +
+                 'every call site, not just the trees');
+          }
+        }
+      }
+      /* SUB-PIXEL CRAWL, which the sweep above structurally cannot see because
+         it holds scroll still. This one moves the page.
+
+         seamY() fed two consumers that disagreed about rounding: the renderer
+         stroked it into an antialiased path while blitOn() rounded the sprite's
+         destination to a whole pixel. So the seam slid smoothly while the tree
+         stepped, and the trees shimmered against the soil as the reader scrolled.
+         Nothing about a fixed-scroll frame comparison can detect that, because
+         both consumers agree perfectly well while the scroll is still - the
+         disagreement only exists in the DIFFERENCE between them at fractional
+         offsets.
+
+         The assertion is therefore on INTEGRALITY, not on distance. It is tempting
+         to assert that a tree's base sits exactly on the seam, and that is wrong:
+         the tree is planted at seamY(x) + TREE_SINK (-3, to bury the trunk), and
+         the crown centre is sampled at x + wide/2, which is not the x the base is
+         drawn at. So the honest invariant is the one that actually causes the
+         crawl - that every value the tree is placed from is a whole number, so
+         both consumers are quantised onto the same grid and can never drift
+         apart by a fraction.
+
+         An earlier version of this check asserted a zero gap and failed on correct
+         code at 7px, which says nothing about crawl. Measuring the placement terms
+         instead of the outcome is what makes it a real check. */
+      {
+        const scroll0 = globalThis.window.scrollY;
+        const layer = L.layers[1];
+        let frac = 0, worst = 0, worstAt = 0, checked = 0;
+        /* Quarter-pixel steps: 16 offsets is the minimum that hits every residue
+           of the rounding, since the drift only appears on fractional offsets. */
+        for (let q = 0; q < 16; q++) {
+          const sc = scroll0 + q / 4;
+          globalThis.window.scrollY = sc;
+          L.syncScroll();
+          const seam = L.seamY(layer, 320);
+          if (seam !== Math.round(seam)) {
+            frac++;
+            const d = Math.min(Math.abs(seam - Math.round(seam)),
+                               Math.abs(seam - Math.round(seam) - 1));
+            if (d > worst) { worst = d; worstAt = sc; }
+          }
+          /* The drawn destination must be integral too - this is the half of the
+             bug that lives in the sprite rather than in the curve. */
+          for (const b of snap(0)) {
+            const p = b.split(',').map(Number);
+            for (const v of p) {
+              checked++;
+              if (v !== Math.round(v)) frac++;
+            }
+          }
+        }
+        globalThis.window.scrollY = scroll0;
+        L.syncScroll();
+        if (frac) {
+          fail(frac + ' non-integer placement value(s) across 16 scroll offsets ' +
+               'covering every sub-pixel position (worst ' + worst.toFixed(3) +
+               'px off the grid at scroll ' + worstAt + '; ' + checked +
+               ' drawn values checked). seamY() must return whole pixels and the ' +
+               'blit destination must be rounded: the renderer strokes the seam ' +
+               'into an antialiased path while the sprite lands on a whole ' +
+               'pixel, so at fractional offsets the two disagree and the meadow ' +
+               'crawls against its own soil while the reader scrolls. Round ' +
+               'inside seamY(), not at the call sites');
+        }
+      }
       const base = frames[0];
       if (!base.length) {
         fail('no tree was placed with the soil line on screen; the props pass ' +
              'placed nothing (propsDrawn=' + R.propsDrawn + ')');
       }
-      /* DENSITY, and this is the check that catches the bare-meadow bug.
+      /* The strips the props pass actually plants into, read from the module
+         rather than hard-coded. Every assertion below is stated against THESE,
+         because they are the geometry that governs placement - a literal 48 or
+         620 here would be a second source of truth that quietly stops being
+         true when a breakpoint or a rail width changes, and a test asserting a
+         stale number is worse than no test, because it looks like it is
+         protecting something.
 
-         A tree that is placed is not a meadow. The two sheet crops are 83x96
-         and 62x72 while the desktop gutter is 48px wide, so drawing them at
-         scaleFor()'s integer scale (1 or 2) puts one tree PER GUTTER - two on
-         the whole page - and every other assertion in this file still passes:
-         the sprites are valid, in a gutter, standing on the ground, drawn once
-         each, and identical between frames. The only thing that distinguishes
-         "a meadow" from "two lonely trees" is HOW MANY.
+         This distinction is the whole point of the assertions. gutters()
+         excludes the panel's column and is right for a painter filling the band
+         top to bottom; the props stand on the seam, which is half a row-gap
+         below the panel, so only the shaft occludes them. */
+      const gu = M.biomes.meadowGutters();
+      /* COVERAGE, proportional to the room AND to the size of the trees.
 
-         The floor is deliberately loose. It is a regression guard, not a taste
-         check: 8 is well under the ~15 this now places at 1440, and 2 - the
-         broken behaviour - is under it. */
-      if (base.length < 8) {
-        fail('only ' + base.length + ' trees were placed at 1440x900; the ' +
-             'surface is meant to be a meadow, not two lonely trees. A tree ' +
-             'wider than its gutter fits exactly one per gutter, so check the ' +
-             'target width passed to blitOn() (TREE_W) rather than the crown gap');
+         An absolute floor ("at least N trees") passes a meadow that is 90% bare
+         as long as N is low enough. Deriving the floor from the strips alone is
+         not enough either: it assumes a fixed tree size, so the moment TREE_W
+         grows past that assumption the floor becomes unreachable and the check
+         fails on correct code - which is exactly what happened when the trees
+         were enlarged, and why this denominator now carries the crown width.
+
+         What actually distinguishes a meadow from a desert is how much of the
+         available width received a tree, and a tree of a given size consumes a
+         given width, so the two have to move together.
+
+         Deriving it this way is also what catches the bare-LEFT bug. Replanted in
+         gutters(), the props land in a 48px sliver, a 52px sliver and one wide
+         strip - and the total still looks fine, because the wide strip alone
+         carries most of them. The count was never the problem; the
+         DISTRIBUTION was. */
+      const span = gu.reduce((t, s) => t + s.w, 0);
+      /* TREE_W and TREE_GAP come from the painter itself, not from literals
+         restated here. */
+      /* Read from the sprites, not from a literal: the widest crown actually on
+         screen, plus the gap the painter leaves between crowns. */
+      const crown = Math.max.apply(null,
+        base.map((s) => Number(s.split(',')[2])));
+      const floor = Math.max(3,
+        Math.floor(span / (crown + TREE_PITCH_GAP)));
+      if (base.length < floor) {
+        fail('only ' + base.length + ' trees cover ' + Math.round(span) +
+             'px of meadow at a crown width of ' + crown + 'px; at least ' +
+             floor + ' are needed for the surface to read as a meadow. A tree ' +
+             'wider than the strip it stands in fits exactly one, so check the ' +
+             'target width passed to blitOn() (TREE_W) and that the props pass ' +
+             'uses meadowGutters()');
       }
-      /* Every tree must FIT the gutter it was planted in. An 83px crop in a
-         48px gutter overhangs the opaque panel it stands beside, which is the
-         same bug wearing a different hat: the tree is drawn, just not where it
-         can be seen. Recorded dw is the drawn width.
+      /* HONOURS ITS TARGET WIDTH, which is the invariant that replaced "never
+         magnified".
 
-         The gutter width is READ from the module rather than hard-coded. A
-         literal 48 here would be a second source of truth that quietly stops
-         being true the moment a breakpoint or a rail width changes - and a test
-         that asserts a stale number is worse than no test, because it looks
-         like it is protecting something. */
-      const gu = M.biomes.gutters(L.layers[0]);
+         An earlier version asserted every tree was NARROWER than its source crop.
+         That was true only while every TREE_W entry sat below the sheet crops
+         (83x96 and 62x72). Enlarging the trees made it false by design, and a
+         check that is false by design is worse than no check - it looks like it
+         is protecting something.
+
+         The real requirement is that the size on screen is the size the painter
+         asked for. Mutation 14b drops the target width and lets scaleFor() pick
+         an integer scale instead, which draws each tree at 83 or 166px - ignoring
+         TREE_W entirely - while the loop cursor still advances by the target
+         width, so the COUNT is unchanged. That is why this is a size check and
+         not a count check: the tree count is the one thing that mutation cannot
+         move.
+
+         Magnification is now legitimate, so the test cannot simply say "never
+         wider than the source". What it CAN say is that every drawn width is one
+         this painter would choose: a TREE_W target, or a half-step multiple of
+         the source for a target above it (blitOn() quantizes magnification to
+         keep the pixel grid regular). Anything else means the target width was
+         dropped somewhere between TREE_W and the canvas. */
+      const allowed = new Set();
+      for (const sp of treeSet) {
+        for (const t of TREE_TARGETS) {
+          const k = t / sp.width;
+          const kk = k > 1 ? Math.max(1, Math.round(k * 2) / 2) : k;
+          allowed.add(Math.round(sp.width * kk));
+        }
+      }
+      /* NO TARGET MAY ALIAS AN INTEGER SCALE, which is the invariant that keeps
+         the check above able to fail at all.
+
+         This is a real regression that shipped inside this very change. TREE_W
+         briefly contained 83 and 166, which are exactly scaleFor()'s 1x and 2x
+         of the 83px crop. With those in the allowed set, a tree drawn by the
+         BROKEN path - target width dropped, integer scale chosen instead - was
+         byte-identical to a correctly drawn one, and mutation 14b passed. The
+         size check was still there and still green; it had simply been made
+         unable to distinguish right from wrong.
+
+         So the allowed set is not just "what the painter might ask for", it must
+         exclude every width the fallback could produce unaided. Asserting that
+         here means adding a convenient round number like 124 to TREE_W fails
+         loudly instead of quietly disarming a regression test. */
+      {
+        const ints = new Set();
+        for (const sp of treeSet) {
+          for (let n = 1; n <= 4; n++) ints.add(sp.width * n);
+        }
+        const aliased = [...new Set(TREE_TARGETS.map((t) => {
+          for (const sp of treeSet) {
+            const k = t / sp.width;
+            const kk = k > 1 ? Math.max(1, Math.round(k * 2) / 2) : k;
+            const v = Math.round(sp.width * kk);
+            if (ints.has(v)) return t + '->' + v;
+          }
+          return null;
+        }).filter(Boolean))];
+        if (aliased.length) {
+          fail('TREE_W entries ' + aliased.join(', ') + 'px resolve to a width ' +
+               'that is also an integer scale of a source crop (' +
+               [...ints].sort((a, b) => a - b).join('/') + '). scaleFor() ' +
+               'produces exactly those, so a tree drawn WITHOUT its target width ' +
+               'would be indistinguishable from a correct one and the size check ' +
+               'above could no longer catch it. Pick targets that land on 1.5x, ' +
+               '2.5x or 3.5x instead');
+        }
+      }
+      const stray = base.map((s) => Number(s.split(',')[2]))
+                       .filter((w) => !allowed.has(w));
+      if (stray.length) {
+        fail(stray.length + ' tree(s) drawn at width(s) ' +
+             [...new Set(stray)].sort((a, b) => a - b).join(', ') +
+             'px, which is not any width the painter would ask for. The targets ' +
+             'are ' + TREE_TARGETS.join('/') + 'px, quantized to half-steps above ' +
+             'the source size. A width outside that set means the TREE_W target is ' +
+             'not reaching blitOn(), so scaleFor() is choosing an integer scale ' +
+             'instead and every tree is drawn at its source size or double it');
+      }
+      /* Every tree must FIT the strip it was planted in. A tree wider than the
+         strip it stands in overhangs the edge and is half hidden, and the
+         narrowest strip is the one that constrains it - the big outboard strip
+         on a wide screen is not what limits the count. */
       const widest = gu.length ? Math.max.apply(null, gu.map((x) => x.w)) : 0;
-      /* The NARROWEST gutter is the one that constrains a tree, and the big
-         outboard strip on a wide screen is not what limits the count. */
       const narrowest = gu.length ? Math.min.apply(null, gu.map((x) => x.w)) : 0;
       const over = base.map((s) => Number(s.split(',')[2]))
                       .filter((w) => w > narrowest + 1);
       if (over.length) {
-        fail(over.length + ' tree(s) are drawn wider than the narrowest gutter ' +
+        fail(over.length + ' tree(s) are drawn wider than the narrowest strip ' +
              '(' + Math.round(narrowest) + 'px; widest ' + Math.round(widest) +
-             'px) they stand in, so they overhang the panel and are half hidden');
+             'px) they stand in, so they overhang the edge and are half hidden');
       }
+      /* BOTH SIDES. The bare-left bug was not "too few trees", it was "all the
+         trees in one strip": the pass reported a healthy count while the whole
+         left half of the surface was empty. Counting the strips that received a
+         tree, rather than counting sprites, is what distinguishes a meadow from
+         a hedge on one side. Each strip is identified by its own x read back
+         from the module, so this cannot drift from the real geometry. */
+      const strips = new Set();
+      for (const s of base) {
+        const x = Number(s.split(',')[0]);
+        for (const strip of gu) {
+          if (x >= strip.x && x < strip.x + strip.w) strips.add(strip.x);
+        }
+      }
+      if (gu.length > 1 && strips.size < gu.length) {
+        fail('trees landed in ' + strips.size + ' of the ' + gu.length +
+             ' strips either side of the shaft, so one side of the surface is an ' +
+             'empty desert. The props pass must use meadowGutters() and not ' +
+             'gutters(), or the panel column is excluded and only one side is ' +
+             'ever planted');
+      }
+      /* GROUND COVER, counted from real blits and checked PER STRIP. Ground cover
+         runs on its own pass with its own rng, which is what lets flowers be dense
+         where the trees are sparse. That decoupling is the whole point, and
+         nothing here could see it going away: the tree assertions all still pass
+         with the cover loop cut short, because a tree does not need a flower to
+         exist.
+
+         PER STRIP is the part that matters. A cover loop that breaks early only
+         starves the strips it reaches second, so a total count still looks
+         healthy - the first strip alone carries it. That is the same failure shape
+         as the bare-left tree bug, one level down, and it wants the same answer. */
+      /* Bushes and flowers ONLY - never tufts.
+
+         A tuft is shared: the grass painter lays one along the seam as well, so
+         including SET.tufts here counts the grass painter's blits as if they
+         were ground cover. That inflated the count from ~60 per strip to ~105
+         and made the check blind to its own mutation - the first assertion that
+         measured something other than what it claimed to. Bushes and blooms are
+         drawn only by the cover pass, so a blit of one is unambiguous evidence. */
+      const coverSet = new Set([...(S.SET.bushes || []), ...(S.SET.blooms || [])]);
+      for (const strip of gu) {
+        const n = blits.filter((b) => coverSet.has(b.src) &&
+                                      b.dx >= strip.x && b.dx < strip.x + strip.w).length;
+        const need = Math.max(3, Math.floor(strip.w / 26));
+        if (n < need) {
+          fail('only ' + n + ' ground-cover sprites in the ' + Math.round(strip.w) +
+               'px strip at x=' + Math.round(strip.x) + '; at least ' + need +
+               ' are needed for the surface to read as growth rather than bare ' +
+               'soil. Counted PER STRIP because an early break in the cover walk ' +
+               'only starves the strips it reaches second, and a page-wide total ' +
+               'still looks healthy on the strength of the first strip alone');
+        }
+      }
+
+      /* scaleFor() is an integer MAGNIFIER and bottoms out at 1, so a sprite
+         larger than its room is drawn at 1x and overflows it. Every caller that
+         draws by height rather than by target width relies on it never returning
+         0, which would silently collapse a sprite to nothing. Asserted on the
+         function rather than on a render, because a render assertion cannot tell
+         "drawn at 1x and slightly too big" from "drawn correctly". */
+      for (const spr of treeSet) {
+        for (const room of [16, 48, 120, 620, 1400]) {
+          const k = M.place.scaleFor(spr, room);
+          if (!Number.isFinite(k) || k < 1) {
+            fail('scaleFor() returned ' + k + ' for a ' + spr.width +
+                 'px sprite in ' + room + 'px of room; it is an integer ' +
+                 'magnifier, so it must never drop below 1');
+          }
+        }
+      }
+
       for (let f = 1; f < frames.length; f++) {
         if (frames[f].join('|') !== base.join('|')) {
           fail('the trees MOVED between frames at a fixed scroll position: ' +
@@ -962,6 +1523,555 @@ async function run() {
     }
   }
 
+
+  /* 11. The cave: walkable, and actually walkable TO. ------------------------
+     New physics with no assertions is exactly how the old floor-less shaft got
+     its "the player cannot move" bug, so the cave gets the same treatment as
+     everything else here.
+
+     The floor profile is the heart of it. It has to be (a) not flat, or the
+     player is walking on a line and the cave is a corridor; (b) FINITE, or the
+     collision writes NaN into the player and the art vanishes silently; and
+     (c) the SAME curve the renderer draws - which is why the art samples at
+     CAVE_FLOOR_STEP while the collision interpolates floorAt() at the player's
+     centre. Two consumers of one profile that disagree about where to read it is
+     the meadow-twitch bug, and this is the same trap with rocks on it. */
+  {
+    const CV = M.cave;
+    globalThis.document.documentElement.clientWidth = 1440;
+    globalThis.document.documentElement.clientHeight = 900;
+    globalThis.window.innerHeight = 900;
+    M.main.resize();
+
+    /* A real room box, so the cave is measured. The stub already keys '.treasure'
+       (measureCave() selects it by exactly that class), and TREASURE_TOP is read
+       from the same fixture the barrier assertion uses - so the cave is measured
+       against the room the rest of the suite believes in, rather than a box
+       invented here that could drift away from it. */
+    CV.measureCave(1440, 900);
+
+    /* To the foot of the page, where the room is. The stub puts the room at
+       document y=TREASURE_TOP (3170) which is far below any viewport this stub
+       scrolls to, so the cave correctly reports itself inactive there - the room
+       genuinely is not on screen at that scroll. Scrolling to the room's own top
+       is what puts it in view, and it is read from the fixture rather than
+       repeated, so the two cannot disagree about where the room is. */
+    globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 100);
+    L.syncScroll();
+    M.main.resize();
+
+    if (!CV.caveActive()) {
+      fail('the cave reports itself inactive with the treasure room scrolled into ' +
+           'view (scrollY=' + globalThis.window.scrollY + ', room at ' +
+           TREASURE_TOP + '), so the player can never leave the car. caveActive() ' +
+           'is the gate on the whole feature');
+    }
+
+    /* (a) the floor is a shape, not a line. */
+    let lo = Infinity, hi = -Infinity, badY = 0;
+    for (let x = 0; x <= 1440; x += 16) {
+      const y = CV.floorAt(x);
+      if (!isFinite(y)) badY++;
+      if (y < lo) lo = y;
+      if (y > hi) hi = y;
+    }
+    if (badY) {
+      fail('the cave floor returned ' + badY + ' non-finite heights; the collision ' +
+           'writes that straight into player.y and every draw from it is silently ' +
+           'dropped by the canvas');
+    }
+    if (hi - lo < 4) {
+      fail('the cave floor is flat (total relief ' + (hi - lo).toFixed(2) +
+           'px), so the room is a corridor with a line down it rather than a cave');
+    }
+
+    /* (b) the player can actually WALK, and stays on the floor while they do.
+       This is the assertion that matters most: it would have caught the original
+       "the player cannot move" bug, and it is stated as a behaviour - they end up
+       somewhere else, standing on rock - rather than as a count of anything.
+
+       Velocity comes from main.js update(), not from movePlayer() directly:
+       movePlayer() integrates what it is GIVEN, and main.js is what turns a held
+       key into that velocity. Driving movePlayer() alone moved a stationary
+       sprite and reported "the room is not walkable" on correct code - a check
+       that fails for a reason having nothing to do with the thing under test. So
+       the same velocity main.js would set is set here, explicitly. */
+    {
+      G.snapPlayerToGround();
+      /* snapPlayerToGround() re-seats the player onto the CAR, which is correct
+         while they are riding it and exactly wrong here: the car is at the shaft
+         centre (x=624) and the cave walls are at 34 and 1406. Calling it after the
+         cave has taken over put the player back inside the shaft, where
+         movePlayerCave() immediately clamps them back to the middle of nowhere -
+         so the walk test measured 0px and blamed the room.
+
+         So the player is placed on the cave floor the way enterCave() does, and
+         the test then checks they can move from there. */
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+      G.player.y = CV.screenFloorY(G.player.x + G.player.w / 2) - G.player.h;
+      G.player.vx = G.player.vy = 0;
+      const before = G.player.x;
+      G.player.vx = G.WALK_SPEED;
+      for (let i = 0; i < 120; i++) G.movePlayer(1 / 60);
+      G.player.vx = 0;
+      const after = G.player.x;
+      if (!(after > before + 40)) {
+        fail('the player walked ' + (after - before).toFixed(1) + 'px in two ' +
+             'seconds of holding right inside the cave (from ' + before.toFixed(1) +
+             ' to ' + after.toFixed(1) + '); the room is not walkable');
+      }
+      if (!G.player.inCave) {
+        fail('the player moved inside the cave but player.inCave is false, so the ' +
+             'renderer would still draw the car under them and the collision in ' +
+             'use is the shaft flat-deck one');
+      }
+      /* Their feet must be ON the floor - and this has to be checked against the
+         CURVE, not against a second call to the same sampler the collision used.
+
+         The first version read `CV.screenFloorY(player.x + player.w / 2)`, which
+         is exactly the expression movePlayerCave() evaluates, so it agreed with
+         the collision by construction and mutation 45 - which moves that sample
+         to the player's feet - passed. A test that recomputes the thing under
+         test with the same formula cannot fail; it can only ever confirm itself.
+
+         So this reconstructs the drawn floor from floorAt() - the world-space
+         profile, which has no knowledge of where the player is - at the point the
+         sprite is standing on, and adds the single world-to-screen offset the
+         renderer applies.
+
+         The park clamp has to be handled or the whole comparison is meaningless.
+         screenFloorY() clamps the floor to CAVE_FLOOR_PARK while the room is
+         scrolled past it, and while that clamp is active it returns the SAME y at
+         every x - so the drawn floor genuinely IS a flat line there, and any
+         profile-derived expectation differs from it by up to the full relief
+         (24px here). Asserting against the profile during that window fails on
+         correct code.
+
+         So the shape check only runs where the clamp is NOT holding the floor
+         flat - that is, where the reader can actually see the floor's undulation.
+         The clamp case is covered by the "floor is inside the viewport" sweep
+         instead, which is the property that actually matters there. */
+      const offset = CV.screenFloorY(0) - CV.floorAt(0);
+      const stand = CV.floorAt(G.player.x + G.player.w / 2) + offset;
+      const clamped = Math.abs(CV.screenFloorY(0) - CV.screenFloorY(1439)) < 0.5;
+      if (!clamped && Math.abs(G.player.y + G.player.h - stand) > 1) {
+        fail('the player stands ' +
+             Math.abs(G.player.y + G.player.h - stand).toFixed(2) +
+             'px off the cave floor (feet at ' + (G.player.y + G.player.h).toFixed(1) +
+             ', floor at ' + stand.toFixed(1) + '); the art is drawn on one curve ' +
+             'and the collision samples another');
+      }
+    }
+
+    /* (b2) the floor agreement, at a scroll where the floor is NOT clamped flat
+       AND the cave is genuinely active.
+
+       Check (b) had to skip its shape assertion whenever the park clamp was
+       active, which left mutation 45 uncovered - and a check that quietly skips
+       itself in the one configuration where the bug is visible is not a check.
+
+       The scroll matters and this took three attempts to get right. 700px above
+       the room put the reader at roomTop - scroll = 700, which is BELOW
+       caveActive()'s threshold of viewH * 0.5 = 450: the cave was off, the player
+       was still standing where the previous block left them, and the assertion
+       compared their feet (360) against a floor 348px away (708) and blamed the
+       collision for a state it was never in.
+
+       So this picks the scroll from caveActive()'s own rule rather than from a
+       round number, and asserts the cave is active before measuring anything. */
+    {
+      const wantActiveAt = CV.caveRoomTop() - Math.round(L.viewH * 0.42);
+      globalThis.window.scrollY = Math.max(0, wantActiveAt);
+      L.syncScroll();
+      M.main.resize();
+      CV.measureCave(L.viewW, L.viewH);
+      if (!CV.caveActive()) {
+        fail('the cave is inactive at scroll ' + globalThis.window.scrollY +
+             ' even though that puts the room ' +
+             (CV.caveRoomTop() - globalThis.window.scrollY) +
+             'px from the top of a ' + L.viewH + 'px viewport; caveActive() ' +
+             'requires less than half the viewport height, so this scroll should ' +
+             'be comfortably inside the cave');
+      }
+      const flat = Math.abs(CV.screenFloorY(0) - CV.screenFloorY(L.viewW - 1));
+      if (flat < 4) {
+        fail('the cave floor is already flat across the whole viewport while the ' +
+             'room is only ' + (CV.caveRoomTop() - globalThis.window.scrollY) +
+             'px from the top of the screen, so the reader never sees the floor ' +
+             'undulate at any point (CAVE_FLOOR_PARK is too high, or the park ' +
+             'clamp is firing far earlier than it should)');
+      }
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+      /* Sampled ACROSS THE WALK, not at one point. The first version walked 200
+         frames, stopped, compared, and mutation 45 passed - because it landed on
+         x=1100, where the profile happens to be gentle: sampling the feet instead
+         of the centre there differs by 0.91px, inside the 1px tolerance.
+
+         That is the general trap with a single sample on a smooth curve. It reports
+         on the luck of where it stopped rather than on the behaviour. The
+         feet-vs-centre error is largest where the floor is steepest, and the walk
+         crosses several of those, so the worst case has to be taken over the whole
+         traverse: peak difference across the sprite's width on this profile is 21px,
+         against under 1px at a gentle spot.
+
+         The expectation is built from floorAt() - the world-space profile - plus the
+         world-to-screen offset. screenFloorY() is NOT called at the player's x
+         here: it is the function under test, and the first version did exactly that
+         and agreed with the collision by construction. */
+      G.player.vx = G.WALK_SPEED;
+      /* Walk the room. Not to measure - to arrive somewhere the floor is not flat,
+         which is the only place a feet-vs-centre difference can be seen at all. */
+      for (let i = 0; i < 600; i++) G.movePlayer(1 / 60);
+      G.player.vx = 0;
+      /* Settle, then measure ONCE. This is the form that works, and getting here
+         took four attempts worth recording:
+
+         - sampling screenFloorY() at the player's x was CIRCULAR: it is the
+           function under test, so it agreed with the collision by construction and
+           mutation 45 passed;
+         - sampling floorAt() at a single spot after a short walk passed too,
+           because it landed on x=1100 where the profile is gentle and the two
+           samples differ by 0.91px, inside the tolerance;
+         - sampling EVERY frame of the walk then failed on CORRECT code at 6.69px,
+           because a sprite descending onto a slope is genuinely part-way between
+           one height and the next for the frames it takes to fall, and the check
+           was demanding it be exactly on the line throughout.
+
+         What remains is the thing that actually has to hold and that the fault
+         actually breaks: a player who has STOPPED is standing on the floor, at the
+         floor's value under their own centre. Feet-vs-centre puts a settled sprite
+         on the wrong part of the curve - up to 21px on the steepest section here. */
+      for (let i = 0; i < 30; i++) G.movePlayer(1 / 60);
+      {
+        const pcol = G.player.x + G.player.w / 2;
+        const want = CV.floorAt(pcol) + (CV.caveRoomTop() -
+                                         (globalThis.window.scrollY || 0));
+        const settled = Math.abs(G.player.y + G.player.h - want);
+        if (settled > 1) {
+          fail('once settled on the floor the player stands ' + settled.toFixed(2) +
+               'px off it (at x=' + pcol.toFixed(1) + ', profile at ' +
+               want.toFixed(1) + '). movePlayerCave() must sample the floor at ' +
+               'the player\'s CENTRE, not at their feet: the sprite is 64px wide, ' +
+               'so the two are 32px apart on a slope and the sprite settles on ' +
+               'the wrong part of the curve');
+        }
+      }
+    }
+
+    /* (c) BOTH walls hold, walked into separately. Mutation 44 removes the LEFT
+       wall and this originally only tested the right one, so the fault survived -
+       a test that exercises half of a pair is a test that cannot see half of the
+       bugs, and it read as coverage.
+
+       Walked into rather than teleported, because the failure is a CLAMP: a
+       player placed outside the wall has the clamp fire on the first frame and
+       looks fine. They have to be pushed at it.
+
+       The frame budget matters and 700 was not enough, which is why mutation 44
+       survived the first version of this check: after the rightward walk the
+       player is at the RIGHT wall, and crossing 1370px back to the left one at
+       WALK_SPEED 95 takes about 865 frames. At 700 they stopped at x=233 with
+       the left wall at 34 - never having reached it, so removing that wall
+       changed nothing observable and the fault read as caught-by-nothing.
+       1200 frames clears both directions with room to spare. */
+    {
+      const b = CV.caveBounds();
+      /* Right wall. */
+      G.player.vx = G.WALK_SPEED;
+      for (let i = 0; i < 1200; i++) G.movePlayer(1 / 60);
+      G.player.vx = 0;
+      if (G.player.x > b.right - G.player.w + 0.5) {
+        fail('the player walked past the RIGHT wall of the cave (x=' +
+             G.player.x.toFixed(1) + ', wall at ' +
+             (b.right - G.player.w).toFixed(1) + '); there is nothing out there');
+      }
+      /* Left wall, from the far side so the whole room is crossed. */
+      G.player.vx = -G.WALK_SPEED;
+      for (let i = 0; i < 1200; i++) G.movePlayer(1 / 60);
+      G.player.vx = 0;
+      if (G.player.x < b.left - 0.5) {
+        fail('the player walked past the LEFT wall of the cave (x=' +
+             G.player.x.toFixed(1) + ', wall at ' + b.left.toFixed(1) +
+             '); there is nothing out there either');
+      }
+    }
+
+    /* (d) the floor never climbs off the top of the screen. The unclamped floor
+       walked up the viewport as the reader scrolled and took the player with it,
+       which is how this first showed up - as "the character left the screen" at
+       five viewports, a message that points at the player and not at the floor.
+
+       Measured only across the scrolls where the room is actually ON SCREEN,
+       because that is the only range in which there is a cave to be off the top
+       of. Above that range the floor is not clamped and does not need to be: it
+       is scenery behind five chambers, and the player is in the shaft. */
+    let offTop = 0, checkedScrolls = 0;
+    for (let sc = 0; sc <= L.maxScroll; sc += 120) {
+      globalThis.window.scrollY = sc;
+      L.syncScroll();
+      if (!CV.caveActive()) continue;
+      const fy = CV.screenFloorY(720);
+      checkedScrolls++;
+      if (!isFinite(fy) || fy < 0 || fy > L.viewH) offTop++;
+    }
+    if (!checkedScrolls) {
+      fail('the cave was never active at any scroll position between 0 and the ' +
+           'foot of the page, so none of the cave behaviour above the floor ' +
+           'clamp was ever exercised');
+    }
+    if (offTop) {
+      fail('the cave floor was outside the viewport at ' + offTop + ' of ' +
+           checkedScrolls + ' scroll positions where the room is on screen; the ' +
+           'player stands on this line, so once it leaves the frame there is ' +
+           'nowhere for them to be. It has to park like the car does (see ' +
+           'CAVE_FLOOR_PARK)');
+    }
+
+    /* (e) the chest anchors are the REAL chests, not a remembered layout. The
+       whole alignment argument rests on this, so it is asserted rather than
+       assumed. If the document has chests and the cave finds none, every chest is
+       unreachable by walking - and a check that silently passes because the stub
+       has no .chest elements is worse than no check at all. */
+    {
+      const anchors = CV.chestAnchors();
+      const chests = globalThis.document.querySelectorAll('.chest');
+      if (chests.length && !anchors.length) {
+        fail('the document has ' + chests.length + ' chests but the cave found ' +
+             'none, so it has no idea where the treasure is and no chest can be ' +
+             'reached by walking');
+      }
+    }
+
+    /* (f) the hoist is drawn in the shaft and NOT drawn in the cave.
+
+       Mutation 46 survives without this. The car going away when the player
+       leaves it is a RENDERING judgement, not a coordinate: no draw call reports
+       a bad number, the frame is entirely finite, and the page looks fine
+       except for an empty mine car hanging in mid-air over the treasure room.
+
+       Counted through the stub's fillRect counter. NOT through pathPts, which was
+       the first attempt and is the wrong instrument twice over: drawHoist() draws
+       the wheel, the bracket, the cables, the car body and the counterweight almost
+       entirely with px() - plain fillRects - and the only path it strokes is the
+       wheel arc. Counting path points therefore gave 0 for a frame where the car
+       was plainly on screen, and the comparison came out inverted.
+
+       Comparing a cave frame against a shaft frame is still the right shape of the
+       check: "the hoist drew nothing" on its own would pass just as happily on a
+       frame where the whole renderer had stopped. */
+    {
+      /* In the cave. */
+      globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 100);
+      L.syncScroll();
+      M.main.resize();
+      CV.measureCave(L.viewW, L.viewH);
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+      const inCaveRects = countRects(() => R.render(16));
+      /* In the shaft, on a scroll where the car is genuinely ON SCREEN. The car is
+         at the top of its band at travelFrom, so the walk forward looks for a
+         frame that actually draws something rather than assuming one. */
+      let inShaftRects = 0;
+      for (let sc = L.travelFrom; sc <= L.travelTo; sc += 25) {
+        globalThis.window.scrollY = sc;
+        L.syncScroll();
+        M.main.resize();
+        G.snapPlayerToGround();
+        G.player.inCave = false;
+        for (let i = 0; i < 200; i++) D.advanceCar(1 / 60);
+        const n = countRects(() => R.render(16));
+        if (n > inShaftRects) inShaftRects = n;
+      }
+      if (!inShaftRects) {
+        fail('no scroll position anywhere in the travel window drew a single rect, ' +
+             'so the shaft reference frame for the hoist check is empty and it ' +
+             'cannot tell the hoist being absent from the renderer having stopped');
+      }
+      /* Strictly fewer, and by a real margin: the cave frame is missing the whole
+         hoist, which is dozens of rects. A tolerance here would let a partly-drawn
+         car through. */
+      if (!(inCaveRects < inShaftRects - 10)) {
+        fail('the mine car is still drawn while the player is standing in the ' +
+             'cave: the cave frame draws ' + inCaveRects + ' rects and the shaft ' +
+             'frame ' + inShaftRects + '. An empty car hanging over the treasure ' +
+             'room reads as a bug - nobody is riding it. drawHoist() has to return ' +
+             'early on player.inCave');
+      }
+      /* Put the player back in the cave for the checks that follow. */
+      globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 100);
+      L.syncScroll();
+      M.main.resize();
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+    }
+
+    /* (g) the roof is INSIDE the frame at every viewport, and so is the floor with
+       the player's head above it.
+
+       Mutations 47 and 42b both survive without this. A cave 300px tall inside a
+       200px window is not a visible fault in the stub - every coordinate is
+       finite, the art is simply drawn partly off the top - and the ceiling clamp
+       reports it as the player being off screen, which points at the player.
+
+       So this measures the cave's own geometry directly, at the smallest viewport
+       the suite renders, which is the only one where the cave can be taller than
+       its window. */
+    {
+      const oldH = globalThis.document.documentElement.clientHeight;
+      const oldIH = globalThis.window.innerHeight;
+      globalThis.document.documentElement.clientHeight = 200;
+      globalThis.window.innerHeight = 200;
+      M.main.resize();
+      CV.measureCave(L.viewW, 200);
+      globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 40);
+      L.syncScroll();
+      M.main.resize();
+      CV.measureCave(L.viewW, 200);
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+      for (let i = 0; i < 40; i++) G.movePlayer(1 / 60);
+      const roof = CV.caveRoof();
+      const floor = CV.screenFloorY(G.player.x + G.player.w / 2);
+      if (!isFinite(roof) || roof < 0) {
+        fail('in a 200px-tall window the cave roof sits at y=' +
+             (isFinite(roof) ? roof.toFixed(1) : 'NaN') + ', which is off the top ' +
+             'of the screen; the cave has to fit inside the frame it is drawn in, ' +
+             'or the ceiling clamp fires and the player is reported as off screen');
+      }
+      if (G.player.y < -0.5) {
+        fail('in a 200px-tall window the player stands at y=' +
+             G.player.y.toFixed(1) + ', above the top of the screen. The floor ' +
+             'park line has to leave room for the whole sprite (' +
+             G.player.h + 'px), not just for the floor line itself');
+      }
+      if (!(floor > G.player.y)) {
+        fail('the cave floor (' + floor.toFixed(1) + ') is not below the player ' +
+             '(' + G.player.y.toFixed(1) + ') in a 200px window');
+      }
+      /* Restore the desktop viewport for anything that follows. */
+      globalThis.document.documentElement.clientHeight = oldH;
+      globalThis.window.innerHeight = oldIH;
+      M.main.resize();
+      CV.measureCave(L.viewW, L.viewH);
+      globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 100);
+      L.syncScroll();
+      M.main.resize();
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+    }
+
+    /* (h) the floor's park line leaves room for the sprite, and the cave fits in
+       the window - checked at a DESKTOP viewport, not the 200px one below.
+
+       Mutation 42b survived when this was only measured in a 200px window, and the
+       reason is instructive: caveFloorParkY() returns max(viewH * 0.34, sprite +
+       relief), so at 200px the THIRD-OF-THE-FRAME term wins and the sprite term
+       never fires. The fault removes a term that is genuinely dead at that size -
+       it is only the binding constraint on a viewport short enough for 34% of it
+       to be less than 64px plus the floor's relief.
+
+       So it has to be checked where it actually decides the answer: a window
+       narrow enough in HEIGHT that a third of it is below the sprite. 300px is
+       that case - a third is 102px, well above the 88px the sprite needs - so this
+       asserts the floor at 150px instead, where a third is 51px and the sprite
+       term is the only thing keeping the player on screen. */
+    {
+      const saveH = globalThis.document.documentElement.clientHeight;
+      const saveIH = globalThis.window.innerHeight;
+      globalThis.document.documentElement.clientHeight = 150;
+      globalThis.window.innerHeight = 150;
+      M.main.resize();
+      CV.measureCave(L.viewW, 150);
+      globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 30);
+      L.syncScroll();
+      M.main.resize();
+      CV.measureCave(L.viewW, 150);
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+      for (let i = 0; i < 60; i++) G.movePlayer(1 / 60);
+      if (G.player.y < -0.5) {
+        fail('in a 150px-tall window the player stands at y=' +
+             G.player.y.toFixed(1) + ', above the top of the screen, and a third ' +
+             'of that window is only ' + (150 / 3).toFixed(0) + 'px - too little ' +
+             'for a ' + G.player.h + 'px sprite. caveFloorParkY() has to take the ' +
+             'larger of a third of the viewport and the sprite height plus the ' +
+             'floor relief, not just the first');
+      }
+      if (G.player.y + G.player.h >
+          CV.screenFloorY(G.player.x + G.player.w / 2) + 1) {
+        fail('in a 150px-tall window the player sank through the cave floor (feet ' +
+             'at ' + (G.player.y + G.player.h).toFixed(1) + ', floor at ' +
+             CV.screenFloorY(G.player.x + G.player.w / 2).toFixed(1) + ')');
+      }
+      globalThis.document.documentElement.clientHeight = saveH;
+      globalThis.window.innerHeight = saveIH;
+      M.main.resize();
+      CV.measureCave(L.viewW, L.viewH);
+      globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 100);
+      L.syncScroll();
+      M.main.resize();
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+    }
+
+    /* (i) an UNMEASURED cave answers NaN rather than throwing.
+
+       Mutation 41 removes the `if (!room) return NaN` guard, and it survives
+       because no check ever reaches it: this suite always measures the cave before
+       asking it anything, because the real page's .treasure box is never
+       degenerate by the time the reader can scroll.
+
+       It IS reachable though, and the stub proves it - it hands back a zero-height
+       box during part of the run, which is exactly the condition measureCave()
+       treats as "no room". So this measures it directly: ask an unmeasured cave for
+       its floor, and require a number that is visibly not-a-number rather than a
+       TypeError from dereferencing null.
+
+       The assertion is deliberately on the SHAPE of the answer rather than on
+       "it did not throw": a guard that returned 0 instead of NaN would satisfy the
+       letter of the second and quietly put the player on a floor at the top of the
+       screen, which is the bug the guard exists to prevent. NaN is visible to
+       every consumer - the stub context reports non-finite coordinates, and
+       movePlayer() refuses to enter the cave on a non-finite floor. */
+    {
+      const saveRect = globalThis.document.querySelector;
+      /* Make the room unmeasurable, the way a not-yet-laid-out document is. */
+      globalThis.document.querySelector = function (sel) {
+        if (sel === '.treasure') return null;
+        return saveRect.call(globalThis.document, sel);
+      };
+      CV.measureCave(L.viewW, L.viewH);
+      globalThis.document.querySelector = saveRect;
+      const y = CV.screenFloorY(200);
+      if (!Number.isNaN(y)) {
+        fail('with no treasure room measured, screenFloorY() returned ' +
+             String(y) + ' rather than NaN. It has to be visibly unusable: a 0 here ' +
+             'would put the player on a floor at the top of the screen, and the ' +
+             'stub context would not report anything wrong with it. NaN is what ' +
+             'every consumer already knows how to refuse');
+      }
+      /* And the gate must be closed while there is no room, or the player walks
+         into a cave that has no floor. */
+      if (CV.caveActive()) {
+        fail('caveActive() is true with no treasure room measured, so the player ' +
+             'would be handed to a cave whose floor does not exist');
+      }
+      /* Put the real room back. */
+      CV.measureCave(L.viewW, L.viewH);
+      globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 100);
+      L.syncScroll();
+      M.main.resize();
+      CV.enterCave(G.player);
+      G.player.inCave = true;
+    }
+
+    /* Put the page back where the rest of the suite expects it. */
+    globalThis.window.scrollY = 0;
+    L.syncScroll();
+    G.snapPlayerToGround();
+  }
 
   console.log('');
   if (failures) {

@@ -21,6 +21,15 @@ import {
 import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
 import { drawBiomes, drawSurfaceProps } from './biomes.js';
+/* The cave's geometry and the constants its art is drawn from. Imported here
+   rather than recomputed, so the rubble and the ore land on the SAME floor steps
+   the collision samples - two consumers of one profile that disagree about
+   where to read it is the meadow-twitch bug, and this is the same trap with
+   rocks on it. */
+import {
+  caveActive, screenFloorY, caveRnd, caveRoof,
+  CAVE_FLOOR_STEP, CAVE_RUBBLE_SEED, CAVE_VEIN_SEED
+} from './cave.js';
 
 /* Tiny helper: draw one snapped, axis-aligned pixel rect. Snapping keeps
    edges crisp on HiDPI, where a fractional fill would blur a whole pixel. */
@@ -241,6 +250,18 @@ function drawHoist() {
   var mid = (l + r) / 2;
   var sheave = sheaveY();
 
+  /* The player has left the car. Once they are in the cave there is nobody
+     riding it, and a car drawn hanging in mid-air over the room with an empty
+     floor under it reads as a bug rather than as a mechanism. The shaft walls
+     stay - they still frame the room's mouth - but the hoist goes.
+
+     Gated on player.inCave rather than on caveActive(): those are not the same
+     question. caveActive() is about where the reader has scrolled to; inCave is
+     about where the player actually is, and it is the one movePlayer() decides.
+     Drawing the car based on the scroll would hide it while the player was still
+     standing on it. */
+  if (player.inCave) return;
+
   /* Car parked below the foot of the screen: nothing of this is visible. */
   if (y > viewH + 40) return;
 
@@ -396,6 +417,133 @@ var biomesDrawn = 0;
    silently stops running must be visible to the smoke check, not invisible. */
 var propsDrawn = 0;
 
+/* === The bedrock cave =====================================================
+   Drawn only while the player is actually in it (caveActive()), and drawn
+   BEFORE the hoist and the player so the sprite stands on top of the floor
+   rather than behind it.
+
+   The floor is one polyline sampled at the same FLOOR_STEP the collision uses,
+   which is what keeps the art and the physics reading one curve. Two consumers
+   of a profile that disagreed about where to sample it is precisely the bug that
+   made the meadow twitch, so it is worth being explicit that this loop and
+   movePlayerCave() walk the same numbers.
+
+   Three passes, back to front: the dark void, the rock mass below the floor
+   line, then the lit detail - rubble catching the torchlight, and the ore veins.
+   Detail is drawn AFTER the mass so it is not buried by it. */
+function drawCave() {
+  if (!caveActive()) return;
+
+  /* The viewport width is the fallback, NOT window.innerWidth directly. The smoke
+     harness drives the stub and innerWidth is 0 there for part of the run, and
+     with w = 0 the sample loop below never executes, pts stays empty, and the
+     first pts[0] read throws - which took render() down at three viewports. A
+     cave that cannot be measured is a cave with nothing to draw, not a crash. */
+  var w = viewW || window.innerWidth || 0;
+  if (!(w > 0)) return;
+  var step = CAVE_FLOOR_STEP;
+  var pts = [], x;
+  /* One extra step past the right edge, so the last segment reaches the edge
+     rather than stopping short of it and leaving a gap of bare band. */
+  for (x = 0; x <= w + step; x += step) {
+    pts.push([x, screenFloorY(x)]);
+  }
+  if (pts.length < 2) return;
+
+  /* How far the rock mass extends below the floor. Sized to the VIEWPORT rather
+     than a fixed 400: the player is clamped into the cave's bounds and stood on
+     this floor, and a mass that stopped short of the bottom of a tall window
+     would leave them standing on the edge of nothing. */
+  var deep = Math.max(viewH || 0, 400);
+
+  /* --- the void behind the rock: darker than the bedrock band, so the room
+     reads as a space the reader is inside rather than a panel they are looking
+     at. Drawn first so everything else lands on top of it.
+
+     The roof comes from caveRoof(), the SAME function game.js clamps the player's
+     head against. Reading CAVE_HEIGHT directly here would put the drawn ceiling
+     wherever the constant says while the collision clamped somewhere else - two
+     consumers of one fact that disagree, which is the seam twitch and the tree
+     crawl all over again. */
+  var top = caveRoof();
+  var voidGrad = ctx.createLinearGradient(0, top, 0, pts[0][1]);
+  voidGrad.addColorStop(0, '#05070a');
+  voidGrad.addColorStop(1, '#12171e');
+  ctx.fillStyle = voidGrad;
+  ctx.fillRect(0, top - 40, w, pts[0][1] - top + 40);
+
+  /* --- the rock mass below the floor line --- */
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.lineTo(w + step, pts[pts.length - 1][1] + deep);
+  ctx.lineTo(-step, pts[0][1] + deep);
+  ctx.closePath();
+  var rockGrad = ctx.createLinearGradient(0, pts[0][1], 0, pts[0][1] + 260);
+  rockGrad.addColorStop(0, '#3a4450');
+  rockGrad.addColorStop(0.35, '#232a33');
+  rockGrad.addColorStop(1, '#0b0e12');
+  ctx.fillStyle = rockGrad;
+  ctx.fill();
+
+  /* The lit top edge of the floor. One pixel of warm light along the line the
+     player walks on is what sells the floor as a surface catching a torch,
+     rather than as the boundary of a fill. */
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.strokeStyle = 'rgba(196,214,236,0.20)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  /* --- rubble on the floor, at the profile's own steps --- */
+  var r = caveRnd(CAVE_RUBBLE_SEED);
+  for (i = 0; i < pts.length; i++) {
+    if (i % 2) continue;                       /* every other step: half as many */
+    /* bx/by, NOT px/py: `px` is the drawing helper imported from sprites.js, and
+       a local var of the same name shadows it for the whole function - so the
+       first rubble block would have called a number. */
+    var bx = pts[i][0], by = pts[i][1];
+    var rw = 5 + ((r() * 16) | 0);
+    var rh = 3 + ((r() * 7) | 0);
+    var lit = 0.10 + r() * 0.16;
+    /* px() HERE is render.js's own five-argument helper - px(x, y, w, h, colour),
+       which draws into the module's own ctx and does NOT take a context as its
+       first argument. sprites.js has a second helper with the same name and a
+       different signature, px(g, x, y, w, h, colour), which does. Passing ctx as
+       the first argument here shifted every argument along by one, so the colour
+       string landed in x and Math.round("rgba(...)") produced the NaN that the
+       non-finite check caught. The two helpers sharing a name is the real hazard
+       in this codebase; the smoke test's finite() reporting on fillRect is what
+       turned a silently missing room into a named failure. */
+    px(bx - rw / 2, by - rh, rw, rh, 'rgba(18,22,28,0.85)');
+    px(bx - rw / 2, by - rh, rw, 1, 'rgba(190,206,226,' + lit.toFixed(3) + ')');
+  }
+
+  /* --- ore veins in the rock face, below the floor line --- */
+  for (i = 0; i < pts.length; i += 3) {
+    var pick = caveRnd(CAVE_VEIN_SEED + i);
+    if (((pick() * 3) | 0) !== 0) continue;
+    var vx = pts[i][0] + 20, vy = pts[i][1] + 26 + ((pick() * 90) | 0);
+    var vw = 3 + ((pick() * 9) | 0);
+    px(vx, vy, vw, 2, 'rgba(246,201,109,0.16)');
+  }
+}
+
+/* The cave floor the player is standing on, lit by their lantern. Drawn after
+   the mass so the pool of light lands on the rock rather than under it. */
+function drawCaveLight() {
+  if (!caveActive()) return;
+  var cx = player.x + player.w / 2;
+  var cy = screenFloorY(cx);
+  var g = ctx.createRadialGradient(cx, cy, 6, cx, cy, 190);
+  g.addColorStop(0, 'rgba(255,206,122,0.17)');
+  g.addColorStop(0.55, 'rgba(255,190,110,0.06)');
+  g.addColorStop(1, 'rgba(255,190,110,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - 190, cy - 190, 380, 380);
+}
+
 function render(now) {
   biomesDrawn = 0;
   ctx.fillStyle = DEEP;
@@ -408,6 +556,12 @@ function render(now) {
      shaft because the shaft walls and their rails are nearer the reader than
      anything on the surface. */
   propsDrawn = drawSurfaceProps();
+  /* The cave, then the shaft and the hoist, then the player. In that order for
+     two reasons: the sprite has to stand ON the floor rather than behind it, and
+     the hoist has to be drawn over the cave so the car reads as being at the
+     mouth of the room rather than as part of the room's back wall. */
+  drawCave();
+  drawCaveLight();
   drawShaft();
   drawHoist();     /* headgear, cables, counterweight and the car itself */
   drawPlayer(now);
