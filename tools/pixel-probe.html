@@ -84,6 +84,72 @@ const results = [];
 const ok = (name, cond, detail) =>
   results.push({ name, pass: !!cond, detail: detail || '' });
 
+/* === 0. The contact block ==================================================
+   The only interactive part of the cave chamber, and the one thing on the page
+   a recruiter actually uses. Checked in a real browser rather than the smoke
+   stub because the whole mechanism is DOM: contact.js reads two data attributes
+   and swaps a <span> for an <a>, and the stub's createElement has no
+   replaceWith - so a stub test could only check the pure address function, which
+   it already does, and would prove nothing about whether a link is really made.
+
+   THE SHIPPED STATE IS THE ONE WORTH ASSERTING. The address is deliberately
+   BLANK: index.html carries a marked TODO and both attributes are empty, because
+   I will not invent somebody's email address. So that is the state a visitor
+   gets today, and it has to be right: the Email entry must be visible, must NOT
+   be a link, and must be marked as unconfigured rather than silently broken. A
+   link that goes nowhere is worse than text that admits it.
+
+   The other half - that filling the attributes produces a working mailto - is
+   covered by mailAddress() in tools/smoke.mjs, which is a pure function of the
+   two attributes and is tested including the empty-half case. So the string and
+   the wiring are both covered, and adding the address is a two-attribute edit
+   with no JS change and nothing here to touch. */
+const contact = document.querySelector('.contact');
+ok('the contact block is on the page', !!contact,
+   contact ? '' : 'no .contact element found');
+
+const clinks = contact ? [...contact.querySelectorAll('a.contact__link')] : [];
+const clabels = contact
+  ? [...contact.querySelectorAll('.contact__list li')].map(li => li.textContent.trim())
+  : [];
+
+ok('the contact block offers four ways to get in touch', clabels.length === 4,
+   'found ' + clabels.length + ': ' + clabels.join(', '));
+
+const linkedin = clinks.find(a => /linkedin\.com/.test(a.getAttribute('href') || ''));
+ok('LinkedIn is a real link', !!linkedin, linkedin ? '' : 'no link to linkedin.com');
+
+const github = clinks.find(a => /github\.com/.test(a.getAttribute('href') || ''));
+ok('GitHub is a real link', !!github, github ? '' : 'no link to github.com');
+
+const pdf = clinks.find(a => /\.pdf$/.test(a.getAttribute('href') || ''));
+ok('the print resume is a real link to a PDF', !!pdf, pdf ? '' : 'no link to a .pdf');
+
+/* External links open safely. rel=noopener is not decoration: without it the
+   opened page gets window.opener and can navigate this tab away. */
+for (const a of [linkedin, github]) {
+  if (!a) continue;
+  const rel = a.getAttribute('rel') || '';
+  const t = a.getAttribute('target') || '';
+  ok(a.textContent.trim() + ' opens safely in a new tab',
+     rel.includes('noopener') && rel.includes('noreferrer') && t === '_blank',
+     'target=' + t + ' rel=' + rel);
+}
+
+const mailSpan = contact ? contact.querySelector('[data-mail-failed]') : null;
+ok('the unconfigured email shows as inert text, not a dead link',
+   !!mailSpan && !mailSpan.closest('a'),
+   mailSpan ? 'marked unconfigured but wrapped in an anchor' :
+             'no unconfigured marker - the email is either a link or missing');
+
+if (mailSpan) {
+  /* Big enough to tap. This is the contact block, on a phone, at the bottom of
+     the page, and a 20px target is one people miss. */
+  const r = mailSpan.getBoundingClientRect();
+  ok('the email entry is a comfortable tap target', r.height >= 32,
+     'height ' + r.height.toFixed(0) + 'px');
+}
+
 /* === 1. The broadleaf crown is rounded, not sheared flat ==================
    The bug: the crown profile was measured down FROM ROW 0, so the widest part
    of the shape was the top row and every broadleaf read as a tree with its top
