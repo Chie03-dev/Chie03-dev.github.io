@@ -731,11 +731,7 @@ function render(now) {
      of the dark and on top of the rock rather than the other way round. The near
      foreground is last so the reader passes BEHIND it.
 
-     The parallax source is the PLAYER's x, not the scroll. A vertical page
-     cannot scroll sideways, so scroll gives no horizontal motion at all - but
-     the player walks across the cave, so keying each band to their position at a
-     different fraction is what makes the room slide behind them. That is the
-     single change that turns this from a corridor into a level. */
+     The parallax source is the SCROLL, not the player - see the note below. */
   /* PARALLAX IS KEYED TO THE PAGE, NOT TO THE PLAYER.
 
      It used to be `player.x + player.w / 2`, and the comment above it claimed
