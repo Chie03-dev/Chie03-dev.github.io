@@ -145,6 +145,7 @@ Mutate 'the band ignores the surface' 'js\deck.js' '  if (surfaceFrom > 0 && sur
 Mutate 'the travel window starts at the dirt room' 'js\deck.js' '  var start = surfaceFrom > 0 ? surfaceFrom : travelFrom;' '  var start = travelFrom;'
 Mutate 'the surface anchor is unclamped' 'js\deck.js' '  if (surfaceFrom > 0 && surfaceFrom < top) top = surfaceFrom;' '  if (surfaceFrom > 0) top = surfaceFrom;'
 Mutate 'the descent is stretched over the whole page' 'js\deck.js' '  var end = Math.min(travelTo, start + viewH);' '  var end = travelTo;'
+Mutate 'the cave floor ignores its park line' 'js\cave.js' '  if (isFinite(park) && y < park) y = park;' '  // mutant'
 Mutate '7. travel window never closes' 'js\deck.js' 'if (!(end > start)) end = maxScroll + 1;' 'if (end > start) end = start;'
 Mutate '8. no barrier above the cave' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
 # 9, 9b, 10 and 11 are GONE. They attacked the shaft channel: a CSS mask cut into
@@ -338,7 +339,6 @@ Mutate '30. unmeasured cave floor dereferences a null room' 'js\cave.js' '  if (
 # taking the player with it. Caught by the floor-inside-the-viewport sweep, and
 # originally reported only as "the character left the screen" at five viewports -
 # a message pointing at the player rather than at the floor.
-Mutate '31. cave floor never parks in the viewport' 'js\cave.js' '  if (isFinite(park) && park > 0 && y < park) y = park;' ''
 # 31b: the park line itself. It used to be a fraction of the viewport, and BOTH
 # values that were tried were wrong in a way nothing else caught: 0.72 clamped the
 # floor flat for the cave's entire active range (a corridor with a straight line

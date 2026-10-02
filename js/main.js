@@ -87,6 +87,71 @@ function stop() {
   rafId = 0;
 }
 
+/* === Always start at the top ================================================
+   The reader should always arrive at the top of the page. Without this the
+   browser restores wherever they were when they left - so a reload halfway down
+   the dig drops them into the middle of the cave, and a back-navigation returns
+   them to wherever the previous page had put them.
+
+   Three things, and the middle one is why it is not one line.
+
+   `history.scrollRestoration = 'manual'` is set FIRST, before any of our own
+   scrolling, because it has to be set before the browser decides what to restore.
+   Once the browser has restored a scroll position, setting it afterwards restores
+   nothing - the value is read at navigation time, not applied retroactively.
+
+   The scroll-to-top runs on DOMContentLoaded as well as at boot, because the two
+   are not the same moment: this module executes during parsing, when the document
+   may not be tall enough to scroll yet. Scrolling a 200px-tall document to the top
+   is a no-op, and the browser then restores the real position straight over it. So
+   the scroll is repeated once the document has actually been measured.
+
+   `pageshow` is handled SEPARATELY and much more narrowly, because a bfcache
+   restore is not a fresh load: the reader is coming BACK to where they were, and
+   that is usually what they want. Only the non-persisted case is force-corrected;
+   a bfcache restore is left alone unless the page was already at the top, where
+   insisting costs nothing. Anything deeper is left exactly where the browser put it.
+
+   `behavior: 'instant'` IS EXPLICIT, and it is not optional. base.css sets
+   `html{scroll-behavior:smooth}` for the depth-rail links, and a bare scrollTo(0,0)
+   inherits that - so without this the jump to the top would ANIMATE, easing up a
+   several-thousand-pixel page over the course of a second or more, and the reader
+   would watch the whole site scroll away instead of simply arriving at the top.
+
+   That is the same trap the pixel probe fell into, where its scroll was animated
+   and it read caveActive() before the page had arrived; the fix there was the same
+   keyword, for the same reason. prefers-reduced-motion needs nothing extra here,
+   because an instant scroll has nothing to reduce. */
+function scrollToTop() {
+  try {
+    if (window.scrollY > 0) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  } catch (e) {
+    /* A stubbed window in the smoke suite may not accept the options form, and this
+       runs at import time. Fall back to the two-argument form rather than giving up:
+       a silent failure here would leave the reader stranded mid-page, which is the
+       exact thing this exists to prevent. */
+    try { window.scrollTo(0, 0); } catch (e2) { /* no scrollTo at all */ }
+  }
+}
+
+if (window.history && 'scrollRestoration' in window.history) {
+  try { window.history.scrollRestoration = 'manual'; } catch (e) { /* read-only */ }
+}
+scrollToTop();
+document.addEventListener('DOMContentLoaded', scrollToTop);
+window.addEventListener('load', scrollToTop);
+
+window.addEventListener('pageshow', function (e) {
+  /* Not a bfcache restore: an ordinary fresh load, so this is the moment the
+     browser would have applied its own restoration. Undo it. */
+  if (!e.persisted) { scrollToTop(); return; }
+  /* A bfcache restore, where the reader is returning to their own place. Leave it
+     alone unless they were at the very top, where restoring the top is the same
+     position and so costs nothing to insist on. */
+  if (window.scrollY > 1) return;
+  scrollToTop();
+});
+
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) { stop(); } else { start(); }
 });

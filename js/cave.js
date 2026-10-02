@@ -326,7 +326,22 @@ function screenFloorY(screenX) {
   if (!room) return NaN;
   var y = floorAt(screenX) + room.top - (window.scrollY || 0);
   var park = caveFloorParkY();
+  /* CLAMPED TO THE PARK LINE. This clamp used to be here and was dropped in a
+     rewrite, so `park` was computed and then thrown away - the function computed
+     a floor line it had no intention of using.
 
+     Without it the floor's screen y is driven entirely by the room's document top
+     minus the scroll, so on a window shorter than the sprite the floor rises above
+     the top of the frame and the player is drawn at a negative y: the smoke suite
+     reported y=-13.9 in a 200px window and y=-23.9 in a 150px one.
+
+     It bites hardest on short viewports because the park line's two terms - a
+     third of the frame, and the sprite plus the floor's relief - are both floors
+     on how high the floor may sit, and the un-clamped value is free to go above
+     both. Restored rather than re-derived: caveFloorParkY() already documents
+     exactly what the clamp has to guarantee, and a second clamp here would be a
+     second answer to the same question. */
+  if (isFinite(park) && y < park) y = park;
   return y;
 }
 
