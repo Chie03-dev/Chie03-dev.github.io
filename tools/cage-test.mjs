@@ -391,6 +391,47 @@ console.log('cage: art');
   recording = a; R.render(16); recording = null;
   recording = b; R.render(9900); recording = null;
   const ca = cageRects(a), cb = cageRects(b);
+
+  /* THE SHAFT'S OWN STRUCTURE MUST NOT MOVE EITHER. The cage check above caught a
+     real bug in the shaft art and reported it as a cage fault, because the shaft's
+     timber and lamps overlap the cage's rectangle.
+
+     The cause was hash01() caching one generator and never rebuilding it, so every
+     scatter value depended on how many times anything had asked before it did, and
+     the timber hopped down the shaft on every frame. Asserted directly here so it
+     is reported as what it is.
+
+     Two renders at the same scroll, drawn a long way apart in time, must produce
+     identical shaft geometry. Scoped to the shaft's own x range so the wall torches
+     - which flicker deliberately, and are the cave's one moving element - cannot
+     be mistaken for instability. */
+  {
+    const sh = L.shaftLeft(), sw = L.shaftRight();
+    const inShaft = (arr) => arr.filter((r) =>
+      r[0] >= sh - 10 && r[0] + r[2] <= sw + 10);
+    const sa = inShaft(a), sb = inShaft(b);
+    /* COMPARED AS SETS, NOT AS SEQUENCES. Sorted copies: drawing order within a
+       frame is not a property worth asserting, and comparing the raw arrays reports a
+       difference whenever two identical rects are emitted in a different order -
+       which is what happened here, with the same 530 rects in both frames. The thing
+       that matters is that the same geometry was painted, not the order it was
+       painted in. */
+    /* Joined to strings before sorting. sort() on an array of arrays coerces to
+       strings, which works, but every then compared ARRAYS with === and never matched
+       - a false failure that reported 530 vs 530 as a difference. The counts were
+       always equal here; the comparison was simply wrong. Comparing joined strings
+       compares values. */
+    const saS = sa.map((v) => v.join(',')).sort();
+    const sbS = sb.map((v) => v.join(',')).sort();
+    if (saS.length !== sbS.length || !saS.every((v, i) => v === sbS[i])) {
+      fail('the shaft geometry differs between two frames drawn a long way apart at ' +
+           'the same scroll (' + sa.length + ' vs ' + sb.length + ' rects). The shaft ' +
+           'art must be deterministic: anything scattered has to come from a stable ' +
+           'hash, or the timber and lamps visibly hop on every frame');
+    } else {
+      ok('the shaft structure is byte-identical between frames', true);
+    }
+  }
   const same = ca.length === cb.length && ca.every((v, i) => v === cb[i]);
   if (!ca.length) {
     fail('no rects were found in the cage area at all, so this cannot tell the cage ' +

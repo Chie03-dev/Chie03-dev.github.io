@@ -326,7 +326,7 @@ function screenFloorY(screenX) {
   if (!room) return NaN;
   var y = floorAt(screenX) + room.top - (window.scrollY || 0);
   var park = caveFloorParkY();
-  if (isFinite(park) && park > 0 && y < park) y = park;
+
   return y;
 }
 

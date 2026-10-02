@@ -34,6 +34,10 @@ import {
    functions the collision reads - cageFloorY() in particular - so the plate the
    player lands on and the plate that is painted cannot be two different lines. */
 import { cageActive, cageFloorY, cageSpan } from './cage.js';
+/* The shaft's timber structure and lamps. Structure is drawn before the rails and
+   the lamps after them, because the sets carry the guides and the lamps hang off
+   them - the only ordering that makes the shaft read as built rather than decorated. */
+import { drawTimberSets, drawBracing, drawShaftLamps } from './shaft-art.js';
 /* The cave drawn as a LEVEL: parallax backdrop, strata, crystals, torches,
    stalactites, the shelves themselves and the near foreground. It is its own
    module because render.js is already past the 500-line cap and no cave art may
@@ -204,6 +208,15 @@ function drawShaft() {
   ctx.fillStyle = SHAFT_TINT[layer ? layer.rock : 'caves'] || 'rgba(0,0,0,0.2)';
   ctx.fillRect(l, -20, r - l, viewH + 40);
 
+  /* The shaft's STRUCTURE, behind the machine: timber sets across the walls and
+     the cross-bracing between them. Drawn here, before the rails, because the
+     guides are bolted to the sets - they have to read as being in front of the
+     frame, or the shaft looks like a graphic laid over a hole. See
+     js/shaft-art.js, which is its own module because render.js is already over
+     the 500-line cap and no new art goes in here. */
+  drawTimberSets(l, r);
+  drawBracing(l, r);
+
   /* Wall faces. */
   px(l - 7, -20, 7, viewH + 40, 'rgba(255,255,255,0.10)');
   px(r, -20, 7, viewH + 40, 'rgba(0,0,0,0.38)');
@@ -228,6 +241,13 @@ function drawShaft() {
     px(railA, y + 1, 1, 1, 'rgba(255,255,255,0.22)');
     px(railB, y + 1, 1, 1, 'rgba(255,255,255,0.22)');
   }
+
+  /* The lamps go LAST, in front of everything else in the shaft, because they hang
+     off the sets and light the rock in front of them. Drawn earlier they would sit
+     behind the rails, which puts a light source behind a solid object - the one
+     ordering that cannot be defended. Their pools are deliberately faint: they are
+     there to give the shaft depth, not to light it. */
+  drawShaftLamps(l, r);
 }
 
 /* How many times the mine car was actually drawn this frame. A DIRECT check,
@@ -249,7 +269,7 @@ var carDrawn = 0;
    assertion green. The sprite has to be counted to be assertable at all. */
 var playerDrawn = 0;
 
-/* The hoist ================================================================
+/* ==========================================================================
    Everything below is what makes the thing on the deck read as a MINE CAR
    rather than as a lit line. Three parts, drawn back to front: the headgear at
    the top of the shaft (a sheave wheel and its bracket), the cables running
