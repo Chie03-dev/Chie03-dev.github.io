@@ -19,7 +19,7 @@
    belongs to, and adding a layer colours its room for free.
    ========================================================================== */
 
-import { beastPose } from './beasts.js';
+import { drawResidents } from './beast-art.js';
 /* Tint per layer key, matching the band colours the rest of the renderer uses.
    The three values are the wash over the back wall, the floor fill and the
    highlight line along the top of the floor - kept together so a room cannot
@@ -179,28 +179,6 @@ function drawCave(ctx, t, b, floorY, roofY, r, side) {
   }
 }
 
-/* === The mobs ==============================================================
-   One resident per gallery, and they are all different on purpose: this is a
-   showcase, so the point is that a reader scrolling past sees four caves and four
-   things living in them rather than four caves and the same rubble.
-
-     ore gallery  - BAT, hanging from the roof. Wings out, upside down.
-     stone chamber- GOLEM, standing. Squat, heavy, two lit eyes.
-     deep cave    - SPIDER, low and wide. Eight legs, small body.
-     bedrock      - WORM, segmented, half-buried. The oldest layer.
-
-   Drawn AS BLOCKS like everything else on this page, and each one is a handful of
-   rectangles - not because that is all there is room for, but because this is
-   pixel art and a smooth sprite would be the one thing on screen that is not.
-
-   EYES ARE THE ONLY LIT THING IN ANY OF THEM. Every mob has them and they use the
-   accent colour, so at a glance you can tell what is in the dark before you can
-   make out its shape. That is most of what makes a small creature read as alive
-   rather than as a prop.
-
-   Placement is seeded from the room, so a given mob stands in the same place on
-   every reload. A creature that hops around between frames is not a resident. */
-var MOBS = ['bat', 'golem', 'spider', 'worm'];
 
 /* ANIMATION.
 
@@ -217,93 +195,6 @@ var MOBS = ['bat', 'golem', 'spider', 'worm'];
    with nothing in it is a worse outcome than a still gallery - so it is handled
    by freezing t at 0, which puts all four in their neutral pose at once, rather
    than by special-casing each one. */
-/* Draws a beast. EVERYTHING about its motion - where it is, which way it faces,
-   what its legs are doing - arrives in `pose` from beasts.js. This function only
-   paints. The line between those two jobs is the whole reason beasts.js is its
-   own file: the previous version had both in one place and the motion was
-   therefore stuck to a fixed anchor, because the thing that decided WHERE the
-   creature was had already decided that was its spot. */
-function drawMob(ctx, kind, x, floorY, h, pose) {
-  var eye = '#ffd24a';
-  var dark = '#0d1116';
-
-  /* THE TRAVEL. `x` arrives as the beast's HOME - the middle of its room - and the
-     pose carries how far it has walked from there. Without this line the pose's
-     x is computed, returned, tested and then thrown away, and every beast stands
-     still at the centre of its room waving its limbs. That is exactly what
-     happened: three of the four creatures ignored their own x, because the line
-     existed only for the worm, whose segments happen to carry absolute
-     positions. One missing addition, and two beasts looked broken while their
-     gait code ran perfectly.
-
-     Everything below draws relative to this, so a creature turns around in its
-     room for free. */
-  x += (pose.x || 0);
-
-  function eyes(dx, y, gap, size) {
-    ctx.fillStyle = eye;
-    ctx.fillRect(Math.round(x + dx - gap), y, size, size);
-    ctx.fillRect(Math.round(x + dx + gap - size), y, size, size);
-  }
-
-  if (kind === 'bat') {
-    /* HANGS, AND FLAPS - or swoops. pose.wing is signed, so the same number both
-       beats (in flight) and furls (on the roost). */
-    var wing = pose.wing;
-    var len = Math.round(h * 0.24);
-    var y0 = floorY - len + (pose.y || 0);
-    var bx = x + (pose.bank || 0);      /* a banking head leads the body */
-    ctx.fillStyle = dark;
-    ctx.fillRect(bx - 22, y0 + 4 - wing, 12, 4);
-    ctx.fillRect(bx + 10, y0 + 4 - wing, 12, 4);
-    ctx.fillRect(bx - 26, y0 + 8 + wing, 6, 3);
-    ctx.fillRect(bx + 20, y0 + 8 + wing, 6, 3);
-    ctx.fillRect(bx - 5, y0, 10, 12);
-    ctx.fillRect(bx - 4, y0 - 7, 8, 8);
-    eyes(bx - x, y0 - 5, 3, 2);
-  } else if (kind === 'golem') {
-    /* HEAVES. The body rides up on the footfall; the shoulders swing a beat behind
-       it, which is the detail that stops a walk reading as a slide. */
-    var lift = (pose.y || 0);
-    var gh = Math.round(h * 0.34);
-    var sw = pose.swing || 0;
-    ctx.fillStyle = dark;
-    ctx.fillRect(x - 17, floorY - gh + lift, 34, gh - lift);
-    /* legs, offset by the arm swing so the weight visibly shifts */
-    ctx.fillRect(x - 20 + sw, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
-    ctx.fillRect(x + 8 - sw, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
-    ctx.fillRect(x - 22, floorY - gh - 6 + lift, 44, 8);
-    eyes(0, floorY - gh - 2 + lift, 7, 3);
-  } else if (kind === 'spider') {
-    /* SCUTTLES, WITH STOPS. pose.step is zero when it is braced, so the legs go
-       still - which is the whole reason a spider reads as deciding to move. */
-    var step = pose.step || 0;
-    var sy = floorY - 14 + (pose.crouch ? 2 : 0);
-    var sk = pose.crouch ? 0 : step;      /* the body only shifts while it walks */
-    ctx.fillStyle = dark;
-    for (var i = 0; i < 4; i++) {
-      var lx = x - 16 + i * 10;
-      var dy = 6 + (i % 2) * 4;
-      ctx.fillRect(lx, sy - dy + step, 3, dy + 14 - step);
-    }
-    ctx.fillRect(x - 11 + sk, sy - 5, 22, 14);
-    ctx.fillRect(x - 7 + sk, sy - 11, 14, 8);
-    eyes(sk, sy - 9, 4, 2);
-  } else {
-    /* CRAWLS, AND FOLLOWS ITS OWN PATH. Each segment is placed at the head's
-       position from a moment ago, so the body trails behind the head instead of
-       being a row of blocks that bob together. */
-    ctx.fillStyle = dark;
-    var pts = pose.segments;
-    for (var s = 0; s < pts.length; s++) {
-      var sw2 = 16 - s * 2;
-      var sh = 12 - s;
-      ctx.fillRect(x + pts[s].x, floorY - sh + pts[s].y, sw2, sh);
-    }
-    var head = pts[0];
-    eyes(head.x, floorY - 11 + head.y, 3, 2);
-  }
-}
 
 /* Draw one room. `b` is the wall box from rooms.js bounds(), `floorY` and
    `roofY` are its screen-space floor and roof, `layer` is its palette key and
@@ -313,66 +204,6 @@ function drawMob(ctx, kind, x, floorY, h, pose) {
    deliberate exception of the entrance's passage, which is drawn OUTSIDE b on
    purpose, because a doorway that stops at the wall is a doorway to nowhere.
    That is the point at which the shaft is. */
-  /* How many live in each gallery. More than one is the point now: a cave with a
-   single animal in it reads as a diorama, and a cave with three reads as a cave
-   somebody lives in. Kept low deliberately - they are the thing you notice last
-   when you scroll past, and a crowded cave stops being a gallery and becomes
-   wallpaper.
-
-   DECLARED HERE, AT MODULE SCOPE, NOT NEXT TO drawResidents. It was declared
-   inside drawRoom's body, below the line that reads it. `var` hoists, so the
-   name existed and was `undefined` rather than a ReferenceError - and
-   `for (i = 0; i < undefined; i++)` runs zero times. Every gallery rendered
-   silently empty, with no error anywhere, and the suite reported it as "the
-   resident is missing", which reads as the creatures failing to draw rather than
-   as a loop that never ran. */
-var PER_ROOM = 3;
-
-/* THE POPULATION.
-
-   Each beast gets its own TERRITORY - a slice of the room's width - and patrols
-   only within it. Without that they all walk the full width and pass through each
-   other, which on a still frame reads as two creatures occupying one pixel and is
-   the single ugliest thing a room like this can do.
-
-   Each territory also gets its own SLICE OF THE CLOCK, so neighbours are never
-   in step: two golems planted 200px apart and sharing a clock look like one
-   creature copied and pasted, which is precisely the failure the mob layer work
-   was about. Offsetting time is free - the poses are pure, so a shifted clock is
-   just a shifted number. */
-function drawResidents(ctx, b, floorY, roofY, index, r, now, reduced) {
-  var mh = floorY - roofY;
-  var mt = reduced ? 0 : now / 1000;
-
-  var roomW = b.right - b.left;
-  /* The margin the old single-mob placement used, kept so a turning beast never
-     paints over the rock at the walls. */
-  var margin = 70;
-  var usable = Math.max(60, roomW - margin * 2);
-  /* Gaps between territories, so neighbours cannot brush at a shared edge. */
-  var gap = Math.min(40, usable / (PER_ROOM * 2));
-  var span = Math.max(24, (usable - gap * (PER_ROOM - 1)) / PER_ROOM);
-
-  for (var i = 0; i < PER_ROOM; i++) {
-    /* The FIRST resident of each room is the room's signature, so the
-       "four caves, four different creatures" showcase still reads. The rest are
-       drawn from the same list, offset so they do not all match their own room's
-       head creature. */
-    var kind = MOBS[(index + i) % MOBS.length];
-
-    /* Territory i's left edge, and a small seeded offset inside it. The offset is
-       what stops every resident standing dead-centre in its own lane. */
-    var laneX = b.left + margin + i * (span + gap);
-    var home = Math.round(laneX + r() * Math.max(1, span - 40));
-
-    /* Each beast runs its own clock, at its own rate - a golem should not be
-       keeping a spider's time. The factor is per-room AND per-lane, so no two
-       creatures anywhere on the page are ever in step. */
-    var laneT = mt / (1 + i * 0.37) + index * 3.1 + i * 2.7;
-
-    drawMob(ctx, kind, home, floorY, mh, beastPose(kind, laneT, span));
-  }
-}
 
 function drawRoom(ctx, layer, b, floorY, roofY, index, side, now, reduced) {
   if (!isFinite(floorY) || !isFinite(roofY)) return;

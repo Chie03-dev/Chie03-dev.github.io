@@ -166,10 +166,118 @@ function wormPose(t, span) {
 
 /* Dispatch by kind. One lookup rather than a branch at each call site, so adding a
    fifth creature is a change in exactly one place. */
+/* THE CRAB - sideways, and it stops.
+
+   The crab exists because the spider scuttles FORWARD in bursts and nothing else
+   moves sideways. It scuttles sideways, which is the single most recognisable thing
+   a crab does, and its claws open and shut on a slow cycle independent of its walk
+   so the two rhythms beat against each other - a creature whose legs and claws
+   share one clock looks mechanical, and the offset is free.
+
+   Its sideways travel is the reason `patrol` is not enough on its own: the gait is
+   mirrored about the body so the legs scuttle backward relative to travel, which
+   is how a crab actually moves. */
+function crabPose(t, span) {
+  var across = patrol(t / 6);
+  var scuttle = Math.round(Math.sin(t * 9) * 3);
+  var claw = Math.round(Math.sin(t / 1.7) * 3);
+  return {
+    x: Math.round((across - 0.5) * span),
+    y: 0,
+    /* legs kick BACKWARD while the body goes forward - the crab's signature */
+    legs: -scuttle,
+    claw: claw,
+    face: across < 0.5 ? 1 : -1
+  };
+}
+
+/* THE FISH - swims, and hangs in the water.
+
+   The only creature that is not standing on the floor at all. It holds a fixed
+   depth below the roof and drifts along it, tail beating to hold station. A fish
+   that paced along the floor would be a worm with fins, so `y` here is measured
+   as a fraction of the room's height rather than as an offset from the floor. */
+function fishPose(t, span) {
+  var across = patrol(t / 8);
+  var hold = 0.28 + 0.1 * Math.sin(t / 3.3);
+  return {
+    x: Math.round((across - 0.5) * span),
+    /* negative = up from the floor; converted at draw time using room height */
+    swim: hold,
+    /* tail beat, fastest at the middle of the crossing and easing at each end */
+    tail: Math.round(Math.sin(t * 8 + (1 - across) * 2) * 4),
+    face: across < 0.5 ? 1 : -1
+  };
+}
+
+/* THE MOTH - flits, and never settles.
+
+   Small, fast, and erratic: several short darts rather than one long crossing,
+   because a moth's motion is not a patrol at all. Each dart has its own little
+   patrol on its own clock, so the path is broken rather than smooth.
+
+   Its wings beat far faster than the bat's. That is the whole difference between
+   the two fliers, and it is why the bat roosts and the moth does not. */
+function mothPose(t, span) {
+  /* three darts per cycle, each a short traverse, with a pause between */
+  var beat = (t / 2.6) % 1;
+  var dart = beat < 0.72;
+  var across = dart ? patrol(beat / 0.72) : 1;
+  /* a small vertical jitter while it darts - it never holds a straight line */
+  var jitter = dart ? Math.round(Math.sin(t * 13) * 4) : 0;
+  return {
+    x: Math.round((across - 0.5) * span),
+    /* hangs high, near the roof, and does not touch the ground */
+    up: 0.45,
+    jitter: jitter,
+    wing: Math.round(Math.sin(t * 22) * 4),
+    face: across < 0.5 ? 1 : -1
+  };
+}
+
+/* THE CATERPILLAR - arches, one segment at a time.
+
+   Like the worm it follows its own history, but the wave it carries is a
+   travelling HUMP rather than a side-to-side wiggle, so the two segmented
+   creatures are not the same animal twice. It is also the slowest thing here by
+   some distance: it should look like it will still be crawling when you scroll
+   away. */
+function caterpillarPose(t, span) {
+  var SEGMENTS = 6;
+  var LAG = 0.09;
+  var head = patrol(t / 19);
+  var headX = Math.round((head - 0.5) * span);
+  var pts = [];
+  for (var i = 0; i < SEGMENTS; i++) {
+    var h = patrol((t - i * LAG) / 19);
+    /* the hump: each segment lifts in turn, so the body ripples upward */
+    pts.push({
+      x: Math.round((h - 0.5) * span) - headX,
+      y: -Math.round(Math.max(0, Math.sin((t / 19 - i * 0.02) * Math.PI * 2)) * 5)
+    });
+  }
+  return { x: headX, y: 0, segments: pts, face: head < 0.5 ? 1 : -1 };
+}
+
+/* Dispatch by kind. One lookup rather than a branch at each call site, so adding a
+   ninth creature is a change in exactly one place here plus one body in
+   beast-art.js - and the species list itself lives with the drawing, in
+   beast-art.js MOBS, so the two halves cannot drift out of step with each other.
+
+   A MISSING CASE IS A SILENT FALLBACK, which is the trap. The worm is the last
+   `return`, so a misspelt kind draws a worm with no error and no warning - a
+   typo in a species name becomes a creature that is quietly the wrong animal.
+   Hence the fallback below checks its own argument rather than trusting the
+   call site. */
 function beastPose(kind, t, span) {
   if (kind === 'bat') return batPose(t, span);
   if (kind === 'golem') return golemPose(t, span);
   if (kind === 'spider') return spiderPose(t, span);
+  if (kind === 'worm') return wormPose(t, span);
+  if (kind === 'crab') return crabPose(t, span);
+  if (kind === 'fish') return fishPose(t, span);
+  if (kind === 'moth') return mothPose(t, span);
+  if (kind === 'caterpillar') return caterpillarPose(t, span);
   return wormPose(t, span);
 }
 
@@ -184,5 +292,9 @@ export {
   golemPose,
   spiderPose,
   wormPose,
+  crabPose,
+  fishPose,
+  mothPose,
+  caterpillarPose,
   beastPose
 };

@@ -1278,6 +1278,19 @@ async function run() {
         if (!art) fail('js/room-art.js did not load');
         const beastPose = M['beasts'] && M['beasts'].beastPose;
         if (!beastPose) fail('js/beasts.js did not load beastPose');
+
+        /* EVERY species the page can actually draw, read from the module rather
+           than typed out here. A hand-written copy in the test is a list that
+           stops being true the moment someone adds a creature - and the tests
+           then pass without ever having looked at the new animal, which is the
+           quietest possible way for a suite to rot.
+
+           So the roster comes from beast-art.js MOBS, which is the single list
+           the renderer actually uses. */
+        const SPECIES_LIST = M['beast-art'] && M['beast-art'].MOBS;
+        if (!SPECIES_LIST) fail('js/beast-art.js did not export MOBS');
+        const ALL_SPECIES = SPECIES_LIST || [];
+        if (!art) fail('js/room-art.js did not load');
         else {
           const shapes = (idx) => {
             const seen = [];
@@ -1537,6 +1550,38 @@ async function run() {
               (best, t) => Math.max(best, Math.max(...t) - Math.min(...t)), 0);
           };
 
+          /* EVERY species must actually paint, and must actually move. Read from MOBS, so
+             this cannot pass by never looking at a creature someone just added.
+
+             Two questions per species, and both were worth asking: does it draw
+             anything at all, and does its pose differ between two moments. The
+             second catches a body that has been written but never given anything
+             to do - it draws a shape and never moves, which is a picture of a
+             creature rather than a creature. */
+          const drawMobForTest = M['beast-art'] && M['beast-art'].drawMob;
+          if (!drawMobForTest) fail('js/beast-art.js did not export drawMob');
+          const paintSpecies = (kind, now) => {
+            const out = [];
+            const ctx = { fillStyle: '', fillRect: (x, y, w, h) =>
+                          out.push([Math.round(x), Math.round(y),
+                                    Math.round(w), Math.round(h)]) };
+            drawMobForTest(ctx, kind, 300, 600, 300,
+                           beastPose(kind, now / 1000, 100));
+            return out;
+          };
+          for (const kind of ALL_SPECIES) {
+            const a = paintSpecies(kind, 0);
+            const b = paintSpecies(kind, 900);
+            if (!a.length) {
+              fail(kind + ' is in the species list but draws NOTHING - either the ' +
+                   'pose is wrong or the body is missing');
+            }
+            if (a.length === b.length && a.every((r, i) => r.join() === b[i].join())) {
+              fail(kind + ' draws, but never changes - it is a picture of a ' +
+                   'creature rather than a creature');
+            }
+          }
+
           /* More than one resident per gallery. A cave with a single animal in it reads as a
              diorama; a cave with three reads as somewhere somebody lives. Counted
              from the painted clusters, so this fails if the population silently
@@ -1606,7 +1651,7 @@ async function run() {
              Sampled over long enough to cross the room and turn around, not just
              two frames - a short sample can miss a slow walk entirely. */
           const SPAN = 320;
-          for (const kind of ['bat', 'golem', 'spider', 'worm']) {
+          for (const kind of ALL_SPECIES) {
             const xs = [];
             for (let s = 0; s <= 60; s++) xs.push(beastPose(kind, s * 0.5, SPAN).x);
             const lo = Math.min(...xs), hi = Math.max(...xs);
@@ -1669,7 +1714,7 @@ async function run() {
 
           /* Every beast must be deterministic. Same instant, same pose - this is
              what keeps them testable and keeps a dropped frame harmless. */
-          for (const kind of ['bat', 'golem', 'spider', 'worm']) {
+          for (const kind of ALL_SPECIES) {
             const a = JSON.stringify(beastPose(kind, 12.34, SPAN));
             const b = JSON.stringify(beastPose(kind, 12.34, SPAN));
             if (a !== b) {
