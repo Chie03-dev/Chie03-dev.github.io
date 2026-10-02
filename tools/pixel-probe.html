@@ -136,18 +136,61 @@ for (const a of [linkedin, github]) {
      'target=' + t + ' rel=' + rel);
 }
 
-const mailSpan = contact ? contact.querySelector('[data-mail-failed]') : null;
-ok('the unconfigured email shows as inert text, not a dead link',
-   !!mailSpan && !mailSpan.closest('a'),
-   mailSpan ? 'marked unconfigured but wrapped in an anchor' :
-             'no unconfigured marker - the email is either a link or missing');
+/* THE EMAIL, IN WHATEVER STATE IT IS CURRENTLY IN.
 
-if (mailSpan) {
-  /* Big enough to tap. This is the contact block, on a phone, at the bottom of
-     the page, and a 20px target is one people miss. */
-  const r = mailSpan.getBoundingClientRect();
-  ok('the email entry is a comfortable tap target', r.height >= 32,
-     'height ' + r.height.toFixed(0) + 'px');
+   These assertions BRANCH, and that is the entire point. The address is blank
+   today, so the shipped state is an inert marker; the moment somebody fills in
+   the two attributes it becomes a real mailto link and the marker is gone.
+
+   The first version asserted the unconfigured state unconditionally, so filling
+   the address in - the one edit this whole block exists to enable - made the
+   suite FAIL:
+
+     "no unconfigured marker - the email is either a link or missing"
+
+   A test that breaks when you use the feature correctly is worse than no test,
+   and this one would have done it on the exact afternoon you added your own email
+   address. Verified by temporarily filling the attributes in and watching it go
+   red, which is the only reason this branch exists.
+
+   So it reads which state it is in and asserts that state's own contract. Both
+   are real: EITHER an inert, clearly-marked, tappable item, OR a mailto whose
+   visible text IS the address. What it will no longer accept is a link that goes
+   nowhere, or a link whose text is a generic label - the silent failure that
+   looks fine until somebody clicks it. */
+const mailConfigured = clinks.some(a => /^mailto:/.test(a.getAttribute('href') || ''));
+
+if (mailConfigured) {
+  const a = clinks.find(x => /^mailto:/.test(x.getAttribute('href') || ''));
+  const href = a.getAttribute('href') || '';
+  ok('the configured email is a real mailto',
+     /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/.test(href), 'href=' + href);
+  ok('the email link shows the address, not a generic label',
+     a.textContent.trim() === href.replace(/^mailto:/, ''),
+     'link text is "' + a.textContent.trim() + '"');
+  ok('no leftover placeholder once the address is set',
+     !/not set yet/i.test(a.textContent),
+     /* Neutral text, not the failure message. The probe prints `detail` whether
+        the assertion passed or failed, so writing "(the label is still visible)"
+        here showed a red-looking warning under a green check - misleading output
+        on the exact line a reader trusts most. */
+     '');
+} else {
+  const mailSpan = contact ? contact.querySelector('[data-mail-failed]') : null;
+  ok('the unconfigured email shows as inert text, not a dead link',
+     !!mailSpan && !mailSpan.closest('a'),
+     mailSpan ? 'marked unconfigured but wrapped in an anchor' :
+               'no unconfigured marker - the email is neither a link nor marked');
+  ok('the unconfigured email admits it, rather than looking clickable',
+     !!mailSpan && /not set/i.test(mailSpan.textContent),
+     mailSpan ? 'label reads "' + mailSpan.textContent.trim() + '"' : 'no span');
+  if (mailSpan) {
+    /* Big enough to tap. This is the contact block, on a phone, at the bottom of
+       the page, and a 20px target is one people miss. */
+    const r = mailSpan.getBoundingClientRect();
+    ok('the email entry is a comfortable tap target', r.height >= 32,
+       'height ' + r.height.toFixed(0) + 'px');
+  }
 }
 
 /* === 1. The broadleaf crown is rounded, not sheared flat ==================
