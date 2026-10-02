@@ -227,7 +227,28 @@ const known = {
      could drift apart. */
   '[data-layer="dirt"]': box(634, 200, 872, 520),
   '[data-layer="bedrock"].chamber': box(2536, 200, 48, 520),
-  '.dig': box(0, 3874, 0, 1440)
+  '.dig': box(0, 3874, 0, 1440),
+  /* The four walkable side rooms, keyed by the exact ids rooms.js looks up.
+
+     PLACED OPPOSITE THEIR PANEL, which is the arrangement css/layout.css sets
+     with grid-area and the whole point of the feature. The first version of this
+     fixture put every room on the SAME side as its panel - the left column is
+     48 and the right is 872 - and the mirroring assertion below caught all four
+     of them, which is exactly what that assertion is for:
+
+         #skills    left 872 (right)  ->  #room-mine   left  48 (left)
+         #projects  left  48 (left)   ->  #room-stone  left 872 (right)
+         #experience left 872 (right)  ->  #room-deep   left  48 (left)
+         #education left  48 (left)   ->  #room-bed    left 872 (right)
+
+     Same 434px gaps and 200px panels as every other row, so the rooms land in
+     the same rhythm as the panels. They are 300px tall rather than 200: a room
+     has to be tall enough to stand in, and a 200px cell leaves no headroom
+     under a floor that parks at a third of the viewport. */
+  '#room-mine': box(634, 300, 48, 520),
+  '#room-stone': box(1268, 300, 872, 520),
+  '#room-deep': box(1902, 300, 48, 520),
+  '#room-bed': box(2536, 300, 872, 520)
 };
 /* The document Y of the foot of the dig - the cave's ceiling, and what the
    barrier assertion below measures against. Read through the stub's own docTop
@@ -369,11 +390,31 @@ function checkGraph(files) {
          all artefacts of this line, including two nonsense "does not export"
          messages seen from the other side. */
       const body = t.slice(im.index + im[0].length);
-      for (const n of im[1].split(',').map(s => s.trim()).filter(Boolean)) {
+      for (const raw of im[1].split(',').map(s => s.trim()).filter(Boolean)) {
+        /* `import { a as b }` imports the EXPORT named a, but binds it locally
+           as b. Splitting on whitespace here is what lets the checker tell
+           those two apart; before this, an aliased import was checked as the
+           literal string "a as b" against the export list, found nothing, and
+           reported "does not export a as b" for an import that was perfectly
+           valid. Three such failures appeared the moment render.js and game.js
+           aliased screenFloorY from rooms.js - they each already have a
+           screenFloorY from cave.js in scope, so aliasing is not optional there.
+
+           Two separate names fall out of it, and both are needed:
+             `exported` - what the source module must actually provide.
+             `local`    - what the body must reference for it to count as used.
+           Testing the usage against `exported` instead would flag every aliased
+           import as unused, since the local name is the only one in the body. */
+        const parts = raw.split(/\s+/).filter(Boolean);
+        const exported = parts[0];
+        const local = parts.length > 2 && parts[1] === 'as' ? parts[2] : parts[0];
         const target = im[2] + '.js';
         if (!exports[target]) fail(f + ' imports a module that does not exist: ' + target);
-        else if (!exports[target].includes(n)) fail(target + ' does not export ' + n + ' (needed by ' + f + ')');
-        else if (!new RegExp('\\b' + n + '\\b').test(body)) fail(f + ' imports ' + n + ' but never uses it');
+        else if (!exports[target].includes(exported)) {
+          fail(target + ' does not export ' + exported + ' (needed by ' + f + ')');
+        } else if (!new RegExp('\\b' + local + '\\b').test(body)) {
+          fail(f + ' imports ' + exported + ' as ' + local + ' but never uses ' + local);
+        }
       }
     }
   }
@@ -983,8 +1024,218 @@ async function run() {
     }
   }
 
+  /* 7c. The four walkable side rooms.
+
+     These are new rooms with a new handover, and the fixture above now feeds
+     rooms.js real cells, so every existing check in this file also runs with the
+     rooms measured - which is the first thing worth saying: the bottom cave is
+     re-verified at every scroll position with side rooms present, because a
+     room stealing the player mid-scroll is exactly the regression that would
+     otherwise go unnoticed.
+
+     What is asserted here is the set of things that can be wrong independently
+     of one another: that the rooms measure, that the mirrored placement really
+     is mirrored, that the right one activates at the right scroll position,
+     that the walls contain the player, that the floor holds them, and that the
+     three player states stay mutually exclusive. */
+  {
+    const R = M.rooms;
+    if (!R) fail('js/rooms.js did not load');
+    else {
+      const W = 1440, H = 900;
+      R.measureRooms(W, H);
+
+      /* All four measured. A cell that came back null is a selector typo, a
+         missing element, or a zero-area box - and a null room is invisible to
+         every other assertion below, so it has to be caught on its own. */
+      for (let i = 0; i < R.DEFS.length; i++) {
+        if (!R.roomActive(i)) {
+          fail('room ' + R.DEFS[i].id + ' (' + R.DEFS[i].sel + ') did not measure, ' +
+               'so it would never be drawn and never be walked');
+        }
+      }
+
+      /* MIRRORED PLACEMENT. The fixture puts each room in the opposite column
+         from its panel, and this asserts the geometry agrees - by checking each
+         room's centre against the panel it belongs to.
+
+         This is worth its own check because it is the one thing the feature is
+         FOR, and every other assertion here would still pass if the rooms were
+         stacked under their own panels instead: the floor, the walls, the
+         handover and the art are all identical either way. Only this catches a
+         room that works perfectly in the wrong place. */
+      const panelLeft = { mine: true, stone: false, deep: true, bed: false };
+      for (let i = 0; i < R.DEFS.length; i++) {
+        const id = R.DEFS[i].id;
+        const b = R.bounds(i);
+        const centre = (b.left + b.right) / 2;
+        if (panelLeft[id] !== (centre < W / 2)) {
+          fail('room ' + id + ' sits on the ' + (centre < W / 2 ? 'left' : 'right') +
+               ' but its panel is on the ' + (panelLeft[id] ? 'left' : 'right') +
+               ' - a room beside its own panel is the entire point of the feature');
+        }
+      }
+
+      /* ACTIVATION. The rooms are 634px apart in the fixture and each is 300px
+         tall, so in a 900px viewport roughly 1.4 of them are on screen at any
+         moment and "the room is visible" is not a question with one answer.
+         That is not a fixture problem, it is the real page: a tall monitor sees
+         two layers at once. So this tests the rule activeRoom() actually
+         documents - the DEEPEST room on screen wins - rather than pretending
+         each room is alone.
+
+         A scroll of tops[i] - 300 puts room i's top 300px down the screen, with
+         the next room's top 634px lower - just past the 900px fold - and the
+         previous room's bottom 34px above it. Exactly one room qualifies. */
+      const tops = [634, 1268, 1902, 2536];
+      globalThis.window.scrollY = 0;
+      if (R.activeRoom() !== -1) {
+        fail('a side room was active at the top of the page (scrollY 0), before ' +
+             'the reader has even left the surface camp');
+      }
+      for (let i = 0; i < tops.length; i++) {
+        globalThis.window.scrollY = tops[i] - 300;
+        const got = R.activeRoom();
+        if (got !== i) {
+          fail('scrolled to room ' + i + ' (' + R.DEFS[i].id + ') but activeRoom() ' +
+               'returned ' + got + ' - the wrong room owns the player');
+        }
+      }
+      /* THE OVERLAP RULE ITSELF. Halfway between two rooms both are on screen,
+         and the DEEPEST must win: that is the one the reader is looking at, and
+         returning the shallowest would hand the player to a room they are
+         leaving. Pinned separately because the loop above deliberately avoids
+         the overlap and so cannot see this rule at all. */
+      globalThis.window.scrollY = 870;
+      if (R.activeRoom() !== 1) {
+        fail('with rooms 0 and 1 both on screen, activeRoom() returned ' +
+             R.activeRoom() + ' - the deepest one must win');
+      }
+      /* Below every room, nothing is active: the reader is in the bedrock band
+         between the last room and the bottom cave. */
+      globalThis.window.scrollY = 3400;
+      if (R.activeRoom() !== -1) {
+        fail('a side room was still active below the last one, in the band ' +
+             'between the bedrock gallery and the bottom cave');
+      }
+
+      /* FLOOR AND WALLS. For every room at every x across its own column, the
+         floor must be a finite number the player can stand on, and it must stay
+         inside the frame - the same constraint the bottom cave has, and the one
+         that put the player above the top of the screen before the park line
+         existed. */
+      for (let i = 0; i < R.DEFS.length; i++) {
+        const b = R.bounds(i);
+        const roof = R.roofY(i);
+        if (roof < 0) {
+          fail('room ' + R.DEFS[i].id + ' has a roof at y=' + roof.toFixed(1) +
+               ', above the top of the frame');
+        }
+        for (let k = 0; k <= 10; k++) {
+          const x = b.left + (b.right - b.left) * (k / 10);
+          const f = R.screenFloorY(i, x);
+          if (!isFinite(f)) {
+            fail('room ' + R.DEFS[i].id + ' has a non-finite floor at x=' + x.toFixed(0));
+          } else if (f < R.floorParkY() - 0.5) {
+            fail('room ' + R.DEFS[i].id + ' floor at x=' + x.toFixed(0) + ' is y=' +
+                 f.toFixed(1) + ', above its own park line ' +
+                 R.floorParkY().toFixed(1) + ' - the player would stand above the ' +
+                 'top of the screen');
+          }
+        }
+        /* The walls must be inside the measured column, not the viewport - a
+           full-width room would look correct and be walkable off both sides. */
+        if (b.left < 0 || b.right > W) {
+          fail('room ' + R.DEFS[i].id + ' bounds (' + b.left + '..' + b.right +
+               ') are not inside the ' + W + 'px viewport, so the walls are not ' +
+               'the room edges');
+        }
+      }
+
+      /* THE HANDOVER, end to end. This is where the settle rule earns its place:
+         a room is NOT offered the frame its cell appears - the reader has to
+         stop there first. So the frames below are run with the scroll parked,
+         which is what a reader who has arrived actually does, and the assertion
+         is that after enough of them the player IS in the room.
+
+         Running a single frame and expecting the handover would be testing the
+         bug this gate exists to prevent: it would pass only if the room grabbed
+         the player mid-descent. */
+      globalThis.window.scrollY = tops[0] - 300;
+      R.measureRooms(W, H);
+      L.syncScroll();
+      R.resetSettle();
+      /* While the reader is still moving, no room may take anybody. */
+      for (let f = 0; f < 20; f++) {
+        globalThis.window.scrollY = tops[0] - 300 + f * 4;
+        R.measureRooms(W, H);
+        L.syncScroll();
+        G.movePlayer(1 / 60);
+        if (G.player.inRoom !== -1) {
+          fail('a room claimed the player while the reader was still scrolling ' +
+               '(inRoom ' + G.player.inRoom + ' on frame ' + f + ') - the car must ' +
+               'keep the player for the whole descent');
+          break;
+        }
+      }
+      /* Stopped. Now the room should take them. */
+      globalThis.window.scrollY = tops[0] - 300;
+      R.measureRooms(W, H);
+      L.syncScroll();
+      for (let f = 0; f < 40 && G.player.inRoom !== 0; f++) G.movePlayer(1 / 60);
+      if (G.player.inRoom !== 0) {
+        fail('the reader stopped at the ore gallery and it never took the player ' +
+             '(inRoom ' + G.player.inRoom + ') - there is no way to get off the car');
+      }
+      if (G.player.inCave) {
+        fail('a side room and the bottom cave both claim the player - the three ' +
+             'states are supposed to be mutually exclusive');
+      }
+      /* Let it settle, then it must be standing ON the floor, not through it
+         and not hovering above it. */
+      for (let f = 0; f < 90; f++) G.movePlayer(1 / 60);
+      const feet = G.player.y + G.player.h;
+      const floorNow = R.screenFloorY(0, G.player.x + G.player.w / 2);
+      if (Math.abs(feet - floorNow) > 1.5) {
+        fail('in the ore gallery the player settled with feet at ' + feet.toFixed(1) +
+             ' but the floor is at ' + floorNow.toFixed(1) + ' - ' +
+             (feet > floorNow ? 'sunk through the floor' : 'hovering above it'));
+      }
+
+      /* THE WALLS ARE SOLID. Held hard against each edge for two seconds of
+         frames, the player must not end up outside the room. This is the check
+         that the room is a place rather than a backdrop. */
+      const b0 = R.bounds(0);
+      for (const [key, dir] of [['right', 1], ['left', -1]]) {
+        G.player.x = dir > 0 ? b0.right - G.player.w : b0.left;
+        G.player.vx = dir * 900;
+        for (let f = 0; f < 120; f++) G.movePlayer(1 / 60);
+        if (G.player.x < b0.left - 0.5 || G.player.x + G.player.w > b0.right + 0.5) {
+          fail('walking ' + key + ' in the ore gallery put the player at x=' +
+               G.player.x.toFixed(1) + ', outside the room walls (' +
+               b0.left + '..' + b0.right + ') - the wall is not solid');
+        }
+      }
+
+      /* LEAVING. Scroll back to the top and the player must return to the shaft,
+         releasing the room. Without this the reader would be left standing in a
+         gallery they had scrolled away from, still flagged as being in it. */
+      globalThis.window.scrollY = 0;
+      L.syncScroll();
+      G.movePlayer(1 / 60);
+      if (G.player.inRoom !== -1) {
+        fail('after scrolling back to the top the player is still in room ' +
+             G.player.inRoom + ' - leaving a room has to work as well as entering');
+      }
+
+      console.log('  rooms     4 measured, mirrored, activating and holding the player');
+    }
+  }
+
   /* 8. The pixel-art sheets must actually have produced art. See the note
        above: the drawn foliage is still baked as a fallback, so without
+
+
        this section the whole suite is satisfied by the fallback and the
        loader could break entirely without a single failure. */
   /* The loader is ASYNC - the Image stub resolves on a timer, mirroring a real

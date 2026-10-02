@@ -56,6 +56,32 @@
     <p class="dig__cue">Scroll to descend</p>
   </div>
 
+  <!-- ===================================================================
+       The walkable side rooms. Four empty grid cells, one opposite each text
+       panel that is not the top row or the bottom cave - so the dig stops
+       reading as half-finished with a gap beside every panel.
+
+       Each cell is EMPTY on purpose and stays empty: it exists only to be
+       measured, giving rooms.js a real box in document space to put a floor
+       in. That is the same arrangement the bottom cave's airspace uses, and
+       it is why the room cannot drift out of step with the layer above it -
+       the cell reflows with the grid, and the room is measured from it.
+
+       aria-hidden is NOT set, and that is deliberate. The cell has no content
+       of its own, so there is nothing for a screen reader to announce from
+       it, but it is also not decorative - the reader walks in it. An
+       aria-hidden box would be a hole in the accessibility tree that the walk
+       passes through. The prose about what the room is lives in the panel
+       beside it, which is real text.
+
+       id -> rooms.js DEFS[].sel. The four names match the layer each sits
+       against, so the pairing is readable from either file.
+       =================================================================== -->
+  <div class="room" id="room-mine"  data-room="dirt"    data-room-name="Ore gallery"></div>
+  <div class="room" id="room-stone" data-room="stone"   data-room-name="Stone chamber"></div>
+  <div class="room" id="room-deep"  data-room="caves"   data-room-name="Deep cave"></div>
+  <div class="room" id="room-bed"   data-room="bedrock" data-room-name="Bedrock gallery"></div>
+
   <!-- ================= ROW 1 LEFT - Surface camp ================= -->
   <section id="summary" class="chamber chamber--left" data-layer="sky" aria-labelledby="summary-h">
     <p class="chamber__door" aria-hidden="true"></p>

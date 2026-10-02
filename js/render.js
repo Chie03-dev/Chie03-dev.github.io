@@ -30,6 +30,16 @@ import {
   caveActive, screenFloorY, caveRnd,
   CAVE_FLOOR_STEP, CAVE_RUBBLE_SEED, CAVE_VEIN_SEED
 } from './cave.js';
+/* The four side rooms: geometry from rooms.js, appearance from room-art.js.
+   Aliased on import because render.js already has a screenFloorY and a bounds
+   in scope from cave.js, and a second unaliased one would shadow it silently -
+   which is precisely how the bottom cave's floor would end up being sampled
+   with the side room's function. */
+import {
+  roomLayer, screenFloorY as roomFloorY, bounds as roomBounds,
+  roofY as roomRoof
+} from './rooms.js';
+import { drawRoom } from './room-art.js';
 /* The cage at the foot of the shaft. Its geometry is drawn from the same
    functions the collision reads - cageFloorY() in particular - so the plate the
    player lands on and the plate that is painted cannot be two different lines. */
@@ -301,17 +311,22 @@ function drawHoist() {
   var mid = (l + r) / 2;
   var sheave = sheaveY();
 
-  /* The player has left the car. Once they are in the cave there is nobody
-     riding it, and a car drawn hanging in mid-air over the room with an empty
-     floor under it reads as a bug rather than as a mechanism. The shaft walls
-     stay - they still frame the room's mouth - but the hoist goes.
+  /* The player has left the car. Once they are in a room there is nobody riding
+     it, and a car drawn hanging in mid-air over the room with an empty floor
+     under it reads as a bug rather than as a mechanism. The shaft walls stay -
+     they still frame the room's mouth - but the hoist goes.
 
-     Gated on player.inCave rather than on caveActive(): those are not the same
-     question. caveActive() is about where the reader has scrolled to; inCave is
-     about where the player actually is, and it is the one movePlayer() decides.
-     Drawing the car based on the scroll would hide it while the player was still
-     standing on it. */
-  if (player.inCave) return;
+     Gated on where the player actually IS rather than on caveActive(): those are
+     not the same question. caveActive() is about where the reader has scrolled
+     to; inCave is about where the player is, and it is the one movePlayer()
+     decides. Drawing the car based on the scroll would hide it while the player
+     was still standing on it.
+
+     `inRoom !== -1` is the SAME check applied to the four side rooms. Without it
+     the car would vanish the moment the reader scrolled a room into view, even
+     though the player was still aboard it - the car is the reader's transport
+     and it is what they are standing in until a room actually takes them. */
+  if (player.inCave || player.inRoom !== -1) return;
 
   /* Car parked below the foot of the screen: nothing of this is visible. */
   if (y > viewH + 40) return;
@@ -723,6 +738,21 @@ function render(now) {
      single change that turns this from a corridor into a level. */
   var px0 = player.x + player.w / 2;
   drawCaveVoid();
+  /* The active side room, drawn BEFORE the shaft so the shaft's rock and the
+     car's cables pass in front of it. It is a room beside the shaft, not a
+     replacement for it: the reader is looking at both at once, and the shaft
+     is still the way down.
+
+     Gated on player.inRoom for the same reason drawHoist() is gated on
+     player.inCave: activeRoom() is about where the reader has scrolled, and
+     inRoom is about where the player actually is. Drawing on the scroll alone
+     would put a room on screen while the player was still riding the car past
+     it. */
+  var room = player.inRoom;
+  if (room !== -1) {
+    drawRoom(ctx, roomLayer(room), roomBounds(room),
+             roomFloorY(room, player.x + player.w / 2), roomRoof(room), room);
+  }
   if (caveActive()) {
     drawBackdrop(px0);
     drawStrata();

@@ -24,6 +24,7 @@ import { SPRITE_W, SPRITE_H, FRAME_MS, SPRITES } from './avatar.js';
    re-measured, because that is the one function every other re-measure already
    passes through. */
 import { measureCave } from './cave.js';
+import { measureRooms } from './rooms.js';
 /* The cage at the foot of the shaft imports cave.js too, so this is a third
    leaf rather than an edge between two modules that already know each other.
    It lives HERE for the same reason cave.js does: measure() below is the one
@@ -306,6 +307,11 @@ function measure() {
      either. Handing the cave the canvas's own size is what makes its walls agree
      with the floor and the art, which already span the real viewport. */
   measureCave(viewW, viewH);
+  /* The four per-layer side rooms, measured on the same event and for the same
+     reason: a room positioned by a different trigger than the bands is a floor
+     that slides against the HTML beside it. rooms.js is given the canvas's own
+     width and height for the same reason as measureCave above. */
+  measureRooms(viewW, viewH);
   /* The cage at the foot of the shaft, measured on the same event and handed the
      shaft's own x and width rather than re-reading the DOM. shaftX/shaftW are
      this module's numbers, set by measureShaft() - which is why they are passed

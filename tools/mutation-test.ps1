@@ -147,6 +147,9 @@ Mutate 'the surface anchor is unclamped' 'js\deck.js' '  if (surfaceFrom > 0 && 
 Mutate 'the descent is stretched over the whole page' 'js\deck.js' '  var end = Math.min(travelTo, start + viewH);' '  var end = travelTo;'
 Mutate 'the contact email accepts a missing half' 'js\contact.js' '  if (!user || !domain) return '''';' '  // mutant'
 Mutate 'the contact email loses its @ separator' 'js\contact.js' 'user + (at || ''@'') + domain' 'user + domain'
+Mutate 'a side room grabs the player mid-descent' 'js\rooms.js' '  return stillFrames >= SETTLE_FRAMES ? i : -1;' '  return i;'
+Mutate 'a side room activates on any visible sliver' 'js\rooms.js' 'bot > 0 && top < h * 0.5' 'bot > 0 && top < h'
+Mutate 'a side room hands over the shallowest of two on screen' 'js\rooms.js' 'rm.box.top > bestTop' 'false'
 Mutate 'the cave floor ignores its park line' 'js\cave.js' '  if (isFinite(park) && y < park) y = park;' '  // mutant'
 Mutate '7. travel window never closes' 'js\deck.js' 'if (!(end > start)) end = maxScroll + 1;' 'if (end > start) end = start;'
 Mutate '8. no barrier above the cave' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
@@ -369,7 +372,7 @@ Mutate '34. cave floor sampled at the feet, not the centre' 'js\game.js' '  var 
 # 35: the car stays drawn while the player has left it - an empty car hanging over
 # the room. Nothing in the smoke suite checks this, because it is a rendering
 # judgement rather than a coordinate: the hoist simply stops being drawn.
-Mutate '35. the car stays visible after the player leaves it' 'js\render.js' '  if (player.inCave) return;' '  if (false) return;'
+Mutate '35. the car stays visible after the player leaves it' 'js\render.js' '  if (player.inCave || player.inRoom !== -1) return;' '  if (false) return;'
 # 36: the roof's small-viewport guard. CAVE_HEIGHT itself is NOT worth a fault: it
 # is only ever an upper bound, and caveRoof() clamps it against the floor before
 # applying it, so multiplying it by four produces an identical result - an
