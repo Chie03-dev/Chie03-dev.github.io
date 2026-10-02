@@ -1319,6 +1319,55 @@ async function run() {
         }
       }
 
+      /* THE ROOMS ARE PAINTED LIKE CONTENT, NOT LIKE THE PLAYER.
+
+         This is the "it pops in and out relative to the character" bug, and it
+         is asserted by putting the player somewhere they are definitely NOT
+         standing in a room - at the top of the page, in the shaft - and then
+         asking whether the ore gallery is on screen anyway. It is: its cell is
+         in the viewport, so it is painted, exactly as the Skills panel beside it
+         is painted, exactly as the Skills panel beside it
+         is painted. Whether anybody is standing in the room is a separate
+         question and must not affect this one.
+
+         Before the fix the draw was gated on player.inRoom, so this returned an
+         empty list with the player in the shaft - the room simply was not there
+         until the character walked into it. */
+      globalThis.window.scrollY = 0;
+      G.player.inRoom = -1;
+      G.player.inCave = false;
+      const atTop = R.visibleRooms();
+      if (atTop.indexOf(0) === -1) {
+        fail('the ore gallery is not in visibleRooms() at the top of the page ' +
+             '(got [' + atTop.join(',') + ']) - its cell is on screen, so it has to ' +
+             'be painted whether or not the player is standing in it. This is the ' +
+             'rooms popping in and out with the character');
+      }
+      /* And off screen means not painted - the other half of the same rule, and
+         the half that stops it being a permanent overlay. */
+      globalThis.window.scrollY = 3400;
+      const atBottom = R.visibleRooms();
+      if (atBottom.length !== 0) {
+        fail('visibleRooms() still reports [' + atBottom.join(',') + '] well below ' +
+             'the last room - a room that never goes away is an overlay, not scenery');
+      }
+
+      /* MORE THAN ONE AT A TIME, shallowest first. A tall viewport shows two
+         layers at once; drawing only one would leave half the page bare, which
+         is the same class of bug as drawing none.
+
+         scrollY 700 is chosen to overlap them: room 0's bottom is at 934, so it
+         is still on screen at 700, and room 1's top is at 1268, so it is 568px
+         down the frame. At 1000 - the obvious "somewhere in the middle" - room
+         0 has already scrolled off and only one is visible, which is correct
+         behaviour and made this assertion fail for the wrong reason. */
+      globalThis.window.scrollY = 700;
+      const both = R.visibleRooms();
+      if (both.length < 2 || both[0] >= both[1]) {
+        fail('with rooms 0 and 1 both on screen, visibleRooms() returned [' +
+             both.join(',') + '] - it must list every visible room, shallowest first');
+      }
+
       console.log('  rooms     4 measured, mirrored, activating and holding the player');
     }
   }

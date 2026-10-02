@@ -36,8 +36,8 @@ import {
    which is precisely how the bottom cave's floor would end up being sampled
    with the side room's function. */
 import {
-  roomLayer, entranceSide, screenFloorY as roomFloorY, bounds as roomBounds,
-  roofY as roomRoof
+  roomLayer, visibleRooms, entranceSide, screenFloorY as roomFloorY,
+  bounds as roomBounds, roofY as roomRoof
 } from './rooms.js';
 import { drawRoom } from './room-art.js';
 /* The cage at the foot of the shaft. Its geometry is drawn from the same
@@ -738,21 +738,26 @@ function render(now) {
      single change that turns this from a corridor into a level. */
   var px0 = player.x + player.w / 2;
   drawCaveVoid();
-  /* The active side room, drawn BEFORE the shaft so the shaft's rock and the
-     car's cables pass in front of it. It is a room beside the shaft, not a
-     replacement for it: the reader is looking at both at once, and the shaft
-     is still the way down.
+  /* Every side room currently on screen, drawn shallowest first so the deeper
+     one paints over the shallower where they overlap.
 
-     Gated on player.inRoom for the same reason drawHoist() is gated on
-     player.inCave: activeRoom() is about where the reader has scrolled, and
-     inRoom is about where the player actually is. Drawing on the scroll alone
-     would put a room on screen while the player was still riding the car past
-     it. */
-  var room = player.inRoom;
-  if (room !== -1) {
-    drawRoom(ctx, roomLayer(room), roomBounds(room),
-             roomFloorY(room, player.x + player.w / 2), roomRoof(room), room,
-             entranceSide(room));
+     Gated on visibleRooms() and NOT on player.inRoom. That was the popping: the
+     art was drawn only while somebody was standing in the room, so it appeared
+     and vanished with the character instead of being part of the page. The
+     rooms are scenery in the document now, exactly like the panels they sit
+     opposite - they are painted because that part of the page is on screen, and
+     they scroll at the document's rate. Whether the player happens to be
+     standing in one is a separate question, answered by movePlayer().
+
+     Drawn BEFORE the shaft so the shaft's rock and the car's cables pass in
+     front: a room is beside the shaft, not a replacement for it, and the reader
+     is looking at both at once. */
+  var vis = visibleRooms();
+  for (var vi = 0; vi < vis.length; vi++) {
+    var rm = vis[vi];
+    drawRoom(ctx, roomLayer(rm), roomBounds(rm),
+             roomFloorY(rm, (roomBounds(rm).left + roomBounds(rm).right) / 2),
+             roomRoof(rm), rm, entranceSide(rm));
   }
   if (caveActive()) {
     drawBackdrop(px0);

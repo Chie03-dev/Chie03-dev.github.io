@@ -21,26 +21,21 @@
 
    THE VERTICAL GEOMETRY IS THE BOTTOM CAVE'S, ON PURPOSE
    ------------------------------------------------------
-   The floor's park line, the roof's maxByHead clamp and the sprite's minimum
-   headroom are the hardest-won numbers in this repo. They exist because a
-   window shorter than the sprite pushed the player off the top of the frame,
-   and each was arrived at by fixing a specific reported failure at a specific
-   viewport. None of it is layer-specific.
-
-   So a side room reuses all of it and differs in exactly one axis:
-   HORIZONTALLY. Its floor sits at the same park line and its roof is the same
-   height above it; only the left and right walls move in to that room's own
-   column. A second set of vertical constants, tuned separately, would be a
-   second answer to questions the first set already answers correctly.
+   The floor's minimum line, the roof's maxByHead clamp and the sprite's minimum
+   headroom are the hardest-won numbers in this repo - each was arrived at by
+   fixing a specific reported failure at a specific viewport. None is
+   layer-specific, so a side room reuses them and differs in exactly one axis:
+   HORIZONTALLY. Its floor sits at the same minimum and its roof is the same
+   height above it; only the left and right walls move in to its own column. A
+   second set of vertical constants, tuned separately, would be a second answer
+   to questions the first set already answers correctly.
 
    WHY THE ROOMS ARE NOT IN THE SHAFT
    ----------------------------------
    The shaft column is the reader's transport: scrolling drives the car. If a
    side room owned the player while the reader was still scrolling down to it,
-   the car would keep descending with nobody aboard and the sprite would be
-   standing in a gallery that had not arrived yet. So a room takes the player
-   only once its own box is genuinely on screen - see activeRoom() for the test.
-   ========================================================================== */
+   the car would keep descending with nobody aboard. So a room takes the player
+   only once the reader has stopped there - see settledRoom(). */
 
 /* Sample step of the floor profile, in px of world x. Same idea as cave.js's
    FLOOR_STEP: the profile is a function of x and nothing else, so it is built
@@ -222,6 +217,50 @@ function activeRoom() {
     if (bot > 0 && top < h * 0.5 && rm.box.top > bestTop) { best = i; bestTop = rm.box.top; }
   }
   return best;
+}
+
+/* EVERY room whose cell intersects the viewport, shallowest first.
+
+   This is a different question from activeRoom(), and the difference is the
+   whole point of the last change. activeRoom() answers "which room should OWN
+   the player" - one room, and only once the reader has stopped scrolling at it.
+   visibleRooms() answers "which rooms are on screen", which is the same question
+   the CSS asks about a content panel, and it is why the rooms were popping in
+   and out with the character: they were drawn from player.inRoom, so the art
+   only existed while somebody was standing in it. Walk away and the room
+   vanished; come back and it reappeared.
+
+   A content panel does not behave like that. The Skills, Experience, Education
+   and Projects sections are drawn because they are in the document and part of
+   the viewport, and they scroll at the document's rate. The rooms now answer
+   the same question the same way, so they scroll with the rock beside the panel
+   they belong to and are simply there when that part of the page is on screen.
+
+   Returned as a list, shallowest first, because more than one can be visible at
+   once on a tall viewport - exactly as two panels can be on screen at once -
+   and drawing only one of them would leave the other half of the page bare.
+
+   Drawn in document order rather than by depth so the deeper room paints over
+   the shallower one where they overlap, which is the back-to-front order the
+   rock itself is stacked in. */
+function visibleRooms() {
+  var sy = window.scrollY || 0;
+  var h = viewH || 0;
+  if (!(h > 0)) return [];
+  var out = [];
+  for (var i = 0; i < rooms.length; i++) {
+    var rm = rooms[i];
+    if (!rm || !rm.box) continue;
+    var top = rm.box.top - sy;
+    var bot = rm.box.bottom - sy;
+    /* ANY part of the cell on screen counts - the sliver test, which is exactly
+       right here and exactly wrong in activeRoom(). There, a sliver had to be
+       ignored because claiming the player from a sliver threw them out of the
+       car at the top of the page. Here there is nobody to throw: this is only
+       asking whether to paint the room, and a panel 1px on screen is painted. */
+    if (bot > 0 && top < h) out.push(i);
+  }
+  return out;
 }
 
 /* Whether an index names a room that actually measured. Every public function
@@ -439,6 +478,7 @@ function leaveRoom(player) {
 export {
   measureRooms,
   activeRoom,
+  visibleRooms,
   settledRoom,
   resetSettle,
   roomActive,
