@@ -119,6 +119,72 @@ function drawEntrance(ctx, t, b, floorY, roofY, side) {
   ctx.globalAlpha = 1;
 }
 
+/* THE MAZE.
+
+   Cross-walls running from the ceiling down, each with a GAP at one end, and the
+   gap alternating top/bottom along the room. That single rule is what makes a run
+   of walls read as a maze rather than as a row of pillars: each wall forces you
+   past it on the opposite side from the last, so the free path snakes instead of
+   running straight. Two walls make a corridor; four make a maze.
+
+   Drawn as rock with the gap left OUT rather than as a wall with a hole cut in
+   it, because clearRect would show the page through the wall and the wall is
+   supposed to be solid.
+
+   EVERY PLACEMENT IS SEEDED from the room's own rng, so a given room has the same
+   maze on every reload and two rooms never share one. A shared seed would make all
+   four rooms identical, which looks like a bug even though each is correct alone.
+
+   THE ENTRANCE THIRD IS LEFT CLEAR. side > 0 means the door is on the right, so
+   the maze occupies the left and the walk in is unobstructed: a maze whose first
+   move is blocked reads as broken rather than as a puzzle. */
+function drawMaze(ctx, t, b, floorY, roofY, r, side) {
+  var w = b.right - b.left;
+  if (!(w > 40)) return;
+
+  var wallW = 16;
+  var gap = 74;                  /* clear floor between one wall and the next */
+  var reach = Math.floor((w - 80) / (gap + wallW));
+  if (reach < 1) return;
+
+  var startX = side > 0 ? b.left + 6 : b.left + Math.round(w * 0.34);
+  var h = floorY - roofY;
+
+  for (var k = 0; k < reach; k++) {
+    /* THE RNG IS ACTUALLY USED HERE, and the first version of this function did
+       not use it at all. Every wall sat at a fixed offset from the last, so all
+       four galleries had the identical maze and differed only by which wall the
+       door was on - while the comment above them claimed each room's maze was
+       seeded and distinct. Building four identical rooms and writing that they
+       were distinct is worse than not bothering, and a mutation that gave every
+       room one shared seed PASSED the suite, because the shared seed changed
+       nothing the test could see.
+
+       So the jitter is real: each wall's offset and its gap height come from the
+       room's own generator, which is seeded from its layer and index. Same maze
+       on every reload; a different maze in every room. */
+    var x = startX + k * (gap + wallW) + (r() * 22 - 11);
+    if (x + wallW > b.right - 6) break;
+
+    /* Alternate which end the gap is at, and flip every third wall so the run
+       does not read as a printed zigzag. */
+    var gapAtTop = (((k + (side > 0 ? 1 : 0)) % 2 === 0) !== (k % 3 === 0));
+    var gapH = Math.min(110, Math.max(52, h * (0.28 + r() * 0.16)));
+    var gapY = gapAtTop ? roofY : floorY - gapH;
+
+    /* The solid part: the whole wall except the gap band. */
+    ctx.fillStyle = t.floor;
+    if (gapAtTop) ctx.fillRect(x, roofY + gapH, wallW, h - gapH);
+    else ctx.fillRect(x, roofY, wallW, h - gapH);
+    /* A lit edge on the leading side, matching the floor's lip, so the maze reads
+       as the same rock as the room rather than as flat black boxes. */
+    ctx.fillStyle = t.lip;
+    ctx.globalAlpha = 0.32;
+    ctx.fillRect(x, roofY, 2, h);
+    ctx.globalAlpha = 1;
+  }
+}
+
 /* Draw one room. `b` is the wall box from rooms.js bounds(), `floorY` and
    `roofY` are its screen-space floor and roof, `layer` is its palette key and
    `side` is which wall the entrance is in (+1 right, -1 left, 0 none).
@@ -154,6 +220,10 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side) {
     var d = 6 + Math.round(r() * 12);
     ctx.fillRect(x, roofY, step + 1, d);
   }
+
+  /* THE MAZE, drawn after the ceiling and before the floor so the floor line and
+     its lip always read as the ground the walls stand on. */
+  drawMaze(ctx, t, b, floorY, roofY, r, side);
 
   /* --- props, drawn BEFORE the floor line so the floor always reads as the
      ground they stand on rather than being cut through by them --- */

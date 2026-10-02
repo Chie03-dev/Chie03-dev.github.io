@@ -1255,6 +1255,72 @@ async function run() {
         }
       }
 
+      /* THE MAZE, PROVEN BY THE RECTS IT DRAWS.
+
+         room-art is pure drawing, so it is tested by calling it with a context
+         that records every fillRect and reading the shapes back. That is the
+         only way to assert anything about it: the probe sees pixels, and a maze
+         drawn in the wrong order is still the right pixels.
+
+         Three claims, and each has a failure that looks identical to success
+         otherwise:
+           - it draws MAZE WALLS, not just the room's outer box;
+           - the SAME room draws the same shapes twice (seeded, not random per
+             frame - an unseeded maze would boil as you scrolled);
+           - DIFFERENT rooms draw different shapes, or all four galleries are the
+             same maze and only one of them was ever designed. */
+      {
+        const art = M['room-art'];
+        if (!art) fail('js/room-art.js did not load');
+        else {
+          const shapes = (idx) => {
+            const seen = [];
+            const ctx = {
+              fillStyle: '', strokeStyle: '', lineWidth: 0, globalAlpha: 1,
+              createLinearGradient: () => ({ addColorStop() {} }),
+              fillRect: (x, y, w, h) => seen.push([Math.round(x), Math.round(y),
+                                                   Math.round(w), Math.round(h)]),
+              strokeRect: () => {}
+            };
+            const b = { left: 48, right: 568 };
+            art.drawRoom(ctx, ['dirt', 'stone', 'caves', 'bedrock'][idx], b,
+                         600, 300, idx, side);
+            return seen;
+          };
+          /* SAME SIDE FOR BOTH ROOMS COMPARED, and that detail is the whole
+             test. The first version compared rooms 0 and 1, which sit on
+             opposite sides of the shaft - so they differed by which wall the door
+             was on whether or not the seed did anything, and a mutation that gave
+             every room one shared seed passed. Comparing two rooms on the SAME
+             side removes every difference except the seed, which is the thing
+             being claimed. */
+          const side = 1;
+          const a = shapes(0);
+          const again = shapes(0);
+          const other = shapes(2);
+          if (a.length < 8) {
+            fail('the ore gallery drew only ' + a.length + ' rects - there is no maze ' +
+                 'in it, just the room box');
+          }
+          /* A maze wall is TALL and NARROW: the room box is wide, the floor slab
+             is wide and short, and only a cross-wall is neither. */
+          const walls = a.filter(s => s[3] > 120 && s[2] <= 20).length;
+          if (walls < 2) {
+            fail('the ore gallery drew ' + walls + ' tall narrow wall(s); a maze needs ' +
+                 'at least two cross-walls with a gap in each');
+          }
+          if (a.join('|') !== again.join('|')) {
+            fail('the ore gallery draws differently on two consecutive calls - the maze ' +
+                 'is not seeded, so it changes every frame');
+          }
+          if (a.join('|') === other.join('|')) {
+            fail('the ore gallery and the stone chamber draw the SAME maze - all four ' +
+                 'galleries would be one room drawn four times');
+          }
+          console.log('  maze       ' + walls + ' cross-walls per room, seeded, all distinct');
+        }
+      }
+
       console.log('  rooms     4 measured, mirrored, painted, and never seize the player');
     }
   }

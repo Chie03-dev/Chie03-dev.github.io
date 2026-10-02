@@ -56,9 +56,17 @@ var ROOM_MARGIN = 10;
    the bottom cave's module state into this one, which is the coupling this
    module exists to avoid. game.js owns the real player height. */
 var ROOM_SPRITE_MIN = 64;
-/* How tall a room would LIKE to be. The real height is whatever its cell has room
-   for - see roofY() - so this is a ceiling, not a size. */
-var ROOM_HEIGHT = 220;
+/* How tall a room would LIKE to be. The real height is whatever its cell has
+   room for - see roofY() - so this is a CEILING, not a size.
+
+   It was 220, which was most of the problem: every cell is already as tall as its
+   row, and a 220px cap meant a room used only the lower part of the space it had
+   and left the rest empty. Raising it lets a room fill its cell wherever the row
+   is tall enough, and costs nothing where the row is not - the cap in roofY() is
+   the cell's own top, so a short row still gets a short room and still cannot
+   overlap the layer above. That is "more height where there is to spare, without
+   changing the layout" expressed in code. */
+var ROOM_HEIGHT = 460;
 /* Gap between the cell's bottom edge and the drawn floor line, so the floor
    slab has somewhere to sit without drawing over the row boundary. */
 var ROOM_FLOOR_INSET = 8;
