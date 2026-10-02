@@ -16,8 +16,7 @@
 import {
   ctx, viewW, viewH, DEEP, ROCK, layers, scrollY, activeLayerIndex,
   shaftLeft, shaftRight, spriteScale,
-  TILE, patterns, seamY, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS,
-  travelFrom
+  TILE, patterns, seamY, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS
 } from './layers.js';
 import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
@@ -297,10 +296,6 @@ function drawHoist() {
   /* Car parked below the foot of the screen: nothing of this is visible. */
   if (y > viewH + 40) return;
 
-  /* Car is up in the open sky, above the soil line: not drawn. See
-     elevatorInSoil() for why this is a render decision and not a travel one. */
-  if (!elevatorInSoil(y)) return;
-
   /* --- Sheave wheel and bracket, above the top of travel ------------------- */
   var wheelR = 9;
   /* Bracket: two bars straddling the wheel, bolted across the shaft. */
@@ -369,39 +364,6 @@ function drawHoist() {
 
    Clipped to the shaft box, so the plate and the weight never run out over the
    rock where the panel text sits. */
-/* Is the elevator below the soil line right now, i.e. should it be drawn at all?
-
-   THE BUG THIS FIXES. The car parks at the top of its band, and the band is
-   VIEWPORT-relative, so a parked car sits at one fixed screen height no matter
-   how far down the page the reader is. Over the sky that is a mine car hanging in
-   mid-air with the dirt still below the fold, and the sprite - who rides the car -
-   hanging with it. Scrolling to the very top of the page parked it at its most
-   exposed.
-
-   WHY IT IS NOT FIXED IN deck.js. The travel window cannot be moved. Raising the
-   start makes the car descend before the dirt room opens (smoke.mjs's "car starts
-   moving before the dirt room" check caught that at eight viewports); lowering it
-   to "soil well on screen" truncates the journey, because travelTo is pinned at
-   the foot of the dig. So the travel model is correct and the fix belongs here.
-
-   WHY IT IS NOT A SCREEN-SPACE CAP AGAINST THE SOIL. The soil line's screen y
-   DECREASES as the reader scrolls down, so clamping the car against it every
-   frame would haul the car back UP the band while the page descends - a direction
-   reversal, the exact defect the monotonic-travel rule exists to catch. The
-   comparison below is therefore made in DOCUMENT space, where the car and the
-   soil line are both fixed and the answer cannot flip as the reader scrolls. */
-
-function elevatorInSoil(carScreenY) {
-  /* Unmeasured: draw it. A missing soil line must not delete the elevator, and
-     this is the same fail-safe direction the rest of the render path uses. */
-  if (!isFinite(travelFrom) || travelFrom <= 0) return true;
-  var carDocY = carScreenY + scrollY;
-  if (!isFinite(carDocY)) return true;
-  /* The car's floor plate, so the sprite standing on it is not clipped by the
-     line it is resting on. */
-  return carDocY >= travelFrom;
-}
-
 function drawCar(y, l, r) {
   carDrawn++;
   ctx.save();
@@ -428,14 +390,12 @@ function drawCar(y, l, r) {
 }
 
 function drawPlayer(now) {
-  /* The sprite rides the car, so it is gated on exactly the same rule. Gating
-     the car alone would delete the platform and leave the character standing in
-     the open sky on nothing at all - a strictly worse bug than the one this
-     replaces. Both read one helper so they cannot come apart again.
-
-     The player's own feet are used rather than the car's plate, so someone
-     standing on the car is judged by where they actually are. */
-  if (!elevatorInSoil(player.y + player.h)) return;
+  /* No soil gate here, deliberately. An earlier version hid the sprite above the
+     soil line, on the reasoning that it rides the car. That was solving the
+     problem by deleting the evidence: the reader opened the page and the
+     elevator was simply not there. The car is now parked ON the surface instead
+     of being hidden above it (see carTarget() in deck.js), so the sprite rides
+     it down to the ground and is drawn from the first screen of the page. */
   playerDrawn++;
   var moving = Math.abs(player.vx) > 4 || !player.onGround;
   var set = reduced ? [SPRITES.idle[0]] : (moving ? SPRITES.walk : SPRITES.idle);

@@ -667,9 +667,31 @@ async function run() {
       fail(label + ' travel runs past the end of the deepest room (' + deepestRoom.id + ')');
     }
 
-    if (!near(settle(0), band.top)) fail(label + ' car is not held at the top through the sky');
-    if (!near(settle(Math.max(0, start - 1)), band.top)) {
-      fail(label + ' car starts moving before the dirt room');
+    /* THE PARKED CAR RESTS ON THE SOIL, not at the top of the band. This used to
+       assert the opposite - that the car is held at band.top through the sky -
+       which is exactly the floating elevator that was reported as a bug. The band
+       is viewport-relative, so a car parked at band.top hangs in the open air with
+       the dirt below the fold.
+
+       THE CAR IS ON THE SOIL ONLY WHILE THE SOIL IS BELOW THE BAND. If the ground
+       is already above band.top the car is inside the band's own range and the band
+       is what positions it - asserting the soil unconditionally is what broke both
+       the tall and the short viewports.
+
+       It is still STATIONARY: `settle` runs 250 frames, so a car that merely eased
+       down toward the soil would be caught. That distinction is the point - parked
+       ON the surface, not sliding to it. */
+    const soilAtTop = L.travelFrom;
+    const expectedTop = soilAtTop > band.top ? soilAtTop : band.top;
+    if (!near(settle(0), expectedTop)) {
+      fail(label + ' car is not parked at the top of its range at scroll 0 (car at ' +
+           settle(0).toFixed(0) + ', expected ' + expectedTop.toFixed(0) + ', soil at ' +
+           soilAtTop.toFixed(0) + ', band top at ' + band.top.toFixed(0) + ')');
+    }
+    /* And it is back in the band, at its top, one step before the dirt room. */
+    const justBefore = Math.max(0, start - 1);
+    if (!near(settle(justBefore), band.top)) {
+      fail(label + ' car is not back at the top of the band just before the dirt room');
     }
     if (!near(settle(end), band.bot)) fail(label + ' car is not at the bottom at the treasure room');
 
@@ -718,18 +740,58 @@ async function run() {
        This is the check that would have caught the original "the elevator goes
        up while I scroll down" bug, which measured 140 direction reversals. */
     let prev = -Infinity, reversals = 0, sunk = 0, offscreen = 0, outOfBand = 0;
+    let prevParked = Infinity, parkedFell = 0, offSoil = 0;
     for (let sc = 0; sc <= L.maxScroll; sc += 50) {
       const y = settle(sc);
-      if (y < prev - 0.01) reversals++;
-      if (y < band.top - 0.01 || y > band.bot + 0.01) outOfBand++;
+      /* MONOTONICITY IS SCOPED TO THE TRAVEL WINDOW, and that scoping is the fix
+         rather than a loosening. The car now rests ON the soil, so before the dirt
+         room opens its screen y is (travelFrom - scrollY): the ground rises up the
+         screen as the reader scrolls down and the car rises with it, because it is
+         standing on the ground. That is what every scroll-driven object on this
+         page does, and counting it as a reversal produced "3 direction reversals".
+
+         The rule is really about the original bug - the car dragged back up by a
+         target it could not reach - and that can only happen once it is inside the
+         window and descending. Before the window it should move the OTHER way, in
+         step with the soil, and that is asserted separately rather than ignored. */
+      if (sc >= start) {
+        if (y < prev - 0.01) reversals++;
+        if (y < band.top - 0.01 || y > band.bot + 0.01) outOfBand++;
+      } else {
+        const soilY = L.travelFrom - sc;
+        /* The soil governs only while it is below the band top; once the ground has
+           risen past the band the band takes over, and that handover is correct. */
+        const want = soilY > band.top ? soilY : band.top;
+        if (Math.abs(y - want) > 0.01) offSoil++;
+        if (y > prevParked + 0.01) parkedFell++;
+        prevParked = y;
+      }
       /* The car floor only means anything while the player is RIDING it. In the
          bedrock cave they are on the cave's own floor, which is a different line
          entirely, and the reader is meant to be off the car there - so this check
          is scoped to the shaft rather than being allowed to blame the cave for
          standing somewhere the cave intends them to stand. */
       if (!G.player.inCave && G.player.y + G.player.h > y + 0.01) sunk++;
-      if (y > h + 0.01 || G.player.y < -0.01) offscreen++;
+      /* ON A SHORT VIEWPORT THE SOIL IS BELOW THE FOLD, so a car parked ON it is
+         legitimately below the screen at scroll 0 - the ground is not on screen
+         yet and standing on it would put the elevator off the bottom. That is the
+         requested behaviour working as intended on a 300x200 window, not the
+         sprite escaping the viewport, so the parked phase is exempt. Once the car
+         is travelling, or the soil is on screen, the rule applies unchanged. */
+      const soilOnScreen = (L.travelFrom - sc) < h;
+      if (y > h + 0.01 || G.player.y < -0.01) {
+        if (sc >= start || soilOnScreen) offscreen++;
+      }
       prev = y;
+    }
+    if (parkedFell) {
+      fail(label + ' the parked car moved DOWN the screen on ' + parkedFell +
+           ' frame(s) while scrolling up through the sky; standing on the ground ' +
+           'means it rises as the soil rises');
+    }
+    if (offSoil) {
+      fail(label + ' the parked car left its resting line (soil or band top) on ' +
+           offSoil + ' frame(s)');
     }
     if (reversals) fail(label + ' ' + reversals + ' direction reversals');
     if (outOfBand) fail(label + ' ' + outOfBand + ' frames outside the band');
@@ -1892,76 +1954,58 @@ async function run() {
              'tell the car being correctly skipped from the renderer having stopped');
       }
 
-      /* The car is NOT drawn above the soil line. The regression test for the
-         parked elevator hanging in the open sky at the top of the page.
+      /* THE ELEVATOR IS DRAWN, AND IT IS NEVER ABOVE THE SOIL. The regression
+         test for the floating car, walked from scroll 0 - the walk above starts
+         at travelFrom and is structurally blind to the whole sky.
 
-         The walk above starts at travelFrom, so it can only ever see the car
-         BELOW the dirt room - it is structurally blind to the whole sky. That is
-         why this is a separate walk from scrollY = 0, and why the car being
-         correctly drawn inside the window is not evidence about the sky.
+         BOTH halves are required, and that is the point. An earlier version
+         asserted only that the car was drawn ZERO times above the soil, which
+         passed purely because the renderer was HIDING it. The car is now parked
+         on the ground instead of hidden, so the honest assertion is that it is
+         always drawn AND never above the soil: the first half stops the second
+         from being satisfiable by deletion.
 
-         Counter-based like the check above, so this still measures what render()
-         emitted rather than trusting the painter to report itself.
-
-         The walk stops one band top SHORT of the dirt room, and that is the
-         subtlety: the car only crosses the soil line at (travelFrom - band.top),
-         not at travelFrom. Checking all the way up to travelFrom therefore
-         asserts the car must be invisible at scroll positions where it is
-         correctly underground - it failed that way on the first run, which is
-         the test being wrong rather than the gate. bandTop is read from
-         deckBounds() rather than hard-coded, so the boundary tracks the layout
-         instead of a number that goes stale. */
-      const bandTop = D.deckBounds().top;
-      const skyEnd = Math.max(0, L.travelFrom - bandTop - 20);
-      let carInSky = 0, spriteInSky = 0;
+         The sprite is measured with the car because it rides it - parking the car
+         on the ground has to carry the sprite down too. */
+      const bandTop2 = D.deckBounds().top;
+      const skyEnd = Math.max(0, L.travelFrom - bandTop2 - 20);
+      let carAbove = 0, carSeen = 0, spriteAbove = 0, spriteSeen = 0;
       for (let sc = 0; sc < skyEnd; sc += 25) {
         globalThis.window.scrollY = sc;
         L.syncScroll();
         M.main.resize();
-        G.snapPlayerToGround();
         G.player.inCave = false;
-        for (let i = 0; i < 200; i++) D.advanceCar(1 / 60);
+        /* Settle the CAR first, then snap the player onto it. The walk above does
+           the opposite order, which is fine for a position check on the car, but
+           here the player is being asked to stand on a car that has not finished
+           moving yet - so the sprite is one settle behind and reads as floating
+           above the soil on a single frame. Car first, then player. */
+        for (let i2 = 0; i2 < 200; i2++) D.advanceCar(1 / 60);
+        G.snapPlayerToGround();        const soilY = L.travelFrom - sc;
         countRects(() => R.render(16));
-        if (R.carDrawn > carInSky) carInSky = R.carDrawn;
-        if (R.playerDrawn > spriteInSky) spriteInSky = R.playerDrawn;
+        if (R.carDrawn > 0) carSeen++;
+        if (R.playerDrawn > 0) spriteSeen++;
+        if (D.groundY() < soilY - 1) carAbove++;
+        if (G.player.y + G.player.h < soilY - 1) { spriteAbove++; }      }
+      if (carAbove > 0) {
+        fail('the mine car sits ' + carAbove + ' time(s) ABOVE the soil line while ' +
+             'scrolling the sky (0..' + Math.round(skyEnd) + '). carTarget() must ' +
+             'clamp the parked car down onto the surface, and seatDeck() must not ' +
+             'clamp it straight back up into the band');
       }
-      /* The SPRITE as well as the car. It rides the car, so gating the car alone
-         deletes the platform and leaves the reader standing on nothing in the
-         open sky - a worse fault than the one this replaces, and one that left
-         every other assertion green until playerDrawn existed to measure it. */
-      if (spriteInSky > 0) {
-        fail('the SPRITE is drawn ' + spriteInSky + ' time(s) above the soil line. ' +
-             'It rides the car, so hiding the car but not the sprite leaves the ' +
-             'reader floating in the sky on nothing. drawPlayer() must be gated ' +
-             'by the same elevatorInSoil() rule as drawHoist()');
+      if (spriteAbove > 0) {
+        fail('the SPRITE stands ' + spriteAbove + ' time(s) above the soil line while ' +
+             'the elevator is parked; it rides the car and has to be carried down ' +
+             'with it');
       }
-      if (carInSky > 0) {
-        fail('the mine car is drawn ' + carInSky + ' time(s) ABOVE the soil line ' +
-             '(scroll 0 up to ' + Math.round(skyEnd) + ', where the car is still ' +
-             'above the dirt room at ' + Math.round(L.travelFrom) + '). ' +
-             'The band is viewport-relative, so a car parked at the top of it ' +
-             'hangs in the open sky. drawHoist() must return early when the car ' +
-             'is above the soil, and drawPlayer() must follow it - the sprite ' +
-             'rides the car and would otherwise float on nothing');
+      if (!carSeen) {
+        fail('the mine car is not drawn anywhere while scrolling the sky, so the ' +
+             'checks above pass for the wrong reason: the elevator is missing from ' +
+             'the top of the page rather than parked on the surface');
       }
-      /* The counterpart, so the check above cannot pass for the wrong reason: the
-         elevator must REAPPEAR underground. Gating it off everywhere would make
-         "drawn 0 times in the sky" true and the car would simply be gone. */
-      let carBackUnderground = 0;
-      for (let sc = skyEnd; sc <= L.travelTo; sc += 25) {
-        globalThis.window.scrollY = sc;
-        L.syncScroll();
-        M.main.resize();
-        G.snapPlayerToGround();
-        G.player.inCave = false;
-        for (let i = 0; i < 200; i++) D.advanceCar(1 / 60);
-        countRects(() => R.render(16));
-        if (R.carDrawn > carBackUnderground) carBackUnderground = R.carDrawn;
-      }
-      if (!carBackUnderground) {
-        fail('the mine car is never drawn below the soil line either, so hiding ' +
-             'it in the sky passed for the wrong reason: the elevator is simply ' +
-             'gone from the page rather than hidden until it is underground');
+      if (!spriteSeen) {
+        fail('the SPRITE is not drawn anywhere while scrolling the sky, so it has ' +
+             'been hidden rather than carried down with the car');
       }
       /* Put the player back in the cave for the checks that follow. */
       globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 100);

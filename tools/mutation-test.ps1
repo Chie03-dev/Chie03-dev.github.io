@@ -134,8 +134,9 @@ Mutate '3. NaN geometry (silent drop)' 'js\deck.js' 'return Math.max(10, deckBou
 Mutate '4. band pushed off centre' 'js\deck.js' 'var DECK_CENTRE = 0.5;' 'var DECK_CENTRE = 0.92;'
 Mutate '5. travel starts in the sky' 'js\layers.js' 'travelFrom = dirt >= 0 ? dirt :' 'travelFrom = dirt >= 0 ? 0 :'
 Mutate '6. travel runs past the foot of the dig' 'js\layers.js' 'travelTo = deepest >= 0 ? deepest :' 'travelTo = deepest >= 0 ? deepest + 900 :'
-Mutate 'car not gated above the soil' 'js\render.js' '  if (!elevatorInSoil(y)) return;' '  // mutant'
-Mutate 'sprite not gated above the soil' 'js\render.js' '  if (!elevatorInSoil(player.y + player.h)) return;' '  // mutant'
+Mutate 'parked car ignores the soil' 'js\deck.js' '  return soil > b.top ? soil : b.top;' '  return b.top;'
+Mutate 'seatDeck clamps the car back into the band' 'js\deck.js' '  deckY = clamp(deckY, floor, ceil);' '  deckY = clamp(deckY, b.top, b.bot);'
+Mutate 'target ignores the ground' 'js\deck.js' '  if (p <= 0) return parkedY();' '  // mutant'
 Mutate '7. travel window never closes' 'js\deck.js' 'if (!(end > start)) end = maxScroll + 1;' 'if (end > start) end = start;'
 Mutate '8. no barrier above the cave' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
 # 9, 9b, 10 and 11 are GONE. They attacked the shaft channel: a CSS mask cut into

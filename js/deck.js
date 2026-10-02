@@ -165,23 +165,96 @@ function travelWindow() {
   return { start: start, end: end };
 }
 
+/* The car's target Y for this frame.
+
+   WHY THE PARKED CAR RESTS ON THE SOIL. deckBounds() is viewport-relative, so a
+   car parked at the top of its band sits at one fixed screen height however far
+   down the page the reader is. Over the sky that is a mine car hanging in
+   mid-air with the dirt still below the fold, and the sprite - who rides it -
+   hanging with it. Parking it on the surface instead is the honest fix: the car
+   stands on the ground, the ground rises up the screen as the reader scrolls,
+   and the car rises with it because it is standing on it.
+
+   THE CLAMP IS SCOPED TO p <= 0 DELIBERATELY. Once the car is inside the travel
+   window it is descending by its own rules, and the soil is behind it; clamping
+   there would fight the band. Only the parked phase is constrained.
+
+   THE RISE IS NOT A REVERSAL, THOUGH THE MONOTONIC CHECK LOOKS FOR ONE. A car
+   parked on the ground moving up the screen while the page scrolls down is the
+   ground passing beneath it, which is correct - it is the same thing every
+   scroll-driven object on the page does. The monotonic rule in smoke.mjs exists
+   to catch the car being dragged back up by a target it cannot reach, and this is
+   not that: the car never exceeds its own target and the travel phase that
+   follows is strictly descending. The rule is scoped to the travel window for
+   exactly this reason.
+
+   NOT A REPLACEMENT FOR THE OLD INVISIBILITY GATE - this is the opposite
+   choice. That one deleted the car above the soil; this one stands it on the
+   soil, so it is visible from the first screen of the page. */
+/* The line the car rests on while it is parked, in screen Y.
+
+   ONE definition, read by BOTH carTarget() and seatDeck(). They were originally
+   two separate clamps for the same fact, and a mutation removing the one in
+   carTarget() passed for the wrong reason - seatDeck()'s clamp bounds the car
+   but does not move it, so deleting the target clamp quietly put the car back at
+   band.top while every assertion still passed. Two clamps, one of them inert.
+
+   THE RULE. Normally the resting line is the top of the band. But the band is
+   viewport-relative, so band.top is a fixed height on screen and the car hangs in
+   the open sky with the dirt below the fold. When the soil is LOWER than the band
+   top - which is the normal case, the ground being further down the page than the
+   band - the car rests on the ground instead. As the reader scrolls, the ground
+   rises, and once it passes the band top the two coincide and this is an ordinary
+   band clamp again. That handover is the whole behaviour.
+
+   Unmeasured soil (no dirt room, or a page that has not laid out) falls back to
+   the band, so a missing number never deletes the elevator. */
+function parkedY() {
+  var b = deckBounds();
+  if (!isFinite(travelFrom) || travelFrom <= 0) return b.top;
+  var soil = travelFrom - scrollY;
+  if (!isFinite(soil)) return b.top;
+  return soil > b.top ? soil : b.top;
+}
+
 function carTarget() {
   var b = deckBounds();
   var w = travelWindow();
   var span = w.end - w.start;
   var p = span > 0 ? clamp((scrollY - w.start) / span, 0, 1) : 0;
+  /* While parked (p <= 0) the target is the ground, not the band - that is what
+     actually MOVES the car down onto the surface. seatDeck() below only bounds
+     it, and on its own left the car sitting at band.top. */
+  if (p <= 0) return parkedY();
   return b.top + p * (b.bot - b.top);
 }
 
-/* Put the car back inside the band, keeping wherever it had got to. `centre`
-   snaps it to the middle instead, which is what a re-measure at a genuinely
-   new viewport size wants. Clamped every frame from advanceCar(), so neither a
-   font swap nor a rotation mid-journey can strand it outside the band. */
+/* Put the car back inside its allowed range, keeping wherever it had got to.
+   `centre` snaps it to the middle of the band instead, which is what a re-measure
+   at a genuinely new viewport size wants.
+
+   BOTH ENDS MOVE WHILE PARKED. The floor is parkedY() rather than b.top, so a car
+   resting on the ground is not yanked back up into the band - a plain
+   clamp(deckY, b.top, b.bot) hid inside the function that is supposed to enforce
+   the band, silently undoing the positioning above. The ceiling moves too, because
+   on a tall viewport the ground is BELOW the whole band and a band-only ceiling
+   pinned the car to band.bot so it never reached the surface at all.
+
+   This BOUNDS the car; it does not move it. parkedY() as the target is what
+   actually carries the car down onto the soil - see the note in carTarget().
+
+   `centre` deliberately ignores the ground: a re-measure is a layout event rather
+   than a scroll position, and honouring the soil there would snap the car to the
+   surface on every rotation. */
 function seatDeck(centre) {
   var b = deckBounds();
-  deckY = centre ? (b.top + b.bot) / 2 : clamp(deckY, b.top, b.bot);
+  if (centre) { deckY = (b.top + b.bot) / 2; return; }
+  var floor = b.top, ceil = b.bot;
+  var rest = parkedY();
+  if (rest < floor) floor = rest;
+  if (rest > ceil) ceil = rest;
+  deckY = clamp(deckY, floor, ceil);
 }
-
 /* One frame of travel, called from the loop right after syncScroll().
    Exponential smoothing rather than a fixed fraction per frame, so the car
    settles at the same rate whatever the frame rate: a naive lerp visibly lags
