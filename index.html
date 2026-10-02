@@ -316,23 +316,23 @@
              target="_blank" rel="noopener noreferrer">GitHub</a>
         </li>
         <li>
-          <!-- TODO(you): set the two halves to your real address. Nothing else has
-               to change - mailAddress() is already tested, and tools/pixel-probe.html
-               already asserts the wiring around it.
+          <!-- The address is assembled at runtime from these two halves. A plain
+               href="mailto:..." in the served source is read by every address
+               harvester that crawls a public page, and this page is public, so
+               the halves are kept apart and joined in contact.js.
 
-               Until then the label below says so out loud. A visitor seeing "Email"
-               on a contact list reasonably assumes clicking it emails you; one
-               seeing "Email (not set yet)" knows not to bother. Which mistake is
-               worse is obvious: a dead link on a contact list reads as a broken
-               site and costs you the enquiry.
+               BOTH HALVES MUST BE SET. mailAddress() returns '' if either is
+               blank, and initContact() then writes nothing - the entry stays
+               inert text rather than becoming a mailto: pointing at half an
+               address, which would open a compose window aimed at a stranger.
+               That fail-closed behaviour is why the split is safe to ship.
 
-               The label is only visible while the attributes are blank.
-               contact.js REPLACES this span with a real <a> the moment both halves
-               are present, and the address becomes the link text - so the moment
-               you fill these in, "(not set yet)" disappears on its own. There is
-               nothing to remember to remove. -->
-          <span class="contact__link" data-mail-user="" data-mail-domain=""
-                data-at="@">Email (not set yet)</span>
+               TO CHANGE THIS, edit the two attributes below and nothing else.
+               The visible text is written from the joined address at runtime,
+               so there is no label to keep in step by hand. -->
+          <span class="contact__link"
+                data-mail-user="alchieandilab2003" data-mail-domain="gmail.com"
+                data-at="@">Email</span>
         </li>
         <li>
           <a class="contact__link" href="assets/Alchie-Andilab-Resume.pdf" download>Print resume</a>

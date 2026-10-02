@@ -330,6 +330,26 @@
   text-underline-offset:4px;
   text-decoration-thickness:2px;
   transition:color var(--dur) var(--ease);
+  /* AN EMAIL ADDRESS MUST BE ABLE TO BREAK. This rule exists because the real
+     address went in and the page started scrolling sideways.
+
+     The link text IS the address, 28 characters with no spaces in it, and
+     `.contact__list` is a flex row. A single unbreakable token cannot wrap, so
+     it set its own minimum width, the grid column was pushed wider than the
+     screen, and the whole document became 8px scrollable at 821x1180:
+
+       FAIL  the page does not scroll sideways (document is 8px wider than the
+             viewport)
+
+     `overflow-wrap: anywhere` is the right tool rather than `break-word` or
+     `hyphens`, because those leave the first fragment able to exceed the line on
+     their own. `anywhere` also lets the element's intrinsic minimum width shrink,
+     which is what the flex row and the grid cell are actually asking for.
+
+     Worth noting the failure was invisible until the address was real. The
+     placeholder said "Email" - five characters, all breakable - so the block had
+     never been under this much pressure, and every viewport passed. */ 
+  overflow-wrap:anywhere;
 }
 /* :hover is scoped to a real anchor. The span fallback is styled by
    [data-mail-failed] below, so a half-configured address can never pick up link
