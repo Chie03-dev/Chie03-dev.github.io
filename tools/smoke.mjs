@@ -1348,6 +1348,28 @@ async function run() {
             fail('two galleries on the same side draw the SAME cave - all four would ' +
                  'be one room drawn four times');
           }
+          /* All four galleries differ from one another. This is WEAKER than it
+             looks and is not a mob test: the per-room rng makes every gallery
+             differ even if all four mobs were the same creature, so giving every
+             room an identical mob still passes. What it does catch is a gallery
+             whose whole drawing collapsed onto another's - a shared seed, or a
+             room drawn from the wrong index.
+
+             See the note below for the mob coverage that is missing. */
+          const all = [0, 1, 2, 3].map(shapes).map(s => s.join('|'));
+          for (let i = 0; i < 4; i++) {
+            for (let j = i + 1; j < 4; j++) {
+              if (all[i] === all[j]) {
+                fail('galleries ' + i + ' and ' + j + ' draw identically - their caves ' +
+                     'should not be the same cave');
+              }
+            }
+          }
+          /* Note what is NOT asserted here, because it was tried and did not work:
+             that the mob itself is drawn. The check for it counted body-sized
+             blocks, and the BOULDERS in drawCave satisfy it - removing drawMob
+             entirely still passed. Catching it needs the mob drawn to its own
+             layer so its rects can be told from the rock's. Not done. */
           console.log('  cave       ' + spikeBases.length + ' drip formations per room, ' +
                       'seeded, all distinct');
         }

@@ -85,39 +85,6 @@ function drawRubble(ctx, x, y, w, h, fill, lip) {
 
    Drawn BEFORE the walls below, so the walls can be interrupted by it - see the
    note on that call. A door drawn on top of a solid wall reads as a poster. */
-function drawEntrance(ctx, t, b, floorY, roofY, side) {
-  if (!side) return;
-  /* The opening is tall enough to walk through and narrow enough to read as a
-     door. Its bottom sits ON the floor rather than near it, so the player
-     standing in the room is standing in the doorway, not beside a hole. */
-  var w = 46;
-  var h = Math.min(120, Math.max(64, floorY - roofY - 20));
-  var y = floorY - h;
-  var x = side > 0 ? b.right - w / 2 : b.left - w / 2;
-
-  /* The passage: a darker rectangle running from the opening away from the
-     room, which is what sells "this goes somewhere" rather than "this is a
-     painted rectangle". */
-  var passW = 34;
-  var px = side > 0 ? x + w / 2 - passW / 2 : x - passW / 2;
-  ctx.fillStyle = 'rgba(0,0,0,.45)';
-  ctx.fillRect(px, y, passW, h);
-
-  /* The opening itself, lit from within. Warmer than the room, because the shaft
-     is the one warm thing on the page and this is the way back to it. */
-  ctx.fillStyle = 'rgba(0,0,0,.55)';
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = t.lip;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, w, h);
-  /* A vertical jamb on each side, so the door has a frame rather than being an
-     outline drawn on a rectangle. */
-  ctx.fillStyle = t.lip;
-  ctx.globalAlpha = 0.75;
-  ctx.fillRect(x - 3, y, 3, h);
-  ctx.fillRect(x + w, y, 3, h);
-  ctx.globalAlpha = 1;
-}
 
 /* THE CAVE. Stalactites, stalagmites and an irregular roof.
 
@@ -211,6 +178,94 @@ function drawCave(ctx, t, b, floorY, roofY, r, side) {
   }
 }
 
+/* === The mobs ==============================================================
+   One resident per gallery, and they are all different on purpose: this is a
+   showcase, so the point is that a reader scrolling past sees four caves and four
+   things living in them rather than four caves and the same rubble.
+
+     ore gallery  - BAT, hanging from the roof. Wings out, upside down.
+     stone chamber- GOLEM, standing. Squat, heavy, two lit eyes.
+     deep cave    - SPIDER, low and wide. Eight legs, small body.
+     bedrock      - WORM, segmented, half-buried. The oldest layer.
+
+   Drawn AS BLOCKS like everything else on this page, and each one is a handful of
+   rectangles - not because that is all there is room for, but because this is
+   pixel art and a smooth sprite would be the one thing on screen that is not.
+
+   EYES ARE THE ONLY LIT THING IN ANY OF THEM. Every mob has them and they use the
+   accent colour, so at a glance you can tell what is in the dark before you can
+   make out its shape. That is most of what makes a small creature read as alive
+   rather than as a prop.
+
+   Placement is seeded from the room, so a given mob stands in the same place on
+   every reload. A creature that hops around between frames is not a resident. */
+var MOBS = ['bat', 'golem', 'spider', 'worm'];
+
+function drawMob(ctx, t, kind, x, floorY, r, h) {
+  var eye = '#ffd24a';
+  var dark = '#0d1116';
+
+  function body(w, bh, dx) {
+    ctx.fillStyle = dark;
+    ctx.fillRect(x + dx - Math.round(w / 2), floorY - bh, w, bh);
+  }
+  function eyes(dx, y, gap, size) {
+    ctx.fillStyle = eye;
+    ctx.fillRect(Math.round(x + dx - gap), y, size, size);
+    ctx.fillRect(Math.round(x + dx + gap - size), y, size, size);
+  }
+
+  if (kind === 'bat') {
+    /* Hangs from the roof, so its y comes down from the top, not up off the
+       floor - which is the whole difference between a bat and a beetle. */
+    var len = Math.round(h * 0.24);
+    var y0 = floorY - len;
+    /* wings */
+    ctx.fillStyle = dark;
+    ctx.fillRect(x - 22, y0 + 4, 12, 4);
+    ctx.fillRect(x + 10, y0 + 4, 12, 4);
+    ctx.fillRect(x - 26, y0 + 8, 6, 3);
+    ctx.fillRect(x + 20, y0 + 8, 6, 3);
+    /* body + head */
+    ctx.fillRect(x - 5, y0, 10, 12);
+    ctx.fillRect(x - 4, y0 - 7, 8, 8);
+    eyes(0, y0 - 5, 3, 2);
+  } else if (kind === 'golem') {
+    var gh = Math.round(h * 0.34);
+    body(34, gh, 0);
+    /* a second, wider block underneath reads as legs without drawing legs */
+    ctx.fillStyle = dark;
+    ctx.fillRect(x - 20, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
+    ctx.fillRect(x + 8, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
+    /* shoulders */
+    ctx.fillRect(x - 22, floorY - gh - 6, 44, 8);
+    eyes(0, floorY - gh - 2, 7, 3);
+  } else if (kind === 'spider') {
+    var sy = floorY - 14;
+    ctx.fillStyle = dark;
+    /* legs first, so the body sits on top of them */
+    for (var i = 0; i < 4; i++) {
+      var lx = x - 16 + i * 10;
+      var dy = 6 + (i % 2) * 4;
+      ctx.fillRect(lx, sy - dy, 3, dy + 14);
+    }
+    ctx.fillRect(x - 11, sy - 5, 22, 14);
+    ctx.fillRect(x - 7, sy - 11, 14, 8);
+    eyes(0, sy - 9, 4, 2);
+  } else {
+    /* WORM: segments marching along the floor, the last one smaller. */
+    ctx.fillStyle = dark;
+    var wx = x - 26;
+    for (var s = 0; s < 5; s++) {
+      var sw2 = 16 - s * 2;
+      var sh = 12 - s;
+      ctx.fillRect(wx, floorY - sh, sw2, sh);
+      wx += sw2 - 3;
+    }
+    eyes(0, floorY - 11, 3, 2);
+  }
+}
+
 /* Draw one room. `b` is the wall box from rooms.js bounds(), `floorY` and
    `roofY` are its screen-space floor and roof, `layer` is its palette key and
    `side` is which wall the entrance is in (+1 right, -1 left, 0 none).
@@ -247,9 +302,20 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side) {
     ctx.fillRect(x, roofY, step + 1, d);
   }
 
-  /* THE MAZE, drawn after the ceiling and before the floor so the floor line and
-     its lip always read as the ground the walls stand on. */
+  /* The cave formations, after the ceiling and before the floor, so the floor
+     line and its lip always read as the ground everything stands on. */
   drawCave(ctx, t, b, floorY, roofY, r, side);
+
+  /* THE MOB, standing in the room. Its x is jittered off the room's own rng, so
+     it is in the same place every reload without being dead centre - a creature
+     posed in the middle of a shot looks like a sprite sheet, not like something
+     living there. Inset from both walls so it never reads as part of the
+     masonry. */
+  {
+    var mh = floorY - roofY;
+    var mx = Math.round(b.left + 70 + r() * Math.max(1, (b.right - b.left) - 150));
+    drawMob(ctx, t, MOBS[index % MOBS.length], mx, floorY, r, mh);
+  }
 
   /* --- props, drawn BEFORE the floor line so the floor always reads as the
      ground they stand on rather than being cut through by them --- */
@@ -273,39 +339,22 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side) {
 
   /* --- walls: two vertical edges closing the room off. Drawn last so nothing
      can overlap them, and exactly on the bounds the collision uses, so the
-     visible wall and the solid wall are the same line rather than two lines
-     that happen to be near each other.
+     visible wall and the solid wall are the same line rather than two lines that
+     happen to be near each other.
 
-     THE WALL WITH THE ENTRANCE IN IT IS INTERRUPTED. Drawing a continuous wall
-     and then drawing a door over the top of it gives a poster on a wall - the
-     most convincing-looking version of this feature being broken, because the
-     doorway is right there and the player still cannot get through it. So the
-     entrance wall is drawn as two segments with the opening left out between
-     them, and the entrance is drawn into the gap.
+     BOTH WALLS ARE SOLID. There used to be a doorway here: the near wall was
+     split around a gap and an entrance was drawn into it, and the gap was taken
+     from entranceSide() so the art and the collision could not disagree. All of
+     that is gone - the rooms have no doors, so they are sealed galleries you look
+     into rather than places you arrive at. The walls are now two plain lines.
 
-     The gap is the same width and position entranceX/entranceSide report, taken
-     from those rather than recomputed here: collision and art must agree on
-     where the hole is, or the player walks into a wall that looks open. */
-  var doorHalf = 26;
-  var doorX = side > 0 ? b.right : b.left;
-  var gapLo = doorX - doorHalf;
-  var gapHi = doorX + doorHalf;
-
+     A side room is scenery. The reader cannot walk into it, so a door was a
+     promise the page could not keep, and a sealed wall is honest about that. */
   ctx.globalAlpha = 0.5;
   ctx.fillStyle = t.lip;
-  /* Far wall: always solid. */
-  ctx.fillRect(side > 0 ? b.left : b.right - 2, roofY, 2, floorY - roofY);
-  /* Near wall: split around the doorway when there is one. */
-  if (side) {
-    var near = side > 0 ? b.right - 2 : b.left;
-    if (gapLo > near) ctx.fillRect(near, roofY, gapLo - near, floorY - roofY);
-    if (gapHi < near + 2) ctx.fillRect(gapHi, roofY, near + 2 - gapHi, floorY - roofY);
-  } else {
-    ctx.fillRect(near, roofY, 2, floorY - roofY);
-  }
+  ctx.fillRect(b.left, roofY, 2, floorY - roofY);
+  ctx.fillRect(b.right - 2, roofY, 2, floorY - roofY);
   ctx.globalAlpha = 1;
-
-  drawEntrance(ctx, t, b, floorY, roofY, side);
 }
 
 
