@@ -218,7 +218,21 @@ function travelWindow() {
      Starting the window at the surface makes it one continuous descent instead,
      with no handover to jump across. */
   var start = surfaceFrom > 0 ? surfaceFrom : travelFrom;
-  var end = travelTo;
+  /* THE DESCENT ENDS NEAR THE SURFACE, NOT AT THE FOOT OF THE DIG. The car travels
+     a fixed SCREEN distance - the band - so the amount of PAGE that distance is
+     spread over decides how fast it appears to move. Spread from the surface all the
+     way to travelTo it had roughly 1800px of scroll to cover 273px of band: measured,
+     8.8px of car movement per 100px scrolled, which reads as frozen at grass level
+     however far down the page the reader is - the reported symptom.
+
+     So the window is one viewport long. The elevator enters the ground as the reader
+     scrolls into it and is at the bottom of its travel shortly after, which is what a
+     mine lift does and what they are actually watching while it happens.
+
+     Bounded above by travelTo, so on a page laid out shorter than the surface plus a
+     viewport the car never runs past the bottom of the shaft. */
+  var end = Math.min(travelTo, start + viewH);
+  if (!(end > start)) end = travelTo;
   if (!(end > start)) end = maxScroll + 1;    /* unmeasured: use the whole page */
   return { start: start, end: end };
 }

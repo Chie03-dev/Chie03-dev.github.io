@@ -722,15 +722,40 @@ async function run() {
            settle(0).toFixed(0) + ', grass at ' + L.surfaceFrom.toFixed(0) +
            ', band top at ' + band.top.toFixed(0) + ')');
     }
-    const midScroll = (L.surfaceFrom + end) / 2;
-    const midCar = settle(midScroll);
-    if (!(midCar > L.surfaceFrom - midScroll + 1 && midCar < band.bot - 1)) {
-      fail(label + ' car does not descend from the surface (mid-journey at ' +
-           midCar.toFixed(0) + ', band bottom ' + band.bot.toFixed(0) + ')');
-    }
-    if (near(midCar, L.surfaceFrom - midScroll)) {
-      fail(label + ' car is still level with the grass halfway down the page, so ' +
-           'the elevator never travels - the freeze this change removes');
+    /* AND IT DESCENDS AT A VISIBLE RATE. The car covers a fixed SCREEN distance -
+       the band - so how fast it appears to travel is decided by how much PAGE that
+       distance is spread over. With the window running from the surface all the way
+       to travelTo it had ~1800px of scroll to cover 273px of band: measured, 39px of
+       car movement per 250px scrolled, which is the reported symptom - the elevator
+       looks stuck at grass level however far down the page you are.
+
+       So this measures movement PER 100px of scroll in the middle of the descent and
+       requires it to be a real fraction of the band. This is the assertion that
+       would have caught that, and it is a rate, not a position - a position check
+       passes at any speed. */
+    /* Sample 100px apart INSIDE the window, not at a fixed fraction of it: on a
+       short viewport one viewport IS the whole window, so a fractional probe lands
+       past the end where the car has stopped and measures 0. */
+    const probeGap = Math.min(100, Math.max(20, Math.round((end - L.surfaceFrom) / 4)));
+    const winEnd = Math.min(L.travelTo, L.surfaceFrom + L.viewH);
+    const rateFrom = Math.round(L.surfaceFrom + (winEnd - L.surfaceFrom) * 0.3);
+    const rateTo = rateFrom + probeGap;
+    const per100 = settle(rateTo) - settle(rateFrom);
+    const bandSpan = band.bot - band.top;
+    /* A full descent covers bandSpan over the window, so the EXPECTED rate is
+       bandSpan / (window length / 100). Anything near that is travelling at the
+       intended speed; the bug was the window being ~5x too long, which is exactly
+       what this ratio exposes. The bar is half the expected rate - slow enough to
+       allow easing and rounding, tight enough that a window stretched over the whole
+       page fails it. */
+    const windowLen = Math.max(1, winEnd - L.surfaceFrom);
+    const expected = bandSpan / (windowLen / 100);
+    if (!(per100 > expected / 2)) {
+      fail(label + ' the elevator descends too slowly to read as travelling: ' +
+           per100.toFixed(1) + 'px per 100px scrolled, and the band is ' +
+           bandSpan.toFixed(0) + 'px tall. The travel window must end near the surface,' +
+           ' not at the foot of the dig, or the descent is stretched over the whole ' +
+           'page and looks frozen at grass level');
     }
     if (!near(settle(end), band.bot)) fail(label + ' car is not at the bottom at the treasure room');
 

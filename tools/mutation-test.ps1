@@ -144,6 +144,7 @@ Mutate 'a re-seat centres the parked car' 'js\deck.js' '    deckY = snapToParked
 Mutate 'the band ignores the surface' 'js\deck.js' '  if (surfaceFrom > 0 && surfaceFrom < top) top = surfaceFrom;' '  if (surfaceFrom > 0 && surfaceFrom > top) top = surfaceFrom;'
 Mutate 'the travel window starts at the dirt room' 'js\deck.js' '  var start = surfaceFrom > 0 ? surfaceFrom : travelFrom;' '  var start = travelFrom;'
 Mutate 'the surface anchor is unclamped' 'js\deck.js' '  if (surfaceFrom > 0 && surfaceFrom < top) top = surfaceFrom;' '  if (surfaceFrom > 0) top = surfaceFrom;'
+Mutate 'the descent is stretched over the whole page' 'js\deck.js' '  var end = Math.min(travelTo, start + viewH);' '  var end = travelTo;'
 Mutate '7. travel window never closes' 'js\deck.js' 'if (!(end > start)) end = maxScroll + 1;' 'if (end > start) end = start;'
 Mutate '8. no barrier above the cave' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
 # 9, 9b, 10 and 11 are GONE. They attacked the shaft channel: a CSS mask cut into
