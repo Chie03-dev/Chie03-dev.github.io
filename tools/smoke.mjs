@@ -1289,6 +1289,50 @@ async function run() {
            the renderer actually uses. */
         const SPECIES_LIST = M['beast-art'] && M['beast-art'].MOBS;
         if (!SPECIES_LIST) fail('js/beast-art.js did not export MOBS');
+          /* A recording context for the creature layer that HONOURS the transform.
+
+           The layer is drawn through save/translate/scale/restore now that the
+           residents have depth, so a stub that only implements fillRect either
+           throws or - worse, if the transform calls were optional - silently
+           records untransformed coordinates. That would be a stub measuring the
+           wrong thing, and the population and collision checks would be reading
+           pixels the reader never sees.
+
+           So this applies the same matrix maths the real canvas does, and records
+           where the pixels actually land. */
+          const makeMobCtx = () => {
+            const out = [];
+            const st = { a: 1, d: 1, e: 0, f: 0 };     /* scale + translate */
+            let cur = Object.assign({}, st);
+            /* save/restore need a STACK, not a copy. `restore` was originally a copy
+               too - `Object.assign({}, cur)`, which assigns cur to itself and changes
+               nothing. Every save/restore pair then cancelled out, the scale kept
+               compounding creature after creature, and by the fifth resident the
+               whole population was being drawn at a hundredth of its size and piled
+               into one spot. The suite reported that as "this room has only 1
+               creature in it".
+
+               Which is the shape of bug this file keeps hitting: the canvas stub was
+               wrong, the drawing was right, and the failure showed up as a fact
+               about the creatures instead of an error about the stub. */
+            const stack = [];
+            return {
+              out,
+              get fillStyle() { return ''; },
+              set fillStyle(_) {},
+              get globalAlpha() { return cur.alpha === undefined ? 1 : cur.alpha; },
+              set globalAlpha(v) { cur.alpha = v; },
+              save() { stack.push(Object.assign({}, cur)); },
+              restore() { if (stack.length) cur = stack.pop(); },
+              translate(x, y) { cur.e += x * cur.a; cur.f += y * cur.d; },
+              scale(x, y) { cur.a *= x; cur.d *= y; },
+              fillRect(x, y, w, h) {
+                out.push([Math.round(x * cur.a + cur.e), Math.round(y * cur.d + cur.f),
+                          Math.round(w * cur.a), Math.round(h * cur.d)]);
+              }
+            };
+          };
+
         const ALL_SPECIES = SPECIES_LIST || [];
         if (!art) fail('js/room-art.js did not load');
         else {
@@ -1381,12 +1425,8 @@ async function run() {
                  cannot do by accident now that the rng jitter around them is not
                  in the same bucket. */
           const mobShapes = (idx) => {
-            const creatures = [];
-            const mobCtx = {
-              fillStyle: '', globalAlpha: 1,
-              fillRect: (x, y, w, h) => creatures.push([Math.round(x), Math.round(y),
-                                                         Math.round(w), Math.round(h)])
-            };
+            const mobCtx = makeMobCtx();
+            const creatures = mobCtx.out;
             const ctx2 = {
               fillStyle: '', strokeStyle: '', lineWidth: 0, globalAlpha: 1,
               createLinearGradient: () => ({ addColorStop() {} }),
@@ -1430,12 +1470,9 @@ async function run() {
              check above - the point is that a pixel changes, so comparing only
              sizes would miss a creature that slides without resizing. */
           const frames = [0, 700, 1400].map(now => {
-            const out = [];
-            const mc = {
-              fillStyle: '', globalAlpha: 1,
-              fillRect: (x, y, w, h) => out.push(Math.round(x) + ',' + Math.round(y) +
-                                                  ',' + Math.round(w) + ',' + Math.round(h))
-            };
+            const mcr = makeMobCtx();
+            const out = mcr.out;
+            const mc = mcr;
             art.drawRoom({ fillStyle: '', strokeStyle: '', lineWidth: 0,
                             globalAlpha: 1, createLinearGradient: () => ({ addColorStop() {} }),
                             fillRect: () => {}, strokeRect: () => {}, mobLayer: mc },
@@ -1456,12 +1493,9 @@ async function run() {
              one only from a bug - there is no HTML fallback to read instead. The
              creatures must be there, and must be still. */
           const still = [0, 700, 1400].map(now => {
-            const out = [];
-            const mc = {
-              fillStyle: '', globalAlpha: 1,
-              fillRect: (x, y, w, h) => out.push(Math.round(x) + ',' + Math.round(y) +
-                                                  ',' + Math.round(w) + ',' + Math.round(h))
-            };
+            const mcr = makeMobCtx();
+            const out = mcr.out;
+            const mc = mcr;
             art.drawRoom({ fillStyle: '', strokeStyle: '', lineWidth: 0,
                             globalAlpha: 1, createLinearGradient: () => ({ addColorStop() {} }),
                             fillRect: () => {}, strokeRect: () => {}, mobLayer: mc },
@@ -1506,12 +1540,9 @@ async function run() {
             const tracks = [];
             for (let s = 0; s <= 90; s++) {
               const now = s * 250;
-              const rects = [];
-              const mc = {
-                fillStyle: '', globalAlpha: 1,
-                fillRect: (x, y, w, h) => rects.push([Math.round(x), Math.round(y),
-                                                     Math.round(w), Math.round(h)])
-              };
+              const mcr = makeMobCtx();
+              const rects = mcr.out;
+              const mc = mcr;
               art.drawRoom({ fillStyle: '', strokeStyle: '', lineWidth: 0,
                               globalAlpha: 1,
                               createLinearGradient: () => ({ addColorStop() {} }),
@@ -1526,10 +1557,24 @@ async function run() {
                  sits between the two - and the worm's own segments are 4px apart,
                  which is the tight case that decides it. */
               rects.sort((p, q) => p[0] - q[0]);
+              /* Cluster into creatures by horizontal gap, threshold derived from
+                 the BODY blocks rather than the smallest block.
+
+                 The smallest block in a room is a 1px eye, so a threshold scaled
+                 to it is ~3px - which merges a whole creature into its neighbour,
+                 and a room that holds five reports one. Deriving from the LARGEST
+                 block instead is what makes this work: an eye is never wide enough
+                 to start a new creature, and a golem's 34px body never fails to.
+
+                 Both failure modes here are silent. The suite does not say "the
+                 clustering is wrong" - it says a room is empty. */
+              const bodies = rects.filter(q => q[2] >= 6);
+              const bodyW = Math.min(...(bodies.length ? bodies : rects).map(q => q[2]));
+              const GAP = Math.max(4, bodyW * 0.5);
               const groups = [];
               for (const r of rects) {
                 const last = groups[groups.length - 1];
-                if (last && r[0] - last.right <= 12) {
+                if (last && r[0] - last.right <= GAP) {
                   last.right = Math.max(last.right, r[0] + r[2]);
                   last.weight += r[2];
                   last.cx += (r[0] + r[2] / 2) * r[2];
@@ -1549,6 +1594,7 @@ async function run() {
             return tracks.reduce(
               (best, t) => Math.max(best, Math.max(...t) - Math.min(...t)), 0);
           };
+
 
           /* EVERY species must actually paint, and must actually move. Read from MOBS, so
              this cannot pass by never looking at a creature someone just added.
@@ -1588,11 +1634,9 @@ async function run() {
              drops back to one - which is exactly what happened during this change,
              and it failed as an EMPTY room rather than as a wrong count. */
           const population = (idx) => {
-            const rects = [];
-            const mc = {
-              fillStyle: '', globalAlpha: 1,
-              fillRect: (x, y, w, h) => rects.push([Math.round(x), Math.round(w)])
-            };
+            const mcr = makeMobCtx();
+            const rects = mcr.out;
+            const mc = mcr;
             art.drawRoom({ fillStyle: '', strokeStyle: '', lineWidth: 0,
                             globalAlpha: 1,
                             createLinearGradient: () => ({ addColorStop() {} }),
@@ -1601,10 +1645,17 @@ async function run() {
                           ['dirt', 'stone', 'caves', 'bedrock'][idx],
                           { left: 48, right: 568 }, 600, 300, idx, 1, 0, false);
             rects.sort((p, q) => p[0] - q[0]);
+            /* Same derived threshold as the travel check, for the same reason: a
+               fixed gap cannot separate a population that now spans 0.55x to 1x
+               scale, and when it fails it fails by merging - the room reports a
+               population that is not the population on screen. */
+            const bw = rects.filter(q => q[2] >= 6);
+            const bodyW = Math.min(...(bw.length ? bw : rects).map(q => q[2]));
+            const GAPX = Math.max(4, bodyW * 0.5);
             let groups = 0, reach = -Infinity;
             for (const r of rects) {
-              if (r[0] - reach > 12) groups++;
-              reach = Math.max(reach, r[0] + r[1]);
+              if (r[0] - reach > GAPX) groups++;
+              reach = Math.max(reach, r[0] + r[2]);
             }
             return groups;
           };
@@ -1618,18 +1669,16 @@ async function run() {
 
           /* How far a creature must be seen to travel.
 
-             DERIVED, NOT GUESSED, and the number changed when the population did.
-             With one resident per room its territory was the whole room and the
-             bar was 150px. Now each resident owns a slice: usable room (520 minus
-             two 70px margins) minus two gaps, divided three ways = about 100px.
-             Asking for 150 was asking a beast to leave its own lane and walk
-             through its neighbours - and the suite caught the population change
-             as though the creatures had broken.
-
-             So the bar is a FRACTION OF THE TERRITORY, which is the quantity that
-             actually matters: did it cross its own ground, or stand still? Pinned
-             measured 0-15px, so this has plenty of room and is not tuned to pass. */
-          const TERRITORY = (520 - 140 - 80) / 3;      /* ~100px */
+             DERIVED, NOT GUESSED, and read from the layout module rather than written out
+             here again. That copy is on its third revision - 150px, then 100px,
+             then wrong again when the population changed - and every revision
+             failed the same way: the suite announced that creatures were broken
+             when they were fine, and the actual fault was a stale number in the
+             test. Asking beast-art.js the same question drawResidents answers
+             means the two cannot disagree. */
+          const terr = M['beast-art'] && M['beast-art'].territoryFor;
+          if (!terr) fail('js/beast-art.js did not export territoryFor');
+          const TERRITORY = terr ? terr(520, 56, 34, 5) : 100;
           for (let i = 0; i < 4; i++) {
             const travel = drawnTravel(i);
             if (travel < TERRITORY * 0.55) {

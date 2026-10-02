@@ -236,7 +236,7 @@ function drawMob(ctx, kind, x, floorY, h, pose) {
    silently empty, with no error anywhere, and the suite reported it as "the
    resident is missing", which reads as the creatures failing to draw rather than
    as a loop that never ran. */
-var PER_ROOM = 3;
+var PER_ROOM = 5;
 
 /* THE POPULATION.
 
@@ -250,6 +250,39 @@ var PER_ROOM = 3;
    creature copied and pasted, which is precisely the failure the mob layer work
    was about. Offsetting time is free - the poses are pure, so a shifted clock is
    just a shifted number. */
+/* THE DEPTH STACK.
+
+   More creatures in a fixed width is a space problem, and the honest answers are
+   to overlap them or to make some of them smaller. Overlapping is out - two
+   animals in one pixel is the failure this whole arrangement exists to avoid.
+
+   So the rooms now have DEPTH as well as width, which is what a cave has anyway.
+   Each resident gets a lane, a depth and a scale, and a creature at the back is
+   drawn SMALLER, HIGHER and DIMMER than one at the front - the same three cues
+   the rock layers use, so the population sits in the room rather than on it.
+
+   The scale is a canvas transform rather than 35 multiplied coordinates in drawMob
+   and a second copy of every creature to keep in step with the first. It is
+   wrapped in save/restore so it cannot leak into the next resident.
+
+   `y` rises with distance because the floor is a line, not a point: something
+   standing further back along the floor appears higher up. */
+/* THE TERRITORY ONE CREATURE GETS, as a function of how many share the room.
+
+   Exported so the travel check in the suite asks the layout module the same
+   question the layout module answers, instead of hardcoding the arithmetic. That
+   hardcoded copy is now on its third revision - 150px, then 100px, then wrong
+   again when the population changed - and every revision failed in the same way:
+   the suite reported creatures as broken when they were fine, and the real fault
+   was a stale number in the test.
+
+   So this is derived from the same inputs drawResidents uses. If the layout
+   changes, the check follows it. */
+function territoryFor(roomW, margin, gap, count) {
+  var usable = Math.max(60, roomW - margin * 2);
+  return Math.max(18, (usable - Math.min(34, usable / (count * 2)) * (count - 1)) / count);
+}
+
 function drawResidents(ctx, b, floorY, roofY, index, r, now, reduced) {
   var mh = floorY - roofY;
   var mt = reduced ? 0 : now / 1000;
@@ -257,13 +290,20 @@ function drawResidents(ctx, b, floorY, roofY, index, r, now, reduced) {
   var roomW = b.right - b.left;
   /* The margin the old single-mob placement used, kept so a turning beast never
      paints over the rock at the walls. */
-  var margin = 70;
-  var usable = Math.max(60, roomW - margin * 2);
-  /* Gaps between territories, so neighbours cannot brush at a shared edge. */
-  var gap = Math.min(40, usable / (PER_ROOM * 2));
-  var span = Math.max(24, (usable - gap * (PER_ROOM - 1)) / PER_ROOM);
+  var margin = 56;
+  var gap = Math.min(34, Math.max(60, roomW - margin * 2) / (PER_ROOM * 2));
+  var span = territoryFor(roomW, margin, gap, PER_ROOM);
 
+  /* Back to front: the FARTHEST lane is drawn first, so a creature at the front
+     overlaps the ones behind it rather than the other way round. Depth order is
+     what makes a crowd read as a crowd instead of a sticker sheet. */
   for (var i = 0; i < PER_ROOM; i++) {
+    /* depth 0 = furthest back, PER_ROOM-1 = nearest the reader */
+    var depth = i / Math.max(1, PER_ROOM - 1);
+    var scale = 0.55 + 0.45 * depth;
+    /* it sits higher up the further back it is, but never above the roof */
+    var lift = Math.round((1 - depth) * mh * 0.16);
+
     /* The FIRST resident of each room is the room's signature, so the
        "four caves, four different creatures" showcase still reads. The rest are
        drawn from the same list, offset so they do not all match their own room's
@@ -273,15 +313,25 @@ function drawResidents(ctx, b, floorY, roofY, index, r, now, reduced) {
     /* Territory i's left edge, and a small seeded offset inside it. The offset is
        what stops every resident standing dead-centre in its own lane. */
     var laneX = b.left + margin + i * (span + gap);
-    var home = Math.round(laneX + r() * Math.max(1, span - 40));
+    var home = Math.round(laneX + r() * Math.max(1, span - 30));
 
     /* Each beast runs its own clock, at its own rate - a golem should not be
        keeping a spider's time. The factor is per-room AND per-lane, so no two
        creatures anywhere on the page are ever in step. */
     var laneT = mt / (1 + i * 0.37) + index * 3.1 + i * 2.7;
 
+    ctx.save();
+    /* scale about the creature's own feet, so a smaller one is a smaller one
+       STANDING there rather than a smaller one sinking into the floor */
+    ctx.translate(home, floorY - lift);
+    ctx.scale(scale, scale);
+    ctx.translate(-home, -(floorY - lift));
+    /* further back is dimmer - the same depth cue the cave layers already use */
+    ctx.globalAlpha = 0.55 + 0.45 * depth;
     drawMob(ctx, kind, home, floorY, mh, beastPose(kind, laneT, span));
+    ctx.restore();
   }
+  ctx.globalAlpha = 1;
 }
 
 
@@ -289,4 +339,4 @@ function drawResidents(ctx, b, floorY, roofY, index, r, now, reduced) {
    module loader and the graph check in tools/smoke.mjs both work on the block
    form, and an inline export is left unrewritten and becomes a syntax error the
    moment the file is evaluated. */
-export { drawMob, drawResidents, MOBS };
+export { drawMob, drawResidents, MOBS, territoryFor };
