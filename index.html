@@ -25,14 +25,14 @@
 </script>
 <!-- treasure.css is GONE, along with the hoard it styled. Everything else here
      is unchanged, and the ORDER still matters: layout.css must come last,
-     because its @media print and prefers-reduced-motion blocks are the final
-     word and win on source order rather than specificity. -->
+     because its prefers-reduced-motion block is the final word and wins on
+     source order rather than specificity. -->
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/chambers.css">
 <link rel="stylesheet" href="css/layout.css">
 </head>
 <body>
-<a class="skip" href="#plain-resume">Skip to plain resume</a>
+
 <canvas id="stage" aria-hidden="true"></canvas>
 
 <nav class="depth" aria-label="Resume depth">
@@ -309,88 +309,6 @@
 
  </div>
 </main>
-
-<!-- ==========================================================================
-     Plain resume: the same content, collapsed so it is never on screen twice.
-     The skip link and a #plain-resume hash both open it (see the script), and
-     the print stylesheet renders only this.
-     ========================================================================== -->
-<details id="plain-resume" tabindex="-1">
-  <summary>Plain resume &mdash; the whole thing as one text document</summary>
-  <div class="plain__wrap">
-    <p class="plain__name">Alchie O. Andilab</p>
-    <p>Computer Science graduate &mdash; application development &amp; technical support. Glendale, AZ.</p>
-    <p>
-      <a href="https://github.com/Chie03-dev" target="_blank" rel="noopener noreferrer">github.com/Chie03-dev</a>
-      &middot;
-      <a href="https://linkedin.com/in/alchieandilab" target="_blank" rel="noopener noreferrer">linkedin.com/in/alchieandilab</a>
-    </p>
-    <p class="plain__note">Plain text version of the page. Use your browser's print command to save this as a PDF.</p>
-
-    <h2>Summary</h2>
-    <p>Computer Science graduate with experience in application development, technical support, hardware/software troubleshooting, and database systems. Uses Python, Java, Kotlin, JavaScript, PHP, MySQL, SQLite, RESTful API concepts, Windows/Linux OS, user support, and most Microsoft applications. Built a POS inventory management application and administrative systems.</p>
-
-    <h2>Skills</h2>
-    <h3>Languages</h3>
-    <p>Python, Java, Kotlin, JavaScript, PHP, HTML/CSS, SQL, TypeScript</p>
-    <h3>Frameworks &amp; Tools</h3>
-    <p>Android (Jetpack Compose, Android Studio, Gradle, Lock Task Mode), React, Vite, Node.js, Prisma ORM, WebSockets/SSE, Next.js, Django, REST API, Vitest/Jest</p>
-    <h3>Databases</h3>
-    <p>PostgreSQL, SQLite, MySQL, Cloud Firestore</p>
-    <h3>Systems</h3>
-    <p>Windows and Linux deployment and configuration, hardware troubleshooting and repair, PC assembly, LAN and wired network diagnostics, Active Directory</p>
-    <h3>Support</h3>
-    <p>Application support, issue tracking, documentation, inventory management applications</p>
-    <h3>Practices</h3>
-    <p>Git/GitHub, Agile/Scrum, Unit &amp; Integration Testing, Database Migrations, issue ticketing, Zapier, n8n, Google Workspace, Microsoft Office, AI-assisted development (Claude, Gemini, Copilot, Cline)</p>
-
-    <h2>Projects</h2>
-    <h3>Mobile POS &amp; Inventory System (01/2025 &ndash; 04/2026)</h3>
-    <p>Kotlin, Java, SQLite, XML, Android Studio, Gradle, CameraX, Google ML Kit, MPAndroidChart</p>
-    <ul>
-      <li>Built an offline-first Android POS and inventory system using Java, Kotlin, SQLite, CameraX, Google ML Kit and MPAndroidChart.</li>
-      <li>Implemented barcode checkout, inventory tracking, transaction management, sales analytics, forecasting, restock recommendations, and PDF receipt generation.</li>
-    </ul>
-    <h3>Resume Optimization Tool (09/2026 &ndash; present)</h3>
-    <p>Python, Streamlit, Groq API</p>
-    <ul>
-      <li>Personal project: an AI resume-tailoring app that saves a master resume and hot-swaps keywords depending on the target job, and uses AI (Groq) to act as an ATS parsing scorer.</li>
-    </ul>
-    <h3>Quiz App (07/2026 &ndash; 09/2026, completed)</h3>
-    <p>Kotlin, Jetpack Compose, Node.js, TypeScript, PostgreSQL, WebSockets</p>
-    <ul>
-      <li>Built an exam environment using Android Lock Task Mode and WebSocket telemetry to prevent unauthorized app-switching while enabling live instructor monitoring and remote controls.</li>
-      <li>Made local draft persistence with debounced REST synchronization, guaranteeing zero data loss during network drops and enforcing a server-side timer validation.</li>
-      <li>Supported 8 question types with deterministic question pool randomization.</li>
-    </ul>
-
-    <h2>Experience</h2>
-    <h3>Freelance Developer, Web and System Applications &mdash; 01/2023 to Present (Remote)</h3>
-    <ul>
-      <li>Rebuilt frontend components for a legacy School System and 2 barangay management systems across Mindanao, replacing outdated code with modern frameworks and techniques.</li>
-      <li>Addressed recurring portal downtime and slow load times, resulting in noticeably faster performance and more stable, reliable uptime post-rebuild.</li>
-      <li>Contributed to backend database integration by defining object and function naming conventions for REST API POST and GET endpoints to support frontend-database data flow.</li>
-      <li>Assisted in migrating legacy functions, methods, and UI designs from non-framework code into Node.js, React, Next.js and Django-based systems, ensuring existing functionality carried over correctly.</li>
-      <li>Collaborated with fellow freelancers and system stakeholders to scope requirements and prioritize fixes across the school system and 2 barangay systems.</li>
-    </ul>
-    <h3>Intern, Drainwiz Computer System &mdash; 07/2025 to 08/2025 (Dipolog City, Philippines)</h3>
-    <ul>
-      <li>Collaborated with senior software engineers on a client web application build, fixing bugs and implementing database connections using HTML, CSS, JavaScript, and PHP.</li>
-      <li>Diagnosed and resolved hardware and software issues across company computers (Windows and Linux), including OS installation, printer, and network equipment troubleshooting.</li>
-      <li>Worked alongside a two-person senior engineering team under close mentorship, gaining hands-on client-facing web development experience while balancing IT support.</li>
-    </ul>
-    <h3>Help Desk Technician, Virtual Buddy &mdash; 03/2022 to 05/2022 (Dipolog City, Philippines)</h3>
-    <ul>
-      <li>Provided technical and application support for customers and employees in a fast-paced call center, troubleshooting hardware, software, and system issues.</li>
-      <li>Guided users step by step through issue resolution, communicating clearly with technical and non-technical staff.</li>
-      <li>Logged and tracked reported issues for technician follow-up and escalation, maintaining accurate documentation.</li>
-    </ul>
-
-    <h2>Education</h2>
-    <p>Bachelor of Science in Computer Science, Andres Bonifacio College, Dipolog City, Philippines: 08/2022 &ndash; 05/2026</p>
-    <p>Coursework: Software Engineering, Object-Oriented Programming, Data Structures and Algorithms, Database Systems, Computer Networks, Web Engineering, Artificial Intelligence, Information Security, Discrete Structures</p>
-  </div>
-</details>
 
 <!-- Native ES modules: no build step, no bundler, no dependency. The module
      graph is acyclic (layers <- game <- render, plus ui and main). -->

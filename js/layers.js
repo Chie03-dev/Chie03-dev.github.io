@@ -179,14 +179,14 @@ function measure() {
     });
   }
   /* The last band has to reach the bottom of the dig, not the bottom of the last
-     chamber, or the bedrock stops short and leaves bare canvas between the
-     Education panel and the foot of the page. The plain-resume <details> below
-     it carries its own opaque background, so the bands stop there.
+     chamber, or the bedrock stops short and leaves bare canvas below the contact
+     block.
 
-     This reads `.dig`, the grid that holds every row. It used to read
-     `.treasure` - an empty <section> that existed only to be measured - which
-     is gone from the markup. Falls back to the document height when the dig is
-     not found. */
+     The plain-resume <details> used to sit below this and carried its own opaque
+     background, so the bands stopped above it. That element is gone, which means
+     this no longer has to stop short of anything - the cave now runs to the foot
+     of the page. `.dig` is still the right thing to measure, since it is the grid
+     holding every row; the removed `.treasure` fallback is not revived here. */
   var floorY = (function () {
     var t = document.querySelector('.dig');
     if (t) {

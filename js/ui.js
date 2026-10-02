@@ -1,11 +1,13 @@
 /* ==========================================================================
-   ui.js - the DOM side: reveals, depth rail, plain resume
+   ui.js - the DOM side: reveals and the depth rail
    ==========================================================================
-   The IntersectionObserver panel reveals, the depth rail active marker, and the
-   plain-resume disclosure with its print hook. All resume text stays in
-   index.html as real HTML; this only wires behaviour to it. textContent and
-   createElement only, never innerHTML.
-   ========================================================================== */
+   The IntersectionObserver panel reveals and the depth rail active marker. All
+   resume text stays in index.html as real HTML; this only wires behaviour to it.
+   textContent and createElement only, never innerHTML.
+
+   The plain-resume disclosure and its print hook used to live here too. Both are
+   gone, along with the element they drove - see the note further down for what
+   that cost. */
 
 import {
   layers, activeLayerIndex, metresPerPx
@@ -122,47 +124,31 @@ function updateCue() {
    longer exists is worse than deleting it - it reads in review as a live
    feature, and the email address it assembled is still in this file's history.
 
-   PRINTING IS UNAFFECTED. The Download PDF button was a plain <a download>, so
-   no print behaviour was ever bound to it. Printing the resume is still fully
-   supported: Ctrl/Cmd-P fires the beforeprint hook below, which opens the plain
-   resume, and the @media print block in layout.css renders only that. */
-/* === Plain resume disclosure ===============================================
-   The plain resume deliberately duplicates the panels, so it is collapsed by
-   default and only revealed when it is actually asked for:
-     - the "Skip to plain resume" link,
-     - a #plain-resume URL hash (including a shared/bookmarked link),
-     - print, via beforeprint.
-   CSS alone cannot open a closed <details>, which is why beforeprint exists;
-   the print stylesheet is only a backup for engines that skip that event. */
-var plainDetails = document.getElementById('plain-resume');
-var wasOpenBeforePrint = false;
+   PRINTING IS GONE. The Download PDF button was a plain <a download>, so no
+   print behaviour was ever bound to it and the contact block's "Print resume"
+   link still works. What DID break is Ctrl/Cmd-P: see the note below. */
+/* === Plain resume: REMOVED ==================================================
+   There used to be a <details id="plain-resume"> here: a second, collapsed copy
+   of the whole resume, opened by the "Skip to plain resume" link, by a
+   #plain-resume URL hash, and by beforeprint. All four of those are gone with
+   it - the markup, the skip link, this opening handler and the print hook.
 
-function openPlainResume() {
-  if (plainDetails) plainDetails.open = true;
-}
+   WHAT THAT COSTS, stated plainly rather than left for someone to discover:
 
-var skipLink = document.querySelector('.skip');
-if (skipLink) {
-  skipLink.addEventListener('click', function () { openPlainResume(); });
-}
+   PRINTING. The @media print block in layout.css used to hide the game and
+   render only the plain resume. With the plain resume gone there is nothing
+   sensible left for it to isolate, so it is gone too, and Ctrl/Cmd-P now prints
+   the page as it appears on screen - canvas and all. The print resume link in
+   the contact block is unaffected: it is a plain <a download> to the real PDF
+   in assets/, and was never a print button. That is now the only way to get a
+   printable resume, which is a real loss of a working feature rather than a
+   cleanup.
 
-if (plainDetails && window.location.hash === '#plain-resume') {
-  openPlainResume();
-}
-if (window.addEventListener) {
-  window.addEventListener('hashchange', function () {
-    if (window.location.hash === '#plain-resume') openPlainResume();
-  });
-}
-
-/* Printing must include the document even though it is collapsed. */
-window.addEventListener('beforeprint', function () {
-  wasOpenBeforePrint = !!(plainDetails && plainDetails.open);
-  openPlainResume();
-});
-window.addEventListener('afterprint', function () {
-  if (plainDetails) plainDetails.open = wasOpenBeforePrint;
-});
+   ACCESSIBILITY. The skip link was the keyboard and screen-reader escape hatch
+   out of the scroll game. Without it there is no such way out - a keyboard user
+   reaching the end of the page now simply ends there. Everything the panels
+   hold is still real, semantic HTML and still reachable by tabbing, so this is
+   not a wall, but the shortcut is gone and the panels are far apart. */
 
 /* Public surface of this module. Collected here so that not one line of
    the code above needed a keyword added to it. */

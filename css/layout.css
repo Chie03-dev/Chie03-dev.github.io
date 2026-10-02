@@ -1,22 +1,10 @@
 /* ==========================================================================
    layout.css - the cave grid, the shaft and the output modes
    The three-column cave, the chamber box and its doorway, the shaft, the
-   content blocks, the phone breakpoint, and finally reduced-motion and
-   print. Loaded LAST on purpose: the print overrides for .plain__wrap and
-   #plain-resume a are plain declarations, not !important, so they only win
-   if they come after the rules they override.
+   content blocks, the phone breakpoint, and finally reduced-motion.
+   Loaded LAST on purpose: the prefers-reduced-motion block is the final word and
+   wins on source order rather than specificity.
    ========================================================================== */
-
-/* ==========================================================================
-   Skip link
-   ========================================================================== */
-.skip{
-  position:absolute;left:var(--space-sm);top:-100%;z-index:100;
-  padding:var(--space-sm) var(--space-md);
-  background:var(--accent);color:var(--accent-ink);
-  border-radius:var(--radius);font-weight:600;text-decoration:none;
-}
-.skip:focus{top:var(--space-sm)}
 
 /* ==========================================================================
    Layout
@@ -305,22 +293,4 @@ main{position:relative;z-index:10}
     transition-duration:0ms !important;
   }
   .js .chamber{opacity:1;transform:none}
-}
-@media print{
-  /* Ctrl/Cmd-P yields the resume document, not the game. The <details> is
-     forced open by the beforeprint handler in JS; the rules below are the
-     backup path for engines that ignore that event. */
-  #stage,.depth,.skip,.btn,main{display:none !important}
-  html,body{background:#fff !important;color:#000}
-  #plain-resume{
-    display:block !important;background:#fff !important;color:#000;
-    border-top:0;padding:0;
-  }
-  #plain-resume>summary{display:none !important}
-  #plain-resume>*{display:block !important}
-  .plain__wrap{max-width:none;margin:0}
-  #plain-resume a{color:#000}
-  #plain-resume h1,#plain-resume h2,#plain-resume h3{break-after:avoid}
-  #plain-resume li,#plain-resume p{orphans:3;widows:3}
-  @page{margin:14mm}
 }

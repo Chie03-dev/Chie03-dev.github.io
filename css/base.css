@@ -1,8 +1,8 @@
 /* ==========================================================================
    base.css - design tokens, reset and page furniture
    Everything that is NOT the cave: the palette restored from b3a4501, the
-   type scale, the reset, the base elements, typography, the depth rail and
-   the plain-resume block. Loaded FIRST, because the :root and body rules
+   type scale, the reset, the base elements, typography and the depth rail.
+   Loaded FIRST, because the :root and body rules
    have to exist before anything that builds on them.
    ========================================================================== */
 
@@ -270,40 +270,4 @@ kbd{font:inherit;font-size:.8em;padding:.05em .4em;
   :root{--rail-space:8.5rem}
 }
 
-/* ==========================================================================
-   Plain resume
-   Collapsed behind <details> so the same content is never on screen twice.
-   The old design made this white on screen; here it is themed like the rest of
-   the page and turns white only for printing, which is what it is for.
-   ========================================================================== */
-#plain-resume{
-  position:relative;z-index:10;
-  background:var(--deep);color:var(--text);
-  border-top:2px solid var(--accent);
-  padding:var(--space-2xl) var(--gutter) var(--space-4xl);
-}
-#plain-resume>summary{
-  cursor:pointer;list-style:none;
-  max-width:var(--content-width);margin:0 auto;
-  min-height:44px;display:flex;align-items:center;gap:var(--space-sm);
-  font-family:var(--font-heading);font-size:var(--step-2);
-  color:var(--accent);padding:var(--space-xs) 0;
-}
-#plain-resume>summary::-webkit-details-marker{display:none}
-#plain-resume>summary::after{content:"\00a0+";color:var(--muted)}
-#plain-resume[open]>summary::after{content:"\00a0\2212"}
-#plain-resume>summary:hover{color:#ffe58a}
-.plain__wrap{max-width:var(--content-width);margin:var(--space-lg) auto 0}
-.plain__name{
-  font-family:var(--font-heading);font-size:var(--step-3);
-  line-height:1.2;margin:0 0 var(--space-2xs);
-}
-#plain-resume h2{font-size:var(--step-2);margin:var(--space-2xl) 0 var(--space-sm);
-  padding-bottom:var(--space-2xs);border-bottom:1px solid rgba(246,241,228,.28)}
-#plain-resume h3{font-size:var(--step-1);margin:var(--space-lg) 0 var(--space-2xs)}
-#plain-resume p{margin:var(--space-xs) 0}
-#plain-resume ul{margin:var(--space-xs) 0;padding-left:var(--space-lg)}
-#plain-resume li{margin-bottom:var(--space-2xs)}
-#plain-resume a{color:var(--accent)}
-.plain__note{margin:0 0 var(--space-lg);color:var(--muted);font-size:var(--step--1)}
 
