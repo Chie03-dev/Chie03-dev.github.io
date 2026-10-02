@@ -1276,6 +1276,8 @@ async function run() {
       {
         const art = M['room-art'];
         if (!art) fail('js/room-art.js did not load');
+        const beastPose = M['beasts'] && M['beasts'].beastPose;
+        if (!beastPose) fail('js/beasts.js did not load beastPose');
         else {
           const shapes = (idx) => {
             const seen = [];
@@ -1409,12 +1411,7 @@ async function run() {
             }
           }
 
-          /* ---- the creatures actually move, and actually stop. ----
-
-             Two checks that are the same question asked from opposite ends. Before
-             this, `t` was the RNG function - drawMob's signature asked for a time
-             and the caller handed it a function, which JavaScript is perfectly happy
-             to multiply by 7 and hand to Math.sin. It threw on nothing. */
+          /* ---- the creatures actually move, and actually stop. ---- */
 
           /* One layer, three moments. Positions AND sizes, unlike the shape-only
              check above - the point is that a pixel changes, so comparing only
@@ -1471,6 +1468,87 @@ async function run() {
           console.log('  cave       ' + spikeBases.length + ' drip formations per room, ' +
                       'seeded, all distinct');
         }
+/* ---- the beasts actually TRAVEL, not just twitch. ----
+
+             The previous version offset pixels around a fixed anchor: every
+             creature was nailed to one spot forever. All the old checks above
+             could pass on that, because a creature pinned to an anchor and
+             wobbling still produces different pixels. These two ask the question
+             those could not: does it cover ground, and does it stay in its room.
+
+             Sampled over long enough to cross the room and turn around, not just
+             two frames - a short sample can miss a slow walk entirely. */
+          const SPAN = 320;
+          for (const kind of ['bat', 'golem', 'spider', 'worm']) {
+            const xs = [];
+            for (let s = 0; s <= 60; s++) xs.push(beastPose(kind, s * 0.5, SPAN).x);
+            const lo = Math.min(...xs), hi = Math.max(...xs);
+
+            /* the bat roosts at x=0 and only flies in part of its cycle, so it is
+               measured over a window that contains a flight */
+            if (kind !== 'bat' && hi - lo < SPAN * 0.7) {
+              fail(kind + ' only travels ' + (hi - lo) + 'px of its ' + SPAN +
+                   'px span - it is pinned to one spot, not walking');
+            }
+            if (kind === 'bat' && hi - lo < SPAN * 0.7) {
+              fail('the bat never crosses its room - it roosts and never flies');
+            }
+            /* and nothing may wander out of the room it lives in */
+            if (lo < -SPAN / 2 - 1 || hi > SPAN / 2 + 1) {
+              fail(kind + ' walks outside its own room (x ' + lo + '..' + hi +
+                   ', allowed +/-' + (SPAN / 2) + ') - it is painting over the rock');
+            }
+            /* and no pose may ever be NaN, which is what an unwrapped clock gives */
+            if (xs.some(v => !Number.isFinite(v))) {
+              fail(kind + ' produced a non-finite position - the clock is not wrapping');
+            }
+          }
+
+          /* The worm's body must trail its head. Each segment samples the head's
+             path at an earlier time, so consecutive segments differ in x; a worm
+             whose segments all sat at one x is a stack of blocks, not an animal. */
+          const wp = beastPose('worm', 4, SPAN);
+          const distinct = new Set(wp.segments.map(s => s.x)).size;
+          if (distinct < 2) {
+            fail('the worm\'s segments are all at the same x - its body is not ' +
+                 'following its own head');
+          }
+
+          /* The spider's legs must stop dead when it stops. This is the detail the
+             whole burst-and-freeze design exists for, and it is the one thing that
+             would silently regress to a constant scuttle. */
+          const spiderSteps = [];
+          for (let s = 0; s <= 400; s++) {
+            spiderSteps.push(beastPose('spider', s * 0.05, SPAN).step);
+          }
+          /* "Does it ever equal 0" is NOT the question - a constant scuttle also
+             rounds to zero now and then, so that check passes on the very bug it
+             exists to catch. The question is whether it holds STILL, so this looks
+             for a RUN of identical values (it is braced, frozen, not rounding by
+             luck) AND for a stretch where the legs are actually working. */
+          let longestStill = 1, run = 1, busiest = 0;
+          for (let i = 1; i < spiderSteps.length; i++) {
+            run = spiderSteps[i] === spiderSteps[i - 1] ? run + 1 : 1;
+            if (run > longestStill) longestStill = run;
+            if (spiderSteps[i] !== spiderSteps[i - 1]) busiest++;
+          }
+          if (longestStill < 10) {
+            fail('the spider never holds still - its legs keep working through the ' +
+                 'braced part of its cycle, so it skates instead of stopping dead');
+          }
+          if (busiest < 20) {
+            fail('the spider never actually moves either');
+          }
+
+          /* Every beast must be deterministic. Same instant, same pose - this is
+             what keeps them testable and keeps a dropped frame harmless. */
+          for (const kind of ['bat', 'golem', 'spider', 'worm']) {
+            const a = JSON.stringify(beastPose(kind, 12.34, SPAN));
+            const b = JSON.stringify(beastPose(kind, 12.34, SPAN));
+            if (a !== b) {
+              fail(kind + ' is not deterministic - the same instant gave two poses');
+            }
+          }
       }
 
       /* THE SHAFT IS SEALED. THE PLAYER CANNOT LEAVE IT.

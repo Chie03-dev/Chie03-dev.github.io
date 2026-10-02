@@ -19,6 +19,7 @@
    belongs to, and adding a layer colours its room for free.
    ========================================================================== */
 
+import { beastPose } from './beasts.js';
 /* Tint per layer key, matching the band colours the rest of the renderer uses.
    The three values are the wash over the back wall, the floor fill and the
    highlight line along the top of the floor - kept together so a room cannot
@@ -216,7 +217,13 @@ var MOBS = ['bat', 'golem', 'spider', 'worm'];
    with nothing in it is a worse outcome than a still gallery - so it is handled
    by freezing t at 0, which puts all four in their neutral pose at once, rather
    than by special-casing each one. */
-function drawMob(ctx, t, kind, x, floorY, h) {
+/* Draws a beast. EVERYTHING about its motion - where it is, which way it faces,
+   what its legs are doing - arrives in `pose` from beasts.js. This function only
+   paints. The line between those two jobs is the whole reason beasts.js is its
+   own file: the previous version had both in one place and the motion was
+   therefore stuck to a fixed anchor, because the thing that decided WHERE the
+   creature was had already decided that was its spot. */
+function drawMob(ctx, kind, x, floorY, h, pose) {
   var eye = '#ffd24a';
   var dark = '#0d1116';
 
@@ -227,61 +234,61 @@ function drawMob(ctx, t, kind, x, floorY, h) {
   }
 
   if (kind === 'bat') {
-    /* HANGS, AND FLAPS. The wings rise and fall together while the body stays
-       put - a bat beats its wings and its body hangs, and that contrast is the
-       whole silhouette. Fast, because a bat is fast. */
-    var flap = Math.round(Math.sin(t * 7) * 5);
+    /* HANGS, AND FLAPS - or swoops. pose.wing is signed, so the same number both
+       beats (in flight) and furls (on the roost). */
+    var wing = pose.wing;
     var len = Math.round(h * 0.24);
-    var y0 = floorY - len;
+    var y0 = floorY - len + (pose.y || 0);
+    var bx = x + (pose.bank || 0);      /* a banking head leads the body */
     ctx.fillStyle = dark;
-    ctx.fillRect(x - 22, y0 + 4 - flap, 12, 4);
-    ctx.fillRect(x + 10, y0 + 4 - flap, 12, 4);
-    ctx.fillRect(x - 26, y0 + 8 + flap, 6, 3);
-    ctx.fillRect(x + 20, y0 + 8 + flap, 6, 3);
-    ctx.fillRect(x - 5, y0, 10, 12);
-    ctx.fillRect(x - 4, y0 - 7, 8, 8);
-    eyes(0, y0 - 5, 3, 2);
+    ctx.fillRect(bx - 22, y0 + 4 - wing, 12, 4);
+    ctx.fillRect(bx + 10, y0 + 4 - wing, 12, 4);
+    ctx.fillRect(bx - 26, y0 + 8 + wing, 6, 3);
+    ctx.fillRect(bx + 20, y0 + 8 + wing, 6, 3);
+    ctx.fillRect(bx - 5, y0, 10, 12);
+    ctx.fillRect(bx - 4, y0 - 7, 8, 8);
+    eyes(bx - x, y0 - 5, 3, 2);
   } else if (kind === 'golem') {
-    /* BREATHES. Slow and shallow, and the shoulders move with the mass so it
-       reads as something heavy breathing rather than something floating. */
-    var br = Math.round(Math.sin(t * 1.1) * 2);
+    /* HEAVES. The body rides up on the footfall; the shoulders swing a beat behind
+       it, which is the detail that stops a walk reading as a slide. */
+    var lift = (pose.y || 0);
     var gh = Math.round(h * 0.34);
+    var sw = pose.swing || 0;
     ctx.fillStyle = dark;
-    ctx.fillRect(x - 17, floorY - gh - br, 34, gh + br);
-    ctx.fillRect(x - 20, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
-    ctx.fillRect(x + 8, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
-    ctx.fillRect(x - 22, floorY - gh - 6 - br, 44, 8);
-    eyes(0, floorY - gh - 2 - br, 7, 3);
+    ctx.fillRect(x - 17, floorY - gh + lift, 34, gh - lift);
+    /* legs, offset by the arm swing so the weight visibly shifts */
+    ctx.fillRect(x - 20 + sw, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
+    ctx.fillRect(x + 8 - sw, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
+    ctx.fillRect(x - 22, floorY - gh - 6 + lift, 44, 8);
+    eyes(0, floorY - gh - 2 + lift, 7, 3);
   } else if (kind === 'spider') {
-    /* SCUTTLES. The legs step in alternating pairs, each on its own offset, so
-       the walk ripples down the row instead of the whole creature sliding side to
-       side - a sliding spider looks like a sprite on a rail. */
-    var scuttle = Math.round(Math.sin(t * 3.2) * 3);
-    var sy = floorY - 14;
+    /* SCUTTLES, WITH STOPS. pose.step is zero when it is braced, so the legs go
+       still - which is the whole reason a spider reads as deciding to move. */
+    var step = pose.step || 0;
+    var sy = floorY - 14 + (pose.crouch ? 2 : 0);
+    var sk = pose.crouch ? 0 : step;      /* the body only shifts while it walks */
     ctx.fillStyle = dark;
     for (var i = 0; i < 4; i++) {
       var lx = x - 16 + i * 10;
-      var step = Math.round(Math.sin(t * 6 + i * 1.7) * 4);
       var dy = 6 + (i % 2) * 4;
       ctx.fillRect(lx, sy - dy + step, 3, dy + 14 - step);
     }
-    ctx.fillRect(x - 11 + scuttle, sy - 5, 22, 14);
-    ctx.fillRect(x - 7 + scuttle, sy - 11, 14, 8);
-    eyes(scuttle, sy - 9, 4, 2);
+    ctx.fillRect(x - 11 + sk, sy - 5, 22, 14);
+    ctx.fillRect(x - 7 + sk, sy - 11, 14, 8);
+    eyes(sk, sy - 9, 4, 2);
   } else {
-    /* CRAWLS. A travelling wave down the segments: each lags the one before it, so
-       the body ripples forward instead of sliding as a bar. Only the head has
-       eyes, so the direction of travel is readable. */
+    /* CRAWLS, AND FOLLOWS ITS OWN PATH. Each segment is placed at the head's
+       position from a moment ago, so the body trails behind the head instead of
+       being a row of blocks that bob together. */
     ctx.fillStyle = dark;
-    var wx = x - 26 + Math.round(Math.sin(t * 2.2) * 6);
-    for (var s = 0; s < 5; s++) {
+    var pts = pose.segments;
+    for (var s = 0; s < pts.length; s++) {
       var sw2 = 16 - s * 2;
       var sh = 12 - s;
-      var wob = Math.round(Math.sin(t * 4 - s * 0.8) * 2);
-      ctx.fillRect(wx, floorY - sh + wob, sw2, sh);
-      wx += sw2 - 3;
+      ctx.fillRect(x + pts[s].x, floorY - sh + pts[s].y, sw2, sh);
     }
-    eyes(0, floorY - 11 + Math.round(Math.sin(t * 4) * 2), 3, 2);
+    var head = pts[0];
+    eyes(head.x, floorY - 11 + head.y, 3, 2);
   }
 }
 
@@ -354,7 +361,20 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side, now, reduced) {
        creatures, and it is one expression rather than a branch in each of four
        bodies - see the note above drawMob. */
     var mt = reduced ? 0 : now / 1000;
-    drawMob(ctx.mobLayer, mt, MOBS[index % MOBS.length], mx, floorY, mh);
+    var kind = MOBS[index % MOBS.length];
+    /* The patrol span. The anchor is the room's CENTRE, not a jittered spot - the
+       creature used to be pinned to one jittered x forever, which is exactly the
+       thing this change exists to remove. The jitter survives only as a small
+       per-room offset, so two rooms' residents do not walk in lockstep and the
+       spans do not overlap into one continuous patrol line.
+
+       Inset from the walls on both sides so a creature turning around never
+       paints over the rock it is supposed to be standing in. */
+    var cx = (b.left + b.right) / 2;
+    var span = Math.max(40, (b.right - b.left) - 200);
+    var home = Math.round(cx + (r() - 0.5) * (span * 0.4));
+    drawMob(ctx.mobLayer, kind, home, floorY, mh,
+            beastPose(kind, mt, span));
   }
 
   /* --- props, drawn BEFORE the floor line so the floor always reads as the
