@@ -206,57 +206,48 @@ const known = {
   summary: box(0, 200, 48, 520), skills: box(634, 200, 872, 520),
   projects: box(1268, 200, 48, 520), experience: box(1902, 200, 872, 520),
   education: box(2536, 200, 48, 520), '.dig__shaft': box(0, 2736, 620, 200),
+  /* The sixth room. It is a real <section> now, so measure() finds it by id like
+     the other five and it comes out of the PANEL loop - there is no synthetic
+     band any more. It sits below Education, and the walkable cavern is the
+     airspace under it that the dig's bottom padding reserves. */
+  cave: box(3170, 200, 872, 520), '#cave': box(3170, 200, 872, 520),
   /* The rooms the travel window is anchored to, keyed by the exact selectors
-     layers.js measure() uses. The treasure room is also data-layer="bedrock",
-     so selecting it by class is what distinguishes it from the Education
-     chamber - and the car is specified to stop BEFORE it. */
+     layers.js measure() uses.
+
+     `.dig` is the grid every row lives in, and it is now the cave's anchor:
+     measureCave() reads its box, and layers.js reads its bottom for the floor of
+     the bedrock band. It runs from the top of the dig (docTop 0, the surface
+     camp) down to 3770, which is below the Education chamber at 2536+200 =
+     2736 - so the cave's room top, derived from that chamber's bottom, is 2736
+     and the cave occupies 2736..3770.
+
+     '[data-layer="bedrock"].chamber' is the Education chamber, and travelTo is
+     its BOTTOM. cave.js selects the same exact string for the cave's top, so the
+     car's stop and the cave's ceiling come from one number rather than two that
+     could drift apart. */
   '[data-layer="dirt"]': box(634, 200, 872, 520),
-  '.treasure': box(3170, 600, 48, 1344)
+  '[data-layer="bedrock"].chamber': box(2536, 200, 48, 520),
+  '.dig': box(0, 3874, 0, 1440)
 };
-/* The document Y of the treasure room, taken from the stub itself rather than
-   repeated as a literal, so the barrier assertion below cannot drift away from
-   the geometry that actually drives it. Read through the stub's own docTop
+/* The document Y of the foot of the dig - the cave's ceiling, and what the
+   barrier assertion below measures against. Read through the stub's own docTop
    closure value, NOT via getBoundingClientRect() - that subtracts the current
    scroll, and `window` does not exist yet at this point in the file. */
-const TREASURE_TOP = 3170;
-/* A fake chest, and the fake loot panel it controls. Enough of a real element for
-   treasure.js: dataset, the aria attributes, style.setProperty, textContent and
-   a click listener that can be fired by the test.
+const TREASURE_TOP = 3370;
+/* The cave room's top is the CAVE SECTION's bottom (3370), not Education's - the
+   cave is a real room now. The dig runs to 3874, i.e. 504px below it, which is
+   what the real CSS reserves at 900px tall (56vh). */
+const CAVE_TOP = 3370;
+/* The fake-chest fixture (fakeLoot, fakeChest, FAKE_CHESTS, FAKE_TOTAL) and the
+   vault-grid / gold-count / gold-total / contact stubs that served it are GONE
+   with the hoard. They existed so initHoard() would find five real chests and
+   a real room to write --gold onto; both of those are gone, and leaving a
+   fixture for a module that no longer exists would have smoke.mjs importing a
+   dead file's worth of ids and asserting nothing about them.
 
-   This exists rather than having the harness return an empty list, because an
-   empty list would make initHoard() take its "no hoard in this document" early
-   return and the whole module would go untested while still reporting a pass -
-   the same species of vacuous green the band assertions had before the fixture
-   was given realistic gaps. */
-function fakeLoot(id) {
-  return {
-    id: id, attrs: {}, textContent: '',
-    setAttribute(k, v) { this.attrs[k] = v; },
-    getAttribute(k) { return this.attrs[k] === undefined ? null : this.attrs[k]; }
-  };
-}
-function fakeChest(gold, n) {
-  /* The loot id MUST be unique per chest. It was derived from the gold value
-     alone at first, and the two 2-gold chests then shared one id - so a click on
-     one toggled aria-hidden on the other's panel, and the assertion fired on
-     correct code. The same duplicate-id bug in the real markup would mean two
-     chests controlling one panel. */
-  const loot = fakeLoot('loot-' + n);
-  const self = {
-    dataset: { gold: String(gold), spent: '0' },
-    attrs: { 'aria-expanded': 'false', 'aria-controls': loot.id },
-    style: { props: {}, setProperty(k, v) { this.props[k] = v; } },
-    textContent: '', loot: loot, fired: 0,
-    setAttribute(k, v) { this.attrs[k] = v; },
-    getAttribute(k) { return this.attrs[k] === undefined ? null : this.attrs[k]; },
-    addEventListener(_type, fn) { this._fn = fn; },
-    /* Drive it the way a reader would. */
-    click() { this.fired++; if (this._fn) this._fn(); }
-  };
-  return self;
-}
-const FAKE_CHESTS = [3, 2, 1, 2, 1].map((g, i) => fakeChest(g, i));
-const FAKE_TOTAL = FAKE_CHESTS.reduce((n, c) => n + parseInt(c.dataset.gold, 10), 0);
+   '.treasure' itself is GONE from `known` above, with the room it measured. The
+   fixture now keys `.dig` (the cave's anchor) and '[data-layer="bedrock"].chamber'
+   (the foot of the dig, which travelTo and the cave's top both come from). */
 
 const stubEl = (sel) => known[sel] || {
   classList: { add: noop, remove: noop, contains: () => false },
@@ -266,23 +257,6 @@ const stubEl = (sel) => known[sel] || {
   querySelectorAll: () => [],
   getBoundingClientRect: () => box(0, 0, 0, 0)
 };
-/* The hoard, keyed by the exact ids treasure.js asks for - which have NO leading
-   '#'. They used to, which meant getElementById() missed every one of them,
-   initHoard() took its early return, and all seven hoard assertions failed
-   while the module itself reported a clean zero. The keys have to match the
-   lookups exactly or the fixture tests nothing. */
-known['vault-grid'] = { querySelectorAll: () => FAKE_CHESTS };
-known['gold-count'] = { textContent: '' };
-known['gold-total'] = { textContent: '' };
-/* The room itself, because treasure.js writes --gold onto it and the assertion
-   reads it back. Without this the generic stub's no-op setProperty swallowed
-   every write and the check reported --gold=undefined on correct code. */
-known['contact'] = {
-  style: { props: {}, setProperty(k, v) { this.props[k] = v; } }
-};
-/* The loot panels, one per fake chest, addressed by the aria-controls the fake
-   buttons carry. */
-for (const c of FAKE_CHESTS) known[c.loot.id] = c.loot;
 
 globalThis.document = {
   getElementById: (id) => (id === 'stage' ? stage : stubEl(id)),
@@ -445,38 +419,24 @@ async function run() {
   console.log('graph     ' + files.map(f => f.replace('.js', '') + '->[' +
               (deps[f] || []).map(d => d.replace('.js', '')).join(',') + ']').join('  '));
 
-  /* 2b. The shaft channel through the treasure room. This one is a check on the
-        STYLESHEET rather than on behaviour, and it is here for a specific
-        reason: the channel is what stops the sprite being buried by the room,
-        and nothing in the JS above can see a CSS mask. Without this, deleting
-        the channel would leave every other assertion in this file perfectly
-        green while the sprite went back behind the rock.
+  /* 2b. IS GONE - the shaft channel through the treasure room.
+       These were stylesheet checks, not behavioural ones, and they existed for a
+       specific reason: the channel was a CSS mask on `#contact::before`, and
+       nothing in the JS can see a CSS mask. Without the check, deleting the
+       channel would have left every other assertion green while the sprite went
+       back behind the room's rock.
 
-        Whitespace is stripped first so a reformat cannot silently disarm it. */
-  const layoutCss = readFileSync(join(ROOT, 'css', 'layout.css'), 'utf8');
-  const chambersCss = readFileSync(join(ROOT, 'css', 'chambers.css'), 'utf8');
-  const flat = (s) => s.replace(/\s+/g, '');
-  /* Both the prefixed and unprefixed forms must be a real gradient cut, not
-     merely present. An earlier version of this check only asked whether the
-     property appeared at all, and the mutation test caught that: neutering the
-     -webkit- line still left the unprefixed one, so the check passed while
-     Safari - which needs the prefix - would have shown no channel at all. */
-  if (!/#contact::before\{[^}]*-webkit-mask-image:linear-gradient/.test(flat(layoutCss))) {
-    fail('the treasure room has no shaft channel: #contact::before carries no mask cut');
-  }
-  if (!/#contact::before\{[^}]*[^-\w]mask-image:linear-gradient/.test(flat(layoutCss))) {
-    fail('the shaft channel has no unprefixed mask, so it will not render');
-  }
-  if (!/--ch:calc\(\(var\(--shaft-w\)/.test(flat(layoutCss))) {
-    fail('the channel width --ch is not derived from the shaft token');
-  }
-  if (!/#contact\{[^}]*background:none/.test(flat(chambersCss))) {
-    fail('#contact still paints its own background, which would cover the channel');
-  }
-  const phoneCss = flat(layoutCss).slice(flat(layoutCss).indexOf('@media(max-width:820px)'));
-  if (!/#contact\{display:block/.test(phoneCss)) {
-    fail('the phone layout does not restore the single-column treasure room');
-  }
+       The room is gone, so there is no rock to bury the sprite and no mask to cut.
+       The cave and the player are both drawn on the canvas, with no HTML in that
+       region to sit on top of either - so the failure this guarded against cannot
+       occur any more.
+
+       What replaced it is behavioural rather than textual: the assertions that the
+       player stays on screen inside the cave, and the "car stays visible after the
+       player leaves it" mutation, which is judged from recorded draw calls rather
+       than from a stylesheet. Those are the checks that would catch a buried
+       sprite now. */
+
 
   /* 2c. The sprite registry must actually contain sprites. This check exists
         because fault 14 in the mutation test proved the point the hard way:
@@ -558,12 +518,28 @@ async function run() {
      bands that touch but equal their panels has fixed nothing. */
   {
     const ls = L.layers;
-    if (ls.length !== 5) fail('expected 5 layers, measured ' + ls.length);
+    /* SIX layers, ALL of them panel-backed. The cave used to be a synthetic band with
+       no <section> behind it; it is a real room now, so it comes out of the panel
+       loop like the other five and the synthetic band is gone. The assertion is
+       a shape rather than a bare number: a count alone would not notice the cave
+       quietly becoming a band again. */
+    const panels = ls.filter((l) => !l.cave);
+    const caves = ls.filter((l) => l.cave);
+    if (panels.length !== 6) {
+      fail('expected 6 panel-backed layers, measured ' + panels.length);
+    }
+    if (caves.length !== 0) {
+      fail('the cave is a real <section> now, so it must come out of the panel loop; ' +
+           'found ' + caves.length + ' synthetic cave band(s) as well');
+    }
     for (let i = 0; i < ls.length; i++) {
       const l = ls[i];
       if (!(l.height > 0)) fail(l.id + ' band has no height');
       /* panelTop/panelBottom are what the band is derived FROM, so comparing
-         against them tests the derivation itself rather than a re-measure. */
+         against them tests the derivation itself rather than a re-measure. The
+         cave band is skipped: it has no panel, and its panel numbers are 0 by
+         definition, so `top <= panelTop` would be a comparison against a fiction. */
+      if (l.cave) continue;
       if (!(l.top <= l.panelTop)) {
         fail(l.id + ' band starts below its own panel: ' + l.top + ' > ' + l.panelTop);
       }
@@ -619,6 +595,16 @@ async function run() {
      The threshold is not arbitrary. The seam is a jagged curve +/-13px around
      the band top (layers.js seamY), so a gap below about 6rem starts drawing
      that jitter across the panel edge. */
+  /* layoutCss / phoneCss are read here, next to the checks that use them, rather
+     than up at the old 2b block. That block was the shaft-channel check and is
+     gone with the room; these two are the surviving stylesheet checks, and they
+     are the only ones left - the stub has no cascade, so a collapsed row-gap is
+     invisible to every behavioural assertion in this file.
+
+     Whitespace is stripped first so a reformat cannot silently disarm them. */
+  const layoutCss = readFileSync(join(ROOT, 'css', 'layout.css'), 'utf8');
+  const flat = (s) => s.replace(/\s+/g, '');
+  const phoneCss = flat(layoutCss).slice(flat(layoutCss).indexOf('@media(max-width:820px)'));
   if (!/row-gap:clamp\(\s*14rem/.test(flat(layoutCss))) {
     fail('the desktop row-gap is too small to be layer headroom (expected clamp(14rem, 46vh, 34rem))');
   }
@@ -657,7 +643,7 @@ async function run() {
     }
 
     /* The travel window: the car sets off at the dirt room and stops just before
-       the Bedrock treasure room, and is stationary everywhere else. These
+       the hollow cave at the foot of the shaft, and is stationary everywhere else. These
        anchors come from layers.js, which measures them out of the markup. */
     const start = L.travelFrom;
     const end = L.travelTo;
@@ -673,8 +659,12 @@ async function run() {
     if (L.layers[0] && start < L.layers[0].bottom) {
       fail(label + ' travel starts inside the sky section, not at the dirt');
     }
-    if (L.layers[4] && end > L.layers[4].bottom) {
-      fail(label + ' travel runs past the end of the bedrock chamber');
+    /* The deepest room is the CAVE now (layers[5]), not the bedrock chamber:
+       travelTo moved down with it. Checking against layers[4] would have let the
+       car travel 634px past the end of the page's last room. */
+    const deepestRoom = L.layers[L.layers.length - 1];
+    if (deepestRoom && end > deepestRoom.bottom) {
+      fail(label + ' travel runs past the end of the deepest room (' + deepestRoom.id + ')');
     }
 
     if (!near(settle(0), band.top)) fail(label + ' car is not held at the top through the sky');
@@ -1829,20 +1819,16 @@ async function run() {
            'CAVE_FLOOR_PARK)');
     }
 
-    /* (e) the chest anchors are the REAL chests, not a remembered layout. The
-       whole alignment argument rests on this, so it is asserted rather than
-       assumed. If the document has chests and the cave finds none, every chest is
-       unreachable by walking - and a check that silently passes because the stub
-       has no .chest elements is worse than no check at all. */
-    {
-      const anchors = CV.chestAnchors();
-      const chests = globalThis.document.querySelectorAll('.chest');
-      if (chests.length && !anchors.length) {
-        fail('the document has ' + chests.length + ' chests but the cave found ' +
-             'none, so it has no idea where the treasure is and no chest can be ' +
-             'reached by walking');
-      }
-    }
+    /* (e) IS GONE. This used to assert that the cave's chest anchors were the
+       REAL measured chests rather than a remembered layout, because the whole
+       alignment argument rested on it: if the document had chests and the cave
+       found none, every chest would have been unreachable by walking.
+
+       There are no chests, and chestAnchors() is deleted rather than left
+       returning an empty list. The check could not be kept honestly - with no
+       chests in the document it would either skip itself forever (the vacuous
+       green its own comment warns about) or assert something about a function
+       that no longer exists. */
 
     /* (f) the hoist is drawn in the shaft and NOT drawn in the cave.
 
@@ -1870,10 +1856,26 @@ async function run() {
       CV.enterCave(G.player);
       G.player.inCave = true;
       const inCaveRects = countRects(() => R.render(16));
-      /* In the shaft, on a scroll where the car is genuinely ON SCREEN. The car is
-         at the top of its band at travelFrom, so the walk forward looks for a
-         frame that actually draws something rather than assuming one. */
-      let inShaftRects = 0;
+      /* The DIRECT check: render.js counts every time drawCar() actually runs, so
+         this asks the question instead of inferring it from draw-call volume. The
+         check it replaces compared total rects between the cave frame and a shaft
+         frame - a proxy that read "the cave draws less, so the car must be gone". That
+         held until the cave gained real art (backdrop, crystals, shelves), at which
+         point it would have started failing for reasons having nothing to do with the
+         car, or - worse - passing while a car was drawn. */
+      const carInCave = R.carDrawn;
+      if (carInCave !== 0) {
+        fail('the mine car is still drawn while the player is standing in the cave: ' +
+             'drawCar() ran ' + carInCave + ' time(s) with player.inCave set. An ' +
+             'empty car hanging over the cave reads as a bug - nobody is riding it. ' +
+             'drawHoist() has to return early on player.inCave');
+      }
+
+      /* In the shaft, on a scroll where the car is genuinely ON SCREEN. Asserted in
+         the OTHER direction too, because a counter that only ever reads 0 would
+         pass the check above for the wrong reason - it would pass because the
+         renderer had stopped, not because the car was correctly skipped. */
+      let carInShaft = 0;
       for (let sc = L.travelFrom; sc <= L.travelTo; sc += 25) {
         globalThis.window.scrollY = sc;
         L.syncScroll();
@@ -1881,23 +1883,85 @@ async function run() {
         G.snapPlayerToGround();
         G.player.inCave = false;
         for (let i = 0; i < 200; i++) D.advanceCar(1 / 60);
-        const n = countRects(() => R.render(16));
-        if (n > inShaftRects) inShaftRects = n;
+        countRects(() => R.render(16));
+        if (R.carDrawn > carInShaft) carInShaft = R.carDrawn;
       }
-      if (!inShaftRects) {
-        fail('no scroll position anywhere in the travel window drew a single rect, ' +
-             'so the shaft reference frame for the hoist check is empty and it ' +
-             'cannot tell the hoist being absent from the renderer having stopped');
+      if (!carInShaft) {
+        fail('the mine car was never drawn at ANY scroll position in the travel ' +
+             'window, so the check above would pass for the wrong reason: it cannot ' +
+             'tell the car being correctly skipped from the renderer having stopped');
       }
-      /* Strictly fewer, and by a real margin: the cave frame is missing the whole
-         hoist, which is dozens of rects. A tolerance here would let a partly-drawn
-         car through. */
-      if (!(inCaveRects < inShaftRects - 10)) {
-        fail('the mine car is still drawn while the player is standing in the ' +
-             'cave: the cave frame draws ' + inCaveRects + ' rects and the shaft ' +
-             'frame ' + inShaftRects + '. An empty car hanging over the treasure ' +
-             'room reads as a bug - nobody is riding it. drawHoist() has to return ' +
-             'early on player.inCave');
+
+      /* The car is NOT drawn above the soil line. The regression test for the
+         parked elevator hanging in the open sky at the top of the page.
+
+         The walk above starts at travelFrom, so it can only ever see the car
+         BELOW the dirt room - it is structurally blind to the whole sky. That is
+         why this is a separate walk from scrollY = 0, and why the car being
+         correctly drawn inside the window is not evidence about the sky.
+
+         Counter-based like the check above, so this still measures what render()
+         emitted rather than trusting the painter to report itself.
+
+         The walk stops one band top SHORT of the dirt room, and that is the
+         subtlety: the car only crosses the soil line at (travelFrom - band.top),
+         not at travelFrom. Checking all the way up to travelFrom therefore
+         asserts the car must be invisible at scroll positions where it is
+         correctly underground - it failed that way on the first run, which is
+         the test being wrong rather than the gate. bandTop is read from
+         deckBounds() rather than hard-coded, so the boundary tracks the layout
+         instead of a number that goes stale. */
+      const bandTop = D.deckBounds().top;
+      const skyEnd = Math.max(0, L.travelFrom - bandTop - 20);
+      let carInSky = 0, spriteInSky = 0;
+      for (let sc = 0; sc < skyEnd; sc += 25) {
+        globalThis.window.scrollY = sc;
+        L.syncScroll();
+        M.main.resize();
+        G.snapPlayerToGround();
+        G.player.inCave = false;
+        for (let i = 0; i < 200; i++) D.advanceCar(1 / 60);
+        countRects(() => R.render(16));
+        if (R.carDrawn > carInSky) carInSky = R.carDrawn;
+        if (R.playerDrawn > spriteInSky) spriteInSky = R.playerDrawn;
+      }
+      /* The SPRITE as well as the car. It rides the car, so gating the car alone
+         deletes the platform and leaves the reader standing on nothing in the
+         open sky - a worse fault than the one this replaces, and one that left
+         every other assertion green until playerDrawn existed to measure it. */
+      if (spriteInSky > 0) {
+        fail('the SPRITE is drawn ' + spriteInSky + ' time(s) above the soil line. ' +
+             'It rides the car, so hiding the car but not the sprite leaves the ' +
+             'reader floating in the sky on nothing. drawPlayer() must be gated ' +
+             'by the same elevatorInSoil() rule as drawHoist()');
+      }
+      if (carInSky > 0) {
+        fail('the mine car is drawn ' + carInSky + ' time(s) ABOVE the soil line ' +
+             '(scroll 0 up to ' + Math.round(skyEnd) + ', where the car is still ' +
+             'above the dirt room at ' + Math.round(L.travelFrom) + '). ' +
+             'The band is viewport-relative, so a car parked at the top of it ' +
+             'hangs in the open sky. drawHoist() must return early when the car ' +
+             'is above the soil, and drawPlayer() must follow it - the sprite ' +
+             'rides the car and would otherwise float on nothing');
+      }
+      /* The counterpart, so the check above cannot pass for the wrong reason: the
+         elevator must REAPPEAR underground. Gating it off everywhere would make
+         "drawn 0 times in the sky" true and the car would simply be gone. */
+      let carBackUnderground = 0;
+      for (let sc = skyEnd; sc <= L.travelTo; sc += 25) {
+        globalThis.window.scrollY = sc;
+        L.syncScroll();
+        M.main.resize();
+        G.snapPlayerToGround();
+        G.player.inCave = false;
+        for (let i = 0; i < 200; i++) D.advanceCar(1 / 60);
+        countRects(() => R.render(16));
+        if (R.carDrawn > carBackUnderground) carBackUnderground = R.carDrawn;
+      }
+      if (!carBackUnderground) {
+        fail('the mine car is never drawn below the soil line either, so hiding ' +
+             'it in the sky passed for the wrong reason: the elevator is simply ' +
+             'gone from the page rather than hidden until it is underground');
       }
       /* Put the player back in the cave for the checks that follow. */
       globalThis.window.scrollY = Math.max(0, TREASURE_TOP - 100);
@@ -2037,9 +2101,11 @@ async function run() {
        movePlayer() refuses to enter the cave on a non-finite floor. */
     {
       const saveRect = globalThis.document.querySelector;
-      /* Make the room unmeasurable, the way a not-yet-laid-out document is. */
+      /* Make the room unmeasurable, the way a not-yet-laid-out document is.
+         The anchor is now `.dig` - the cave reads that box, since the empty
+         treasure-room section it used to measure is gone from the markup. */
       globalThis.document.querySelector = function (sel) {
-        if (sel === '.treasure') return null;
+        if (sel === '.dig') return null;
         return saveRect.call(globalThis.document, sel);
       };
       CV.measureCave(L.viewW, L.viewH);
@@ -2083,14 +2149,13 @@ async function run() {
   console.log('  modules load; graph acyclic; every import resolves and is used');
   console.log('  band centred and inside the viewport at all ' + VIEWPORTS.length + ' sizes');
   console.log('  car waits at the top through the sky, sets off at the dirt room,');
-  console.log('  stops just before the Bedrock treasure room, and never passes that stop');
+  console.log('  stops just before the hollow cave, and never passes that stop');
   console.log('  no direction reversals; character never sinks; no non-finite coordinates');
   console.log('  pixel-art sheets sliced and tinted: ' + slices.length +
               ' sprites (the trees; the grass, tufts and rock are all drawn)');
   console.log('  soil and grass both clipped to the jagged seam, so neither can' +
                ' sit above the green line');
-  console.log('  the hoard loads and boots without error (its own behaviour,');
-  console.log('    markup and CSS are asserted by tools/hoard-test.mjs)');
+  console.log('  the hollow cave measures, and the lift car still stops above it');
 }
 
 run().catch((e) => {
@@ -2098,5 +2163,6 @@ run().catch((e) => {
   console.error(e.stack);
   process.exitCode = 1;
 });
+
 
 

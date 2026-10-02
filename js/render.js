@@ -16,7 +16,8 @@
 import {
   ctx, viewW, viewH, DEEP, ROCK, layers, scrollY, activeLayerIndex,
   shaftLeft, shaftRight, spriteScale,
-  TILE, patterns, seamY, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS
+  TILE, patterns, seamY, mulberry32, SHAFT_TINT, SPRITES, FRAME_MS,
+  travelFrom
 } from './layers.js';
 import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
@@ -27,9 +28,21 @@ import { drawBiomes, drawSurfaceProps } from './biomes.js';
    where to read it is the meadow-twitch bug, and this is the same trap with
    rocks on it. */
 import {
-  caveActive, screenFloorY, caveRnd, caveRoof,
+  caveActive, screenFloorY, caveRnd,
   CAVE_FLOOR_STEP, CAVE_RUBBLE_SEED, CAVE_VEIN_SEED
 } from './cave.js';
+/* The cage at the foot of the shaft. Its geometry is drawn from the same
+   functions the collision reads - cageFloorY() in particular - so the plate the
+   player lands on and the plate that is painted cannot be two different lines. */
+import { cageActive, cageFloorY, cageSpan } from './cage.js';
+/* The cave drawn as a LEVEL: parallax backdrop, strata, crystals, torches,
+   stalactites, the shelves themselves and the near foreground. It is its own
+   module because render.js is already past the 500-line cap and no cave art may
+   be added here. */
+import {
+  drawBackdrop, drawStrata, drawCrystals, drawTorches, drawStalactites,
+  drawForegroundRocks
+} from './cave-scene.js';
 
 /* Tiny helper: draw one snapped, axis-aligned pixel rect. Snapping keeps
    edges crisp on HiDPI, where a fractional fill would blur a whole pixel. */
@@ -218,7 +231,26 @@ function drawShaft() {
   }
 }
 
-/* === The hoist ============================================================
+/* How many times the mine car was actually drawn this frame. A DIRECT check,
+   replacing an older one that compared total rect counts between the cave frame
+   and a shaft frame - a proxy that said "the cave draws less than the shaft, so
+   the car is gone". It worked until the cave gained real art, at which point it
+   would have started failing for a reason having nothing to do with the car.
+
+   This counts the thing itself: drawCar() increments it. 0 in the cave means the
+   car is provably not drawn, however much art surrounds it, and however much art
+   is added later. Exported for tools/smoke.mjs, which asserts both directions. */
+var carDrawn = 0;
+
+/* Counts drawPlayer() the same way carDrawn counts drawCar().
+
+   Added with the soil-line gate, because gating the car without gating the sprite
+   would delete the platform and leave the reader standing on nothing - and the
+   smoke suite could not see that, since a mutated sprite gate left every existing
+   assertion green. The sprite has to be counted to be assertable at all. */
+var playerDrawn = 0;
+
+/* The hoist ================================================================
    Everything below is what makes the thing on the deck read as a MINE CAR
    rather than as a lit line. Three parts, drawn back to front: the headgear at
    the top of the shaft (a sheave wheel and its bracket), the cables running
@@ -264,6 +296,10 @@ function drawHoist() {
 
   /* Car parked below the foot of the screen: nothing of this is visible. */
   if (y > viewH + 40) return;
+
+  /* Car is up in the open sky, above the soil line: not drawn. See
+     elevatorInSoil() for why this is a render decision and not a travel one. */
+  if (!elevatorInSoil(y)) return;
 
   /* --- Sheave wheel and bracket, above the top of travel ------------------- */
   var wheelR = 9;
@@ -333,7 +369,41 @@ function drawHoist() {
 
    Clipped to the shaft box, so the plate and the weight never run out over the
    rock where the panel text sits. */
+/* Is the elevator below the soil line right now, i.e. should it be drawn at all?
+
+   THE BUG THIS FIXES. The car parks at the top of its band, and the band is
+   VIEWPORT-relative, so a parked car sits at one fixed screen height no matter
+   how far down the page the reader is. Over the sky that is a mine car hanging in
+   mid-air with the dirt still below the fold, and the sprite - who rides the car -
+   hanging with it. Scrolling to the very top of the page parked it at its most
+   exposed.
+
+   WHY IT IS NOT FIXED IN deck.js. The travel window cannot be moved. Raising the
+   start makes the car descend before the dirt room opens (smoke.mjs's "car starts
+   moving before the dirt room" check caught that at eight viewports); lowering it
+   to "soil well on screen" truncates the journey, because travelTo is pinned at
+   the foot of the dig. So the travel model is correct and the fix belongs here.
+
+   WHY IT IS NOT A SCREEN-SPACE CAP AGAINST THE SOIL. The soil line's screen y
+   DECREASES as the reader scrolls down, so clamping the car against it every
+   frame would haul the car back UP the band while the page descends - a direction
+   reversal, the exact defect the monotonic-travel rule exists to catch. The
+   comparison below is therefore made in DOCUMENT space, where the car and the
+   soil line are both fixed and the answer cannot flip as the reader scrolls. */
+
+function elevatorInSoil(carScreenY) {
+  /* Unmeasured: draw it. A missing soil line must not delete the elevator, and
+     this is the same fail-safe direction the rest of the render path uses. */
+  if (!isFinite(travelFrom) || travelFrom <= 0) return true;
+  var carDocY = carScreenY + scrollY;
+  if (!isFinite(carDocY)) return true;
+  /* The car's floor plate, so the sprite standing on it is not clipped by the
+     line it is resting on. */
+  return carDocY >= travelFrom;
+}
+
 function drawCar(y, l, r) {
+  carDrawn++;
   ctx.save();
   ctx.beginPath();
   ctx.rect(l - 8, 0, r - l + 16, viewH);
@@ -358,6 +428,15 @@ function drawCar(y, l, r) {
 }
 
 function drawPlayer(now) {
+  /* The sprite rides the car, so it is gated on exactly the same rule. Gating
+     the car alone would delete the platform and leave the character standing in
+     the open sky on nothing at all - a strictly worse bug than the one this
+     replaces. Both read one helper so they cannot come apart again.
+
+     The player's own feet are used rather than the car's plate, so someone
+     standing on the car is judged by where they actually are. */
+  if (!elevatorInSoil(player.y + player.h)) return;
+  playerDrawn++;
   var moving = Math.abs(player.vx) > 4 || !player.onGround;
   var set = reduced ? [SPRITES.idle[0]] : (moving ? SPRITES.walk : SPRITES.idle);
   var img = set[Math.floor(now / FRAME_MS) % set.length];
@@ -431,6 +510,31 @@ var propsDrawn = 0;
    Three passes, back to front: the dark void, the rock mass below the floor
    line, then the lit detail - rubble catching the torchlight, and the ore veins.
    Detail is drawn AFTER the mass so it is not buried by it. */
+/* THE VOID IS GONE, and that is the whole change.
+
+   It used to paint an opaque #05070a -> #12171e gradient across the entire cave
+   the moment caveActive() became true, which meant the DUNGEON BAND behind the
+   cave - the rock biome every other layer is made of, and the one the sixth room
+   is explicitly built from - was replaced the instant you entered the final
+   layer. Entering the cave did not take you deeper into the same world; it
+   swapped one world for another laid on top.
+
+   So nothing is filled here any more. The band's own rock is what shows through
+   the cave, and cave-scene.js draws its parallax backdrop, strata, crystals,
+   torches and stalactites ON TOP of that band - which is exactly how every
+   other layer's biome art works. The cave is now a room in the same world with
+   the same rock, seen from the inside, rather than a separate world painted over
+   the page.
+
+   `caveActive()` is deliberately NOT imported: render.js already gates every
+   call to this on it, and re-checking a second flag here would be a second gate
+   reading the same thing. */
+function drawCaveVoid() {
+  /* Intentionally empty - see the comment above. Kept as a function rather than
+     deleted at the call site so the render order still reads in one place, and
+     so restoring a fill is one line here rather than a hunt through render(). */
+}
+
 function drawCave() {
   if (!caveActive()) return;
 
@@ -456,21 +560,6 @@ function drawCave() {
      would leave them standing on the edge of nothing. */
   var deep = Math.max(viewH || 0, 400);
 
-  /* --- the void behind the rock: darker than the bedrock band, so the room
-     reads as a space the reader is inside rather than a panel they are looking
-     at. Drawn first so everything else lands on top of it.
-
-     The roof comes from caveRoof(), the SAME function game.js clamps the player's
-     head against. Reading CAVE_HEIGHT directly here would put the drawn ceiling
-     wherever the constant says while the collision clamped somewhere else - two
-     consumers of one fact that disagree, which is the seam twitch and the tree
-     crawl all over again. */
-  var top = caveRoof();
-  var voidGrad = ctx.createLinearGradient(0, top, 0, pts[0][1]);
-  voidGrad.addColorStop(0, '#05070a');
-  voidGrad.addColorStop(1, '#12171e');
-  ctx.fillStyle = voidGrad;
-  ctx.fillRect(0, top - 40, w, pts[0][1] - top + 40);
 
   /* --- the rock mass below the floor line --- */
   ctx.beginPath();
@@ -544,8 +633,82 @@ function drawCaveLight() {
   ctx.fillRect(cx - 190, cy - 190, 380, 380);
 }
 
+/* === The cage at the foot of the shaft ====================================
+   Drawn with the cave and BEFORE the player, so the sprite stands on the plate
+   rather than behind it - the same reason drawCave() runs where it does.
+
+   It is an open steel frame, not a box: four corner posts, a lattice of bars on
+   the back and sides, a solid plate to stand on, and a pair of guide shoes
+   where the cage would meet the shaft's rails. Nothing here is a filled
+   rectangle across the opening, because the player is meant to walk in under it
+   and a solid back would hide them.
+
+   Every Y is read from cageFloorY() - the collision's own number - so the
+   painted lip is exactly the line the player is resolved against. That shared
+   number is the same arrangement drawCar() has with groundY(), and for the same
+   reason: two consumers of one fact that disagree is the seam twitch all over
+   again. */
+function drawCage() {
+  if (!caveActive() || !cageActive()) return;
+  var plate = cageFloorY();
+  if (!isFinite(plate)) return;
+  var s = cageSpan();
+
+  /* Posts: the frame's four corners, standing from the plate down to whatever
+     the floor happens to be beneath. The floor is sampled per post rather than
+     assumed flat, so the cage is planted on the rock instead of hovering over
+     the low point - which is exactly the failure the cage's own floor
+     calculation exists to prevent, reproduced here if the two disagreed. */
+  var postW = 5, inset = 3;
+  var l = s.left + inset, r = s.right - inset - postW;
+  var x, floorY;
+  for (x = 0; x < 2; x++) {
+    var postX = (x === 0) ? l : r;
+    floorY = screenFloorY(postX + postW / 2);
+    if (!isFinite(floorY) || floorY < plate) floorY = plate + 40;
+    var len = floorY - plate;
+    if (len > 0) {
+      px(postX, plate, postW, len, 'rgba(12,16,21,0.88)');
+      /* One lit edge per post, so the frame has a front face. */
+      px(postX, plate, 1, len, 'rgba(255,255,255,0.13)');
+      px(postX + postW - 1, plate, 1, len, 'rgba(0,0,0,0.45)');
+    }
+  }
+
+  /* Back lattice: vertical bars at a fixed rhythm between the posts, and one
+     horizontal rail a third of the way up. Sparse on purpose - the point is to
+     read as a cage you can see through, and this is what lets the player behind
+     it stay visible. */
+  var top = plate - 3 - 34;
+  var bar;
+  for (bar = l + 8; bar < r; bar += 11) {
+    px(bar, top, 2, 34, 'rgba(255,255,255,0.055)');
+  }
+  px(l, top + 16, r - l, 2, 'rgba(255,255,255,0.075)');
+
+  /* The plate itself. The lit lip is drawn AT EXACTLY plate, the Y
+     movePlayerCage() resolves against. */
+  px(l - inset, plate, (r + postW) - l + inset * 2, 2, 'rgba(255,210,74,0.26)');
+  px(l - inset, plate + 2, (r + postW) - l + inset * 2, 5, 'rgba(0,0,0,0.78)');
+  px(l - inset, plate + 2, (r + postW) - l + inset * 2, 1, 'rgba(255,255,255,0.12)');
+  /* Rivets, so the plate has a face rather than being a bar. */
+  for (var rivet = l - inset + 4; rivet < r; rivet += 9) {
+    px(rivet, plate + 4, 1, 1, 'rgba(255,255,255,0.10)');
+  }
+
+  /* Guide shoes, where the cage meets the shaft rails above it - the detail
+     that ties this structure to drawCar()'s shoes and makes the two read as the
+     same machine at two ends of its travel. */
+  px(l - 2, plate - 5, 7, 5, 'rgba(0,0,0,0.70)');
+  px(r - 5, plate - 5, 7, 5, 'rgba(0,0,0,0.70)');
+  px(l - 1, plate - 4, 5, 1, 'rgba(255,255,255,0.12)');
+  px(r - 4, plate - 4, 5, 1, 'rgba(255,255,255,0.12)');
+}
+
 function render(now) {
   biomesDrawn = 0;
+  carDrawn = 0;
+  playerDrawn = 0;
   ctx.fillStyle = DEEP;
   ctx.fillRect(0, 0, viewW, viewH);
   drawFar();
@@ -556,15 +719,44 @@ function render(now) {
      shaft because the shaft walls and their rails are nearer the reader than
      anything on the surface. */
   propsDrawn = drawSurfaceProps();
-  /* The cave, then the shaft and the hoist, then the player. In that order for
-     two reasons: the sprite has to stand ON the floor rather than behind it, and
-     the hoist has to be drawn over the cave so the car reads as being at the
-     mouth of the room rather than as part of the room's back wall. */
-  drawCave();
+  /* The cave, back to front. The order is the whole depth stack, and it is easy to
+     get backwards because "draw the far thing first" is the rule and the void is
+     the farthest thing of all - yet the void is OPAQUE, so anything drawn before
+     it is thrown away. That is not a theoretical hazard: the scene was originally
+     drawn first and the void last, and an opaque black rectangle quietly buried
+     the entire level.
+
+     So, in order:
+       void -> backdrop -> strata -> crystals/torches -> stalactites ->
+       the rock mass and rubble -> the shelves -> the lantern pool -> the cage ->
+       the player -> the near foreground.
+
+     The void goes first because it is opaque. The rock mass goes after the scene
+     because it sits BELOW the floor line, so the backdrop pillars stand in front
+     of the dark and on top of the rock rather than the other way round. The near
+     foreground is last so the reader passes BEHIND it.
+
+     The parallax source is the PLAYER's x, not the scroll. A vertical page
+     cannot scroll sideways, so scroll gives no horizontal motion at all - but
+     the player walks across the cave, so keying each band to their position at a
+     different fraction is what makes the room slide behind them. That is the
+     single change that turns this from a corridor into a level. */
+  var px0 = player.x + player.w / 2;
+  drawCaveVoid();
+  if (caveActive()) {
+    drawBackdrop(px0);
+    drawStrata();
+    drawCrystals(px0);
+    drawTorches(px0, now, reduced);
+    drawStalactites(px0);
+  }
+  drawCave();       /* the rock mass and its rubble, over the scene's feet */
   drawCaveLight();
+  drawCage();       /* the cage standing on the cave floor, under the player */
   drawShaft();
   drawHoist();     /* headgear, cables, counterweight and the car itself */
   drawPlayer(now);
+  if (caveActive()) drawForegroundRocks(px0);
   drawForeground();
 
   /* Vignette, so panel text near the edges keeps its contrast. */
@@ -583,5 +775,7 @@ export {
   drawMotes,
   render,
   biomesDrawn,
-  propsDrawn
+  propsDrawn,
+  carDrawn,
+  playerDrawn
 };

@@ -16,7 +16,9 @@ import {
 import { groundY, deckBounds } from './deck.js';
 import { caveActive, caveBounds, screenFloorY, enterCave, leaveCave,
          caveRoof } from './cave.js';
-
+/* The cage standing at the foot of the shaft: one more solid surface inside the
+   room, and the only one that is not part of the floor profile. */
+import { cageActive, cageFloorY, overCage } from './cage.js';
 /* Physics constants, in CSS pixels and seconds. */
 var WALK_SPEED = 95;    /* px/s    */
 var GRAVITY    = 2400;  /* px/s^2  */
@@ -68,6 +70,109 @@ function caveCeiling() {
    clamps the head against, and a ceiling the renderer had to restate is a
    ceiling that can stop being the one the player bumps into. */
 
+/* === The platforms =========================================================
+   The cave now has three kinds of surface underfoot: the stone shelves the reader
+   climbs, the lift cage at the foot of the shaft, and the cave floor itself. This
+   function resolves ALL THREE at once and takes the highest, rather than testing
+   them in sequence.
+
+   Sequencing is the obvious way to write this and it is wrong: whichever surface is
+   tested first claims the frame, so a player standing on a shelf can be resolved
+   onto the floor instead - and their feet are below the floor line too, so the
+   floor pulls them straight down through the shelf. With one platform that never
+   came up; with three it is a live bug every time two of them overlap in x.
+   Asking all three and taking the minimum Y removes the ordering question.
+
+   THE ONE-WAY PROPERTY, which is shared by all of them: a player descending onto
+   a surface lands on it, a player already resting on one is held there, and a
+   player walking in from the side passes UNDERNEATH. None of them adds any
+   horizontal collision - they are open rock and an open steel frame, not walls -
+   which is what keeps the reader able to cross the cave along its floor.
+
+   Gravity runs BEFORE this function, which is why the resting case needs a
+   tolerance at all: a player standing on a surface arrives every frame already a
+   fraction of a pixel BELOW it. Without `slip` they drop through at 40px/s, which
+   is precisely the bug the first version of the cage had. */
+function movePlayerCage(dt, player) {
+  var slip = GRAVITY * dt * dt + 1;
+  var cx = player.x + player.w / 2;
+
+  /* A RISING player is caught by nothing: a jump taken from under a shelf, or
+     from inside the cage, passes up through both. That is the whole one-way
+     property, and it is a property of the DIRECTION of travel rather than of the
+     height.
+
+     The first version of this guard was `vy < 0 && feet < plate - slip`, which
+     tried to let a player through only once they were clearly below. That is the
+     wrong shape entirely, and the jump test caught it: the rise is 44px and the
+     jump apex is 60.75px, so a player rising from the floor arrives within a
+     pixel or two of the plate - inside `slip` - was caught by it, slammed back
+     down, and could never get on the cage at all. */
+  if (player.vy < 0) return false;
+
+  /* `slip` is the resting tolerance, and it is what makes standing work at all.
+     Gravity is applied before this function runs, so a player already standing
+     arrives a fraction of a pixel BELOW the surface - about 0.67px at 60fps, and
+     proportionally more at a lower frame rate. A plain `feet <= surface` test
+     hands them to the cave floor and drops them through at 40px/s, which is
+     exactly the bug the first version of the cage had. Derived from GRAVITY and
+     dt rather than a fixed pixel count, because a fixed one is silently wrong at
+     another frame rate. */
+
+  /* ALL THREE SURFACES ASKED AT ONCE, and the HIGHEST wins. The cave now has
+     three kinds of platform in it - the shelves, the cage, and the floor - and
+     testing them in sequence lets whichever runs first claim the frame. The
+     failure is silent and nasty: a player resolved onto the floor while standing
+     on a shelf gets pulled down through it, because their feet are below the
+     floor line as well.
+
+     Asking all three and taking the minimum Y removes the ordering question
+     entirely. A shelf beats the cage beats the floor, because each is by
+     definition above the next. */
+  var surface = null;
+  /* The cage's plate is a candidate ONLY where the player is actually over it.
+     This guard was dropped during an earlier rewrite and the platform suite caught
+     it at once: cageFloorY() returns the plate's Y for ANY x, so an ungated plate
+     claims the player across the entire cave. One missing predicate, and every
+     surface above the plate stopped being reachable. */
+  var plate = (cageActive() && overCage(cx)) ? cageFloorY() : NaN;
+  var floorY = screenFloorY(cx);
+
+  /* TWO surfaces now, not three: the lift cage and the cave floor. The eight
+     stone shelves are gone - the cave reads better as one walkable floor with the
+     cage standing on it, and the shelves were what made the room feel like a
+     platformer rather than a cave. Asking both and taking the minimum Y keeps the
+     ordering question closed. */
+  if (isFinite(plate)) surface = plate;
+  /* The floor is a candidate only when the player's feet are actually at or
+     above it. That guard is what stops this claiming someone standing on the
+     cage: their feet are above the floor line, but the cage is the surface they
+     actually mean. */
+  if (isFinite(floorY) && player.y + player.h <= floorY + slip) {
+    if (surface === null || floorY < surface) surface = floorY;
+  }
+  if (surface === null) return null;    /* mid-air over nothing: fall */
+
+  /* At or above it, or already resting on it: land, or hold. Either way this
+     surface is the ground for the frame, and the caller must not run a second
+     floor resolve against it. vy is zeroed so the next frame's gravity starts from
+     rest rather than compounding. */
+  if (player.y + player.h <= surface + slip) {
+    player.y = surface - player.h;
+    player.vy = 0;
+    player.onGround = true;
+    return surface;
+  }
+  /* Genuinely underneath one of them - walked in below the cage, or under a
+     shelf. The floor owns them, and they must NOT be lifted. Returning the
+     surface rather than null is deliberate: the caller applies the step-up rule
+     against it, and the floor resolve has to be able to see where the rock is.
+
+     This branch is what makes every platform in the room one-way. */
+  return surface;
+}
+
+
 function movePlayerCave(dt, player) {
   var b = caveBounds();
 
@@ -80,26 +185,33 @@ function movePlayerCave(dt, player) {
   player.vy += GRAVITY * dt;
   player.y += player.vy * dt;
 
-  /* Sampled at the player's CENTRE, not at their feet. A width sample straddles
-     a rise and returns whichever end it hits first, which makes the sprite
-     judder as they walk a slope - the same class of bug as the tree crawl, and
-     for the same reason: two consumers of one curve that do not agree on where
-     to read it. */
-  var ground = screenFloorY(player.x + player.w / 2);
+  /* Every vertical surface in the cave is resolved in ONE place, one line below,
+     and the value it returns is the surface the player is against - a number, or
+     null for "nothing underfoot". This function does not sample the floor a
+     second time: it used to, and having two samples of one curve is exactly the
+     drift this codebase keeps paying for. It was worse than redundant, because
+     the second sample sat behind a branch that a settled player never reached -
+     so a mutation of that line survived every check in the suite while the floor
+     it sampled was never used.
 
-  if (player.y + player.h >= ground) {
-    var rise = ground - (player.y + player.h);
+     What lives here instead is the step-up rule, which needs the surface but not
+     the sampling: climbing something too steep to jump reads as hitting an
+     invisible wall, which is what it is, and beats teleporting up a slope. */
+  var surface = movePlayerCage(dt, player);
+
+  if (surface !== null && player.y + player.h >= surface) {
+    var rise = surface - (player.y + player.h);
     /* Climbing something too steep to jump reads as hitting an invisible wall,
        which is what it is, and beats teleporting up a slope. */
     if (player.vy > 0 && rise > CAVE_STEP && !player.onGround) {
       player.vy = 0;
     } else {
-      player.y = ground - player.h;
+      player.y = surface - player.h;
       player.vy = 0;
       player.onGround = true;
     }
-  } else {
-    player.onGround = false;      /* airborne */
+  } else if (surface === null) {
+    player.onGround = false;      /* airborne over nothing */
   }
 
   /* --- ceiling: the cave roof, so a jump cannot leave the room --- */
@@ -246,6 +358,7 @@ export {
   movePlayer,
   movePlayerShaft,
   movePlayerCave,
+  movePlayerCage,
   caveCeiling,
   snapPlayerToGround
 };

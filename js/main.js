@@ -14,7 +14,22 @@ import { advanceCar, seatDeck } from './deck.js';
 import { player, keys, WALK_SPEED, movePlayer, snapPlayerToGround } from './game.js';
 import { seedMotes, drawMotes, render } from './render.js';
 import { updateDepth, updateCue } from './ui.js';
-import { initHoard, stepCave } from './treasure.js';
+/* treasure.js is GONE, along with the hoard it opened. Two things went with it:
+   initHoard(), which ran once at boot to wire the chest buttons and tally the
+   gold, and stepCave(), which ran every frame to highlight whichever chest the
+   player was standing at and open it on approach.
+
+   stepCave() was the only per-frame reason main.js knew anything about the
+   hoard at all, so its removal is why update() below is back to being purely
+   about the car, the player and the dust. The cave itself is untouched: game.js
+   still hands the player over to it, render.js still draws it, and the lift
+   cage still stands in it. What is gone is the furniture inside the room, not
+   the room.
+
+   `html.js` is still set on the document by the boot below, and still has to
+   be: the `.js` scoped reveal rules in layout.css collapse the chambers until
+   IntersectionObserver opens them, and dropping the class would flash every
+   panel's contents before the observer fires. */
 
 /* === 7. Game loop ========================================================
    requestAnimationFrame with a delta time, never setInterval. dt is clamped
@@ -41,10 +56,10 @@ function update(dt) {
   }
 
   movePlayer(dt);
-  /* After the move, never before: the highlight follows where the reader IS this
-     frame, and asking before they have moved would light the chest they are
-     walking away from. */
-  stepCave(player);
+  /* No stepCave() any more. It used to sit here, right after the move and
+     never before, because the chest highlight follows where the reader IS this
+     frame - but there are no chests to highlight, and the cave's own drawing is
+     driven from render() reading the player directly. */
   drawMotes(dt);      /* motes integrate here, but draw themselves */
   updateDepth();      /* gated internally: only touches the DOM on change */
   updateCue();        /* likewise: fades the scroll cue once, then stops */
@@ -81,16 +96,13 @@ window.addEventListener('resize', function () {
 });
 window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
 /* === Boot ================================================================ */
-/* resize() first, so the canvas has its real size before the art is built:
-   the slices are drawn into offscreen canvases sized to the art, not the
-   viewport, so this only has to beat the first pattern creation. */
+/* The hoard is gone, so the boot no longer has an early wiring step before the
+   sheets load. resize() still runs first, so the canvas has its real size
+   before the art is built: the slices are drawn into offscreen canvases sized
+   to the art, not to the viewport, so this only has to beat the first pattern
+   creation. */
 resize();
 updateDepth();
-/* The hoard is wired before the sheets finish loading, so the chest buttons
-   respond immediately rather than waiting on an image decode. It touches only
-   the contact room, which measure() has not positioned yet - it reads no
-   geometry, so the boot order costs it nothing. */
-initHoard();
 whenSheets(function (a) {
   /* The dirt tile is gone from the sheets, so the renderer is told so plainly and
      buildTextures() falls back to its own baked grit per band - which is what it
@@ -128,11 +140,21 @@ if (document.fonts && document.fonts.ready) {
 function resize() {
   resizeViewport();
   buildTextures();
+  /* measureShaft() BEFORE measure(). measure() is what hands the cage at the
+     foot of the shaft its x and width, and layers.js holds those numbers in
+     shaftX/shaftW - which are still 0 at this point on the first boot, so the
+     cage would be measured against a shaft that does not exist yet and fall
+     back to its centred default. Measuring the shaft first means the cage gets
+     the real channel on the very first frame instead of correcting itself one
+     resize later.
+
+      measureShaft() only reads the DOM and writes this module's own numbers, so
+      running it earlier is safe; measure() does not depend on the shaft. */
+  var realResize = measureShaft();
   measure();
   /* measureShaft() reports whether the viewport really changed. Only a genuine
      resize re-centres the car; a re-measure at the same size (the late font
      swap) must leave it where the reader left it, or the page would lurch. */
-  var realResize = measureShaft();
   seatDeck(realResize);
   snapPlayerToGround();
   seedMotes();

@@ -42,6 +42,13 @@
    never inverted: if a caller hands over overlapping or degenerate panels the
    band collapses to zero height at its own top rather than running backwards,
    because a reversed band would make layerIndexAt() non-monotonic. */
+/* The gap between the deepest CHAMBER and the cave band. Not a hole in the
+   tiling - the bands still share an edge - but a slice of rock that belongs to the
+   cave rather than to the bedrock chamber above it. It exists because the cave read
+   as part of the Education layer: same rock, no boundary, and the deepest chamber
+   appeared to sit directly on the cave floor. */
+var CAVE_GAP = 150;
+
 function bandEdges(panels, floorY) {
   var n = panels.length, i, out = [];
   for (i = 0; i < n; i++) {
@@ -58,9 +65,17 @@ function bandEdges(panels, floorY) {
     if (bot < top) bot = top;
     out.push({ top: top, bottom: bot, height: bot - top });
   }
+
+  /* The cave is a REAL <section> now - it has a panel, a doorway and a depth-rail
+     entry like the other five - so it comes out of the panel loop above and this
+     synthetic band is no longer needed. It was standing in for exactly what a
+     section gives you, and having both would double the band.
+
+     The walkable cave itself is the airspace BELOW the dig, which the dig's
+     bottom padding reserves; this band is the rock the room's panel sits in. */
   return out;
 }
 
 /* Public surface, collected at the bottom to match every other module in this
    project and so the graph check in tools/smoke.mjs can read it. */
-export { bandEdges };
+export { CAVE_GAP, bandEdges };

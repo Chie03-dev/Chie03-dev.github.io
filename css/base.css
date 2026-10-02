@@ -137,7 +137,9 @@
 .chamber[data-layer="stone"]   {--hue:var(--layer-clay)}
 .chamber[data-layer="caves"]   {--hue:var(--layer-ore)}
 .chamber[data-layer="bedrock"] {--hue:var(--layer-bedrock)}
-.treasure[data-layer="bedrock"]{--hue:var(--layer-bedrock)}
+/* `.treasure[data-layer="bedrock"]` is GONE with the room. Nothing carries that
+   class now, so the rule matched nothing from the moment the element was
+   removed; the bedrock chamber sets the same --hue above via .chamber. */
 
 /* ==========================================================================
    Base
@@ -178,7 +180,7 @@ h1,h2,h3,h4,.eyebrow,.kv dt,.depth__title{
 h1{margin:0 0 var(--space-2xs);font-size:var(--step-4)}
 h2{margin:0 0 var(--space-2xs);font-size:var(--step-3)}
 h3{margin:0;font-size:var(--step-2)}
-.chamber>p,.treasure>p{margin:var(--space-md) 0 0}
+.chamber>p{margin:var(--space-md) 0 0}
 .muted{color:var(--muted)}
 
 /* Old .btn: accent fill, 2px accent-ink border, 8px radius, 44px target. */
@@ -194,7 +196,13 @@ h3{margin:0;font-size:var(--step-2)}
 .btn[disabled]{opacity:.6;cursor:default}
 .btn--ghost{background:transparent;color:var(--accent);border-color:currentColor}
 .btn--ghost:hover{background:rgba(255,210,74,.14);color:var(--accent)}
-#email-slot{font-size:var(--step-0);word-break:break-all}
+/* `#email-slot` is GONE. It held the address the Email button assembled in JS,
+   and both left the treasure room together when its button row was removed - the
+   new contact area is built into the cave instead.
+
+   `.hint` below STAYS: it is not the treasure room's "Back to the surface"
+   hint, which is gone, but the surface camp's own hint paragraph, which is a
+   real explanation of how the page is drawn and still ships. */
 
 .hint{margin:var(--space-lg) 0 0;font-size:var(--step--1);color:var(--muted)}
 kbd{font:inherit;font-size:.8em;padding:.05em .4em;

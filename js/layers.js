@@ -24,6 +24,12 @@ import { SPRITE_W, SPRITE_H, FRAME_MS, SPRITES } from './avatar.js';
    re-measured, because that is the one function every other re-measure already
    passes through. */
 import { measureCave } from './cave.js';
+/* The cage at the foot of the shaft imports cave.js too, so this is a third
+   leaf rather than an edge between two modules that already know each other.
+   It lives HERE for the same reason cave.js does: measure() below is the one
+   function every other re-measure passes through, so handing it the shaft's x
+   and width here is what keeps the cage tracking the channel it stands in. */
+import { measureCage } from './cage.js';
 
 var canvas = document.getElementById('stage');
 var ctx = canvas.getContext('2d', { alpha: false });
@@ -47,7 +53,17 @@ var LAYER_DEFS = [
   { id: 'skills',     name: 'Dirt',    rock: 'dirt'    },
   { id: 'projects',   name: 'Stone',   rock: 'stone'   },
   { id: 'experience', name: 'Caves',   rock: 'caves'   },
-  { id: 'education',  name: 'Bedrock', rock: 'bedrock' }
+  { id: 'education',  name: 'Bedrock', rock: 'bedrock' },
+  /* The sixth room. Its rock is `caves` - the DUNGEON palette, not stone and not
+     the bedrock the Education chamber sits in - because the cave is the same
+     place the Dungeon Halls layer is, seen from the inside. Sharing the palette
+     is deliberate: it is one continuous world, and a sixth material would read
+     as an unrelated room welded onto the bottom of the dig.
+
+     That replaces the synthetic band bands.js used to append. A real <section>
+     gives this layer a panel, a doorway, a depth-rail entry and a measured box,
+     which no synthetic band ever could. */
+  { id: 'cave',       name: 'Cave',   rock: 'caves'   }
 ];
 
 /* Two-stop gradient per layer, top of the band -> bottom of the band. */
@@ -56,7 +72,16 @@ var ROCK = {
   dirt:    { top: '#8a5a3c', bot: '#4b2d1f' },
   stone:   { top: '#5b6470', bot: '#2d343c' },
   caves:   { top: '#3d4650', bot: '#141920' },
-  bedrock: { top: '#232a33', bot: '#0a0d11' }
+  bedrock: { top: '#232a33', bot: '#0a0d11' },
+  /* The cave gets its OWN rock, not the bedrock palette. It shared bedrock until
+     the sixth band was added, and the two problems with that were that the cave
+     read as more Education rather than as somewhere else, and that its rock was
+     lit for a panel of text - a warm, readable stone - when the room is meant to
+     be the darkest place on the page.
+
+     Colder and bluer than bedrock at the top, and it goes to black faster at the
+     bottom, so the boundary is a change of MATERIAL as well as of height. */
+  cavern:  { top: '#141c26', bot: '#05070a' }
 };
 /* Extra wash inside the shaft so each depth feels like a different material. */
 var SHAFT_TINT = {
@@ -69,8 +94,8 @@ var viewW = 0, viewH = 0, dpr = 1;
 var maxScroll = 1;
 /* Document-space anchors for the car's travel window, measured from the MARKUP
    rather than from layer indices, because the rule is written in terms of the
-   rooms themselves: the car sets off at the DIRT and stops just before the
-   Bedrock treasure room. Naming the rooms means reordering the sections, or
+   rooms themselves: the car sets off at the DIRT and stops at the foot of the
+   dig, just before the cave. Naming the rooms means reordering the sections, or
    inserting one, cannot silently move the stops - a layer index would. */
 var travelFrom = 0, travelTo = 0;
 
@@ -81,6 +106,16 @@ function docTopOf(sel) {
   var el = document.querySelector(sel);
   if (!el) return -1;
   return Math.round(el.getBoundingClientRect().top + (window.scrollY || 0));
+}
+
+/* Document-space BOTTOM edge of the first element matching `sel`, or -1.
+   Added with the cave's re-anchor: travelTo needs where the deepest chamber
+   ENDS, not where it starts, and reading that off docTopOf would have needed a
+   second layout call at the call site with the height added back on by hand. */
+function docBottomOf(sel) {
+  var el = document.querySelector(sel);
+  if (!el) return -1;
+  return Math.round(el.getBoundingClientRect().bottom + (window.scrollY || 0));
 }
 var TOTAL_METRES = 32;          /* depth reading shown at the very bottom */
 var metresPerPx = 0.01;
@@ -136,13 +171,17 @@ function measure() {
       width: Math.round(rect.width)
     });
   }
-  /* The last band has to reach the bottom of the treasure room, not the bottom
-     of the last chamber, or the bedrock stops short and leaves bare canvas
-     between the Education panel and the contact room. The plain-resume
-     <details> below it carries its own opaque background, so the bands stop
-     there. Falls back to the document height when the room is not found. */
+  /* The last band has to reach the bottom of the dig, not the bottom of the last
+     chamber, or the bedrock stops short and leaves bare canvas between the
+     Education panel and the foot of the page. The plain-resume <details> below
+     it carries its own opaque background, so the bands stop there.
+
+     This reads `.dig`, the grid that holds every row. It used to read
+     `.treasure` - an empty <section> that existed only to be measured - which
+     is gone from the markup. Falls back to the document height when the dig is
+     not found. */
   var floorY = (function () {
-    var t = document.querySelector('.treasure');
+    var t = document.querySelector('.dig');
     if (t) {
       var r = t.getBoundingClientRect();
       if (r && r.height >= 0) return Math.round(r.bottom + (window.scrollY || 0));
@@ -163,32 +202,59 @@ function measure() {
       panelTop: panels[i].panelTop, panelBottom: panels[i].panelBottom
     });
   }
-  /* The travel window. `data-layer` is already on every section for the band
-     art, so the same attribute names the rooms the car travels between. The
-     treasure room is also data-layer="bedrock" - it is a contact room, not a
-     chamber - which is exactly why it is selected by its class and not by its
-     layer: the car stops BEFORE it, at the top of that section.
+  /* The cave band is the odd one out: it has NO panel, because the cave is
+     canvas-only and there is no <section> behind it. `el` is null and the panel
+     numbers are zero, so anything reading a panel off a layer has to cope - which
+     is why `cave: true` is set here rather than inferred from a null element
+     elsewhere. Its width is the full viewport: it is rock behind everything, with
+     nothing painted on it. */
+  for (i = 0; i < edges.length; i++) {
+    if (!edges[i].cave) continue;
+    layers.push({
+      id: 'cave', name: 'Cave', rock: 'cavern', cave: true,
+      el: null, left: 0, width: viewW,
+      top: edges[i].top, height: edges[i].height, bottom: edges[i].bottom,
+      panelTop: 0, panelBottom: 0
+    });
+  }
 
-     The treasure room is also the invisible barrier the sprite is stopped by,
-     and it has to be reached EARLY rather than exactly. The room spans all three
-     grid columns, so it sits underneath the shaft the sprite rides in: once it
-     fills the viewport there is nowhere on screen the sprite can stand without
-     being drawn over the room. So travelTo is pulled back by one viewport of
-     scroll, which parks the car at the bottom of its band while the room is
-     still entirely below the fold.
+  /* The travel window. `data-layer` is already on every section for the band
+     art, so the same attribute names the rooms the car travels between.
+
+     THE STOP IS THE BOTTOM OF THE BEDROCK CHAMBER. It used to be the top of
+     `.treasure`, an empty room section that no longer exists; the equivalent
+     document-space point is the end of the last chamber, which is where the dig
+     is over and the cave begins. cave.js derives the cave's own top from the
+     same edge, so the car's stop and the cave's ceiling come from one number
+     rather than two that could drift apart.
+
+     It has to be reached EARLY rather than exactly. Once the cave fills the
+     viewport there is nowhere on screen the sprite can stand without being drawn
+     over the rock, so travelTo is pulled back by one viewport of scroll, which
+     parks the car at the bottom of its band while the cave is still below the
+     fold.
 
      Why it is done in DOCUMENT space rather than by clamping the car per frame:
-     a screen-space cap at the room's top edge would DECREASE as the reader
+     a screen-space cap at the cave's top edge would DECREASE as the reader
      scrolls down, which pulls the car back UP the band while the page descends
      - a direction reversal, the exact defect the monotonic-travel rule and
      smoke.mjs exist to prevent. A document-space stop is monotonic by
-     construction, so nothing about the motion model changes. The sprite is
-     still drawn over the room once you scroll into it; what this fixes is the
-     car descending INTO the room on the way down. */
+     construction, so nothing about the motion model changes. */
   var dirt = docTopOf('[data-layer="dirt"]');
-  var treasure = docTopOf('.treasure');
+  /* The stop is the bottom edge of the LAST room, and that has to be the same
+     edge the cave derives its own ceiling from. It was Education's bottom, back
+     when the cave had no section and was simply the airspace below the dig; the
+     cave is a real room now, so the deep end is the cave section's bottom.
+
+     When these two disagreed the page had a dead band: the car had stopped at
+     Education's bottom while the cave did not open until 634px further down, so
+     scrolling through it owned the player by nothing at all. One source for both
+     is what prevents that, and the fallback chain means an unmeasured cave
+     section degrades to Education rather than to nothing. */
+  var deepest = docBottomOf('#cave');
+  if (deepest < 0) deepest = docBottomOf('[data-layer="bedrock"].chamber');
   travelFrom = dirt >= 0 ? dirt : (layers.length > 1 ? layers[1].top : 0);
-  travelTo = treasure >= 0 ? treasure : (layers.length ? layers[layers.length - 1].bottom : 0);
+  travelTo = deepest >= 0 ? deepest : (layers.length ? layers[layers.length - 1].bottom : 0);
   /* One viewport of clearance. viewH rather than window.innerHeight so the
      canvas and the barrier are measured from the same number, and Math.max(1)
      so an unmeasured viewport cannot invert the window. The floor of 1px of
@@ -210,6 +276,12 @@ function measure() {
      either. Handing the cave the canvas's own size is what makes its walls agree
      with the floor and the art, which already span the real viewport. */
   measureCave(viewW, viewH);
+  /* The cage at the foot of the shaft, measured on the same event and handed the
+     shaft's own x and width rather than re-reading the DOM. shaftX/shaftW are
+     this module's numbers, set by measureShaft() - which is why they are passed
+     in and not imported: cage.js cannot import layers.js without closing the
+     cycle. */
+  measureCage(viewW, viewH, shaftX, shaftW);
 }
 
 /* Which layer owns a given document-space Y. Linear over five items, so a

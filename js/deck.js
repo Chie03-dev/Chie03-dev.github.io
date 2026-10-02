@@ -139,12 +139,25 @@ var TRAVEL_EASE = 9;   /* how hard the car is pulled to target, per second */
    measured from the markup by layers.js (see travelFrom / travelTo there), so the
    stops follow the rooms rather than a list of indexes.
 
-   Everywhere else the car is stationary: it waits at the top of its band through
-   the sky, and it sits at the bottom of its band from the treasure room onward.
-   Outside the window p clamps to 0 or 1, so it genuinely holds still instead of
-   easing toward a target it can never reach. If the anchors are missing or
-   inverted the fallback lets the whole page drive it, so the car still moves on
-   a page that has not finished laying out. */
+   NOTE ON THE SKY. The car is PARKING above the soil, not travelling through it.
+   Outside the window p clamps to 0, so from the top of the page until scrollY
+   reaches travelFrom the car is stationary at the top of its band - and since
+   deckBounds() is viewport-relative, that is a fixed screen height, which over
+   the sky is a car hanging in mid-air with the soil still below the fold.
+
+   The first attempt at fixing that pushed the window start UP to
+   (travelFrom - band.top) on the reasoning that the car would then begin moving
+   at the soil line. That is backwards, and smoke.mjs's "car starts moving before
+   the dirt room" check failed at eight viewports immediately. The window start
+   cannot be raised without the car descending before the dirt room opens.
+
+   Nor can it be lowered to "soil well on screen" without truncating the journey,
+   because travelTo is fixed at the foot of the dig. So the travel window is
+   correct as it stands and the fix has to happen in the RENDER path - the parked
+   car should not be drawn above the soil line. See render.js.
+
+   If the anchors are missing or inverted the fallback lets the whole page drive
+   it, so the car still moves on a page that has not finished laying out. */
 function travelWindow() {
   var start = travelFrom;
   var end = travelTo;

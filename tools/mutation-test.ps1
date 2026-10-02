@@ -124,26 +124,6 @@ function MutatePixel($name, $file, $from, $to) {
   Restore
 }
 
-# The same idea, judged by the HOARD test instead of the smoke test.
-#
-# The hoard lives in its own suite (tools/hoard-test.mjs) because smoke.mjs was
-# already over the 500-line cap and the hoard is the only part of the page whose
-# failures are SPATIAL - a loot panel that never collapses, a chest laid across
-# the shaft channel. Smoke's stub DOM cannot see any of that, so judging these
-# mutations with smoke would report every one of them as a clean pass.
-function MutateHoard($name, $file, $from, $to) {
-  $t = Get-Content $file -Raw
-  if (-not $t.Contains($from)) { Write-Output ("  SETUP FAILED (pattern not found) " + $name); return }
-  [System.IO.File]::WriteAllText((Join-Path $root $file), $t.Replace($from, $to))
-  $out = (node tools\hoard-test.mjs 2>&1 | Out-String)
-  $code = $LASTEXITCODE
-  $hit = ($out -split "`r?`n" | Where-Object { $_ -match '\bFAIL\b|HOARD TEST FAILED' } | Select-Object -First 1)
-  if (-not $hit) { $hit = 'HOARD TEST PASSED - NOT CAUGHT' }
-  Write-Output ("  exit=" + $code + "  " + $name)
-  Write-Output ("        -> " + (($hit -replace '\s+', ' ').Trim()))
-  Write-Output ("        (judged by the hoard test; smoke calls this PASSED)")
-  Restore
-}
 
 Write-Output ''
 Write-Output 'MUTATION TEST: does the smoke check actually catch regressions?'
@@ -153,13 +133,21 @@ Mutate '2. car travels backwards' 'js\deck.js' 'return b.top + p * (b.bot - b.to
 Mutate '3. NaN geometry (silent drop)' 'js\deck.js' 'return Math.max(10, deckBounds().top - (SPRITE_H + 30));' 'return NaN;'
 Mutate '4. band pushed off centre' 'js\deck.js' 'var DECK_CENTRE = 0.5;' 'var DECK_CENTRE = 0.92;'
 Mutate '5. travel starts in the sky' 'js\layers.js' 'travelFrom = dirt >= 0 ? dirt :' 'travelFrom = dirt >= 0 ? 0 :'
-Mutate '6. travel runs past the treasure' 'js\layers.js' 'travelTo = treasure >= 0 ? treasure :' 'travelTo = treasure >= 0 ? treasure + 900 :'
+Mutate '6. travel runs past the foot of the dig' 'js\layers.js' 'travelTo = deepest >= 0 ? deepest :' 'travelTo = deepest >= 0 ? deepest + 900 :'
+Mutate 'car not gated above the soil' 'js\render.js' '  if (!elevatorInSoil(y)) return;' '  // mutant'
+Mutate 'sprite not gated above the soil' 'js\render.js' '  if (!elevatorInSoil(player.y + player.h)) return;' '  // mutant'
 Mutate '7. travel window never closes' 'js\deck.js' 'if (!(end > start)) end = maxScroll + 1;' 'if (end > start) end = start;'
-Mutate '8. no barrier above the treasure room' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
-Mutate '9. shaft channel cut only in Safari-prefixed form' 'css\layout.css' '  -webkit-mask-image:linear-gradient(90deg,#000 0,' '  -webkit-mask-image:none;--gone:linear-gradient(90deg,#000 0,'
-Mutate '9b. shaft channel has no unprefixed mask' 'css\layout.css' '  mask-image:linear-gradient(90deg,#000 0,' '  mask-image:none;--gone:linear-gradient(90deg,#000 0,'
-Mutate '10. channel width hardcoded to zero' 'css\layout.css' '--ch:calc((var(--shaft-w) + 2 * var(--col-gap)) / 2);' '--ch:0px;'
-Mutate '11. room paints over its own channel' 'css\chambers.css' 'background:none;border:0;box-shadow:none;' 'background:var(--panel-solid);border:0;box-shadow:none;'
+Mutate '8. no barrier above the cave' 'js\layers.js' 'travelTo = Math.max(travelTo - Math.max(1, viewH), travelFrom + 1);' 'travelTo = Math.max(travelTo, travelFrom + 1);'
+# 9, 9b, 10 and 11 are GONE. They attacked the shaft channel: a CSS mask cut into
+# the treasure room's ::before, the --ch width derived from the shaft token, and
+# the room painting its own background over that channel. All four are deleted
+# with the room element. The channel existed because the room's opaque HTML
+# background buried the sprite standing in the cave; with the room gone the cave
+# and the player are both canvas, there is no HTML over them, and the failure
+# cannot occur. Smoke's stylesheet check for the channel went with it, and
+# mutation 35 ("the car stays visible after the player leaves it") is now judged
+# from recorded draw calls - a behavioural check where 2b used to be a textual
+# one.
 Mutate '12. biomes never place art' 'js\biomes.js' 'var g = gutters(layer);' 'var g = []; var _unused = gutters(layer);'
 Mutate '13. panel geometry not measured' 'js\layers.js' 'left: Math.round(rect.left),' 'left: 0,'
 Mutate '14. no grass tufts on the surface' 'js\sprites.js' "SET.tufts = [bakeTuft(9, 6, PAL.leaf, r), bakeTuft(7, 4, PAL.leaf, r)];" "SET.tufts = [];"
@@ -318,63 +306,6 @@ Mutate '26. bands leave an unpainted strip between them' 'js\bands.js' '? Math.r
 Mutate '27. measure() appends layers instead of rebuilding' 'js\layers.js' '  layers = [];' '  /* mutated: no reset */'
 Mutate '28. row-gap too small to show the seam' 'css\layout.css' 'row-gap:clamp(14rem, 46vh, 34rem);' 'row-gap:2rem;'
 
-# 29-38 cover the hoard (js/treasure.js, css/treasure.css, index.html). Each
-# attacks a different failure, and every one of them is invisible to the eye
-# until it is invisible to a reader. All are judged by the HOARD test, because
-# smoke's stub DOM cannot see the spatial ones at all:
-#   29 gold is never returned on close      -> the tally only ever goes up
-#   30 the room never lights                -> the whole point of collecting
-#   31 loot stays aria-hidden when opened   -> screen readers get nothing
-#   32 loot is not aria-hidden when shut    -> screen readers read closed chests
-#   33 aria-expanded is never set           -> state is visual-only
-#   34 the hoard covers the shaft channel   -> the room's opening is buried
-#   35 the loot is marked hidden            -> no-JS visitors lose the copy
-#   36 the phone grid keeps the shaft track -> an empty gutter in a 1-col room
-#   37 the loot has no inner wrapper        -> the panel never actually closes
-#   38 the focus ring is removed            -> keyboard users lose the cursor
-#
-# 37 is not hypothetical: with two <p> children and no wrapper, the panel
-# measured 84px shut and 84px open in a real browser, because grid-template-rows
-# constrains the first row only. That defect passed every stub-based check.
-MutateHoard '29. gold is never returned on close' 'js\treasure.js' "      found -= (isFinite(back) && back > 0) ? back : 0;" '      /* mutated: gold is not returned */'
-MutateHoard '30. the room never lights up' 'js\treasure.js' "  room.style.setProperty('--gold', total > 0 ? (found / total).toFixed(3) : '0');" "  room.style.setProperty('--gold', '0');"
-MutateHoard '31. opened loot stays aria-hidden' 'js\treasure.js' "      if (loot) loot.setAttribute('aria-hidden', 'false');" '      /* mutated: loot never unhidden */'
-MutateHoard '32. shut loot is not aria-hidden' 'js\treasure.js' "      if (panel) panel.setAttribute('aria-hidden', 'true');" '      /* mutated: never hidden */'
-MutateHoard '33. aria-expanded is never updated' 'js\treasure.js' "      chest.setAttribute('aria-expanded', 'true');" '      /* mutated: state is visual only */'
-MutateHoard '34. a stack covers the shaft channel' 'css\treasure.css' '  grid-template-columns:1fr var(--shaft-w) 1fr;' '  grid-template-columns:1fr;'
-MutateHoard '35. the loot is marked hidden in the markup' 'index.html' '<div class="chest__loot" id="loot-till">' '<div class="chest__loot" id="loot-till" hidden>'
-MutateHoard '36. the phone row keeps the shaft track' 'css\treasure.css' '  .vault__row{grid-template-columns:1fr;row-gap:var(--space-md)}' '  .vault__row{row-gap:var(--space-md)}'
-# 37 is a two-line pattern, so it is built as a here-string rather than a
-# double-quoted literal: PowerShell would try to expand $(...) and the quotes
-# inside, and the mutation would silently never match.
-$from37 = @'
-<div class="chest__loot-in">
-                <p>An offline-first Android POS
-'@
-$to37 = @'
-<div class="chest__loot-notin">
-                <p>An offline-first Android POS
-'@
-MutateHoard '37. the loot has no single inner wrapper' 'index.html' $from37 $to37
-MutateHoard '38. the chest focus ring is removed' 'css\treasure.css' '.chest:focus-visible{
-  outline:3px solid var(--accent);
-  outline-offset:2px;
-}' '.chest:focus-visible{outline:none}'
-
-# 39 folds the two stacks back into one container. It is the regression this
-# change was made to prevent, and the one a visual glance cannot catch: side by
-# side, a single three-track grid with cells placed in columns 1 and 3 looks
-# almost identical. The difference only shows when a chest opens and the shared
-# implicit rows push the far side down a row.
-$from39 = @'
-<div class="vault__row" id="vault-grid">
-        <ul class="vault__stack vault__stack--left">
-'@
-$to39 = @'
-<div class="vault__row" id="vault-grid">
-        <ul class="vault__grid">
-'@
-MutateHoard '39. the two stacks are merged back into one list' 'index.html' $from39 $to39
 
 # === The bedrock cave =====================================================
 # The cave is the newest physics in the project and the least exercised, so each
@@ -385,44 +316,50 @@ MutateHoard '39. the two stacks are merged back into one list' 'index.html' $fro
 # where the room is not on screen), which is exactly the situation where a
 # mutation is the only honest proof that a passing check means something.
 
-# 40: the floor stops being a profile. This is the "the player cannot move" bug
+# 29: the floor stops being a profile. This is the "the player cannot move" bug
 # in its original form - a flat line, so walking is horizontal only and the room
 # is a corridor. The relief assertion is what catches it.
-Mutate '40. cave floor flattened' 'js\cave.js' 'var FLOOR_RELIEF = 22;' 'var FLOOR_RELIEF = 0;'
-# 41: the floor stops being finite for an unmeasured cave. This is the one that
+Mutate '29. cave floor flattened' 'js\cave.js' 'var FLOOR_RELIEF = 22;' 'var FLOOR_RELIEF = 0;'
+# 30: the floor stops being finite for an unmeasured cave. This is the one that
 # took the longest to find by hand: screenFloorY() returns NaN, the collision
 # writes it into player.y, and every draw from it is dropped by the canvas with no
 # error anywhere. The non-finite check is the only thing that sees it.
-Mutate '41. unmeasured cave floor dereferences a null room' 'js\cave.js' '  if (!room) return NaN;' ''
+Mutate '30. unmeasured cave floor dereferences a null room' 'js\cave.js' '  if (!room) return NaN;' ''
 # 42: the floor never parks, so it walks up the viewport and off the top of it,
 # taking the player with it. Caught by the floor-inside-the-viewport sweep, and
 # originally reported only as "the character left the screen" at five viewports -
 # a message pointing at the player rather than at the floor.
-Mutate '42. cave floor never parks in the viewport' 'js\cave.js' '  if (isFinite(park) && park > 0 && y < park) y = park;' ''
-# 42b: the park line itself. It used to be a fraction of the viewport, and BOTH
+Mutate '31. cave floor never parks in the viewport' 'js\cave.js' '  if (isFinite(park) && park > 0 && y < park) y = park;' ''
+# 31b: the park line itself. It used to be a fraction of the viewport, and BOTH
 # values that were tried were wrong in a way nothing else caught: 0.72 clamped the
 # floor flat for the cave's entire active range (a corridor with a straight line
 # down it - the exact thing this feature exists to avoid), and 0.30 failed at
 # 300x200 where a third of the viewport is 60px and the player is 64px tall. It is
 # caveFloorParkY() now, and this fault removes the sprite-height term from it.
-Mutate '42b. park line ignores the sprite height' 'js\cave.js' '  var min = CAVE_SPRITE_MIN + 2 + FLOOR_RELIEF;' '  var min = 0;'
-# 43: the cave is never entered. The gate stays closed, the player rides the car
+Mutate '31b. park line ignores the sprite height' 'js\cave.js' '  var min = CAVE_SPRITE_MIN + 2 + FLOOR_RELIEF;' '  var min = 0;'
+# 32: the cave is never entered. The gate stays closed, the player rides the car
 # the whole way down, and the room is exactly as it was before this feature.
-Mutate '43. the cave never activates' 'js\cave.js' '  return room.top - (window.scrollY || 0) < h * 0.5;' '  return false;'
-# 44: the walls go, so the player walks off the side of the screen and the next
+Mutate '32. the cave never activates' 'js\cave.js' '  return room.top - (window.scrollY || 0) < h * 0.5;' '  return false;'
+# 33: the walls go, so the player walks off the side of the screen and the next
 # frame draws a sprite and its lantern pool centred off-canvas.
-Mutate '44. cave walls removed' 'js\game.js' '  if (player.x < b.left) { player.x = b.left; player.vx = 0; }' '  if (false) { player.x = b.left; player.vx = 0; }'
-# 45: the collision samples the floor at the player's FEET instead of their
+Mutate '33. cave walls removed' 'js\game.js' '  if (player.x < b.left) { player.x = b.left; player.vx = 0; }' '  if (false) { player.x = b.left; player.vx = 0; }'
+# 34: the collision samples the floor at the player's FEET instead of their
 # centre. Subtle and worth a fault of its own: the feet are two sample-widths
 # apart on a slope, so the sprite ends up standing on the wrong part of the curve
 # - sliding as they walk it, which is the meadow-twitch bug again with the player
 # as the prop.
-Mutate '45. cave floor sampled at the feet, not the centre' 'js\game.js' 'var ground = screenFloorY(player.x + player.w / 2);' 'var ground = screenFloorY(player.x);'
-# 46: the car stays drawn while the player has left it - an empty car hanging over
+Mutate '34. cave floor sampled at the feet, not the centre' 'js\game.js' '  var floorY = screenFloorY(cx);' '  var floorY = screenFloorY(player.x);'
+# 34 was re-pointed here. It used to target a `var ground = screenFloorY(...)`
+# line in movePlayerCave() that duplicated the sampling movePlayerCave() already
+# did. That second sample sat behind a branch a settled player never reached, so
+# the mutation survived every check in the suite while the number it sampled was
+# dead. The duplication is gone; there is now exactly one place the floor is read
+# for collision, and that is what this attacks.
+# 35: the car stays drawn while the player has left it - an empty car hanging over
 # the room. Nothing in the smoke suite checks this, because it is a rendering
 # judgement rather than a coordinate: the hoist simply stops being drawn.
-Mutate '46. the car stays visible after the player leaves it' 'js\render.js' '  if (player.inCave) return;' '  if (false) return;'
-# 47: the roof's small-viewport guard. CAVE_HEIGHT itself is NOT worth a fault: it
+Mutate '35. the car stays visible after the player leaves it' 'js\render.js' '  if (player.inCave) return;' '  if (false) return;'
+# 36: the roof's small-viewport guard. CAVE_HEIGHT itself is NOT worth a fault: it
 # is only ever an upper bound, and caveRoof() clamps it against the floor before
 # applying it, so multiplying it by four produces an identical result - an
 # equivalent mutant, which a surviving check is the CORRECT response to. It was
@@ -433,7 +370,7 @@ Mutate '46. the car stays visible after the player leaves it' 'js\render.js' '  
 # the room parks 60px down and the cave is nominally 300px tall - which the
 # ceiling clamp reports as the player being off screen, a message pointing at the
 # player rather than at the roof.
-Mutate '47. cave roof ignores the sprite height' 'js\cave.js' '    var maxByHead = floor - CAVE_SPRITE_MIN - 1;' '    var maxByHead = floor + 400;'
+Mutate '36. cave roof ignores the sprite height' 'js\cave.js' '    var maxByHead = floor - CAVE_SPRITE_MIN - 1;' '    var maxByHead = floor + 400;'
 
 Write-Output ''
 Write-Output 'restored - confirming the tree is clean again:'

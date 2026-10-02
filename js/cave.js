@@ -59,10 +59,12 @@ var CAVE_SEED = 0x0CA7E;
    screen into nothing. Wide enough that the player sprite (64px) never gets
    wedged against it, which is what a margin narrower than the sprite would do. */
 var CAVE_MARGIN = 34;
-/* How close the player must be to a chest for it to be "the one they are at".
-   Generous on purpose: the chests are wide buttons and the player is a 64px
-   sprite, so a tight box makes the room feel broken rather than explorable. */
-var CAVE_REACH = 120;
+/* CAVE_REACH is GONE. It was how close the player had to be to a chest for it
+   to be "the one they are at" - the reach used by chestAnchors()/
+   nearestChest() below, both of which existed only to serve treasure.js. With
+   the hoard removed there is nothing in the room to be near, and a proximity
+   test with no target is not a smaller thing to keep than a whole one; it is
+   the same dead code at a smaller size. */
 /* Nominal height of the cave above its floor, at a normal viewport. Lives here
    rather than in game.js because BOTH need it - the collision clamps the head
    against it and the renderer places the void behind the rock - and a ceiling the
@@ -76,7 +78,7 @@ var CAVE_REACH = 120;
    puts the roof 240px ABOVE the fold, the ceiling clamp fires, and the player is
    reported as having left the screen. The cave cannot be taller than the window
    it is drawn in. */
-var CAVE_HEIGHT = 300;
+var CAVE_HEIGHT = 340;
 
 /* The roof, in screen space: the floor minus the cave height, never off the top
    of the frame. One function so the collision and the renderer cannot pick
@@ -193,16 +195,56 @@ function floorAt(worldX) {
 function measureCave(w, h) {
   setViewSize(w, h);
   buildFloor(w);
-  var el = document.querySelector('.treasure');
-  if (!el) { room = null; return null; }
-  var r = el.getBoundingClientRect();
-  if (!r || !(r.height > 0)) { room = null; return null; }
+  /* The cave is anchored to `.dig`, the grid that holds every row - it is a real
+     element that is always present, so this cannot half-measure the way an
+     optional room element could.
+
+     It used to measure `.treasure` (an empty <section> that existed only to be
+     measured, carrying no content). That is gone from the markup: an element
+     whose only purpose was to give the cave a box to read is a worse
+     arrangement than reading the container that already exists.
+
+     THE ROOM'S TOP IS NOT THE DIG'S TOP. `.dig` spans the whole dig, so using
+     its top would put the cave's ceiling behind the surface camp and hand the
+     player over at the very first scroll. The cave is the run of page BELOW the
+     last chamber, so the top is the Education chamber's bottom. That is the one
+     number that says "the dig is over".
+
+     Room height is therefore the remainder of the dig, which is what the cave
+     has always been: the rock under the deepest chamber. It is at least one
+     pixel, because a zero-height room is treated as unmeasured below, and the
+     stub reports a zero-height box for a section that has not laid out. */
+  /* THE ROOM'S TOP IS THE CAVE SECTION'S BOTTOM. It used to be the Education
+     chamber's bottom, because the cave had no section of its own - it was the
+     airspace below the dig. Now it is a real room with a panel, so the cavern
+     the player walks in starts below THAT panel rather than below Education.
+
+     Both the car and the cave must agree on this edge or the sprite would be
+     handed to a cave whose ceiling is somewhere behind its own room. */
+  var dig = document.querySelector('.dig');
+  if (!dig) { room = null; return null; }
+  var dr = dig.getBoundingClientRect();
+  if (!dr || !(dr.height > 0)) { room = null; return null; }
+
+  var digTop = Math.round(dr.top + (window.scrollY || 0));
+  var digBottom = Math.round(dr.bottom + (window.scrollY || 0));
+  var last = document.querySelector('#cave');
+  var top = digTop;
+  if (last) {
+    var lr = last.getBoundingClientRect();
+    if (lr && lr.height > 0) top = Math.round(lr.bottom + (window.scrollY || 0));
+  }
+  /* Never above the dig, and never past its floor. A last chamber taller than
+     the dig would otherwise invert the room and hand back a negative height. */
+  if (top < digTop) top = digTop;
+  if (top > digBottom) top = digBottom;
+
   room = {
-    el: el,
-    top: Math.round(r.top + (window.scrollY || 0)),
-    bottom: Math.round(r.bottom + (window.scrollY || 0)),
-    left: Math.round(r.left),
-    width: Math.round(r.width)
+    el: dig,
+    top: top,
+    bottom: digBottom,
+    left: Math.round(dr.left),
+    width: Math.round(dr.width)
   };
   return room;
 }
@@ -307,50 +349,18 @@ function caveBounds() {
   return { left: m, right: right };
 }
 
-/* How far the reader is from the nearest chest, in screen x. Used by the render
-   pass to light the chest the player is standing at, and by treasure.js to open
-   one on approach.
+/* chestAnchors() and nearestChest() are GONE, and CAVE_REACH with them.
 
-   The chests are real HTML, so their positions are read from the DOM rather than
-   reconstructed here. That is the whole reason the two cannot drift: the cave
-   has no independent idea where a chest is. */
-function chestAnchors() {
-  var out = [];
-  if (!room) return out;
-  var chests = document.querySelectorAll('.chest');
-  for (var i = 0; i < chests.length; i++) {
-    var r = chests[i].getBoundingClientRect();
-    if (!r || !(r.height > 0)) continue;
-    out.push({
-      el: chests[i],
-      /* Viewport coordinates, because getBoundingClientRect already accounts for
-         the scroll and this is read every frame. Converting to world here would
-         be a second opinion about the scroll, and the header's whole argument is
-         that there must only be one. */
-      cx: r.left + r.width / 2,
-      top: r.top,
-      bottom: r.bottom,
-      width: r.width,
-      gold: parseInt(chests[i].dataset.gold, 10) || 0,
-      open: chests[i].getAttribute('aria-expanded') === 'true'
-    });
-  }
-  return out;
-}
+   Both existed for one consumer: treasure.js, to find the chest the player was
+   standing at so it could highlight that one and open it on approach. They read
+   the chests' measured boxes rather than caching positions, which was the right
+   call while the chests were real HTML that reflowed - but with the hoard
+   removed there is nothing to measure and no consumer left. The room is empty,
+   and the walk across it is now bounded only by caveBounds().
 
-/* The chest the player is standing at, or null. REACH is generous: the chests
-   are wide and the player is 64px, so a tight box would make the room feel
-   broken rather than explorable. It is a proximity test, not a collision. */
-function nearestChest(px, pw) {
-  var list = chestAnchors();
-  var best = null, bestD = Infinity;
-  var cx = px + pw / 2;
-  for (var i = 0; i < list.length; i++) {
-    var d = Math.abs(list[i].cx - cx);
-    if (d < bestD) { bestD = d; best = list[i]; }
-  }
-  return (best && bestD <= CAVE_REACH) ? best : null;
-}
+   Note what this does NOT remove: cave.js is still the module that measures the
+   room, builds the floor profile and answers where the floor is. The cave is
+   very much still here; only the furniture that stood in it has gone. */
 
 /* === Entering and leaving ===================================================
    The handover is explicit and lives here, rather than being implied by the
@@ -454,7 +464,6 @@ function caveRoomTop() {
 
 export {
   CAVE_MARGIN,
-  CAVE_REACH,
   CAVE_HEIGHT,
   CAVE_FLOOR_STEP,
   CAVE_RUBBLE_SEED,
@@ -467,8 +476,6 @@ export {
   caveRoof,
   screenFloorY,
   floorAt,
-  chestAnchors,
-  nearestChest,
   enterCave,
   leaveCave
 };

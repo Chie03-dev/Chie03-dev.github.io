@@ -23,9 +23,12 @@
      visitors. If this never runs, panels simply stay visible. */
   document.documentElement.className += ' js';
 </script>
+<!-- treasure.css is GONE, along with the hoard it styled. Everything else here
+     is unchanged, and the ORDER still matters: layout.css must come last,
+     because its @media print and prefers-reduced-motion blocks are the final
+     word and win on source order rather than specificity. -->
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/chambers.css">
-<link rel="stylesheet" href="css/treasure.css">
 <link rel="stylesheet" href="css/layout.css">
 </head>
 <body>
@@ -40,6 +43,7 @@
     <li><a href="#projects"><span>Stone</span><span class="depth__m"></span></a></li>
     <li><a href="#experience"><span>Caves</span><span class="depth__m"></span></a></li>
     <li><a href="#education"><span>Bedrock</span><span class="depth__m"></span></a></li>
+    <li><a href="#cave"><span>Cave</span><span class="depth__m"></span></a></li>
   </ol>
 </nav>
 
@@ -226,143 +230,32 @@
     </dl>
   </section>
 
-  <!-- ============ ROW 6 FULL WIDTH - Bedrock treasure room ============ -->
-  <section id="contact" class="treasure" data-layer="bedrock" aria-labelledby="contact-h">
-    <h2 id="contact-h">Bedrock treasure room</h2>
-    <p class="chamber__sub">Contact me + PDF resume</p>
-    <div class="treasure__btns">
-      <button class="btn btn--ghost" type="button" id="reveal-email">Email</button>
-      <span id="email-slot"></span>
-      <!-- The real PDF, as the spec asks: a same-origin link carrying a download
-           attribute, so it saves the file rather than opening the print dialog.
-           Printing is still fully supported by Ctrl/Cmd-P, which the beforeprint
-           hook and the print stylesheet in layout.css still handle. -->
-      <a class="btn" href="assets/Alchie-Andilab-Resume.pdf" download id="print-resume">Download PDF</a>
-      <a class="btn btn--ghost" href="https://linkedin.com/in/alchieandilab" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-      <a class="btn btn--ghost" href="https://github.com/Chie03-dev" target="_blank" rel="noopener noreferrer">GitHub</a>
-    </div>
-    <p class="hint">
-      <a class="btn btn--ghost" href="#summary">Back to the surface</a>
+  <!-- ================= ROW 6 RIGHT - The Cave ======================
+       A real sixth room, like the other five: panel, doorway, depth-rail entry.
+
+       ITS SPACE BELOW IS WALKABLE. The panel is the room; the airspace the dig's
+       bottom padding reserves underneath it is the cavern the player walks in,
+       drawn on the canvas by render.js. That is the same arrangement the old
+       treasure room used, and it is why the room's copy sits ABOVE the walkable
+       floor rather than on it.
+
+       COPY: deliberately a pointer, not new claims. Everything asserted here
+       already appears in full in the chambers above, and a resume is exactly the
+       wrong place for a paragraph that exists nowhere else. -->
+  <section id="cave" class="chamber chamber--right" data-layer="caves" aria-labelledby="cave-h">
+    <p class="chamber__door" aria-hidden="true"></p>
+    <p class="chamber__name">The Cave</p>
+    <h2 id="cave-h">Down here</h2>
+    <p>
+      The bottom of the dig. The lift stops here, the shelves and the cage are yours
+      to climb, and the floor is uneven underfoot.
     </p>
-
-    <!-- ============ THE HOARD: five chests, opened one at a time ============
-         Each chest is a real <button> carrying aria-expanded and aria-controls,
-         so the whole hoard is reachable by keyboard and reports its own state
-         to assistive tech without any ARIA being invented in JS.
-
-         The loot is CONDENSED copy that links onward to the full text in the
-         chamber above, rather than a second copy of it. That is deliberate: copy
-         that exists in two places drifts, and the plain resume at the foot of
-         the page is the one authoritative version. Nothing here is the only
-         place a piece of information exists.
-
-         The loot carries NO `hidden` attribute in this markup. It is collapsed
-         by CSS under `html.js` only, so a visitor whose script fails - or who
-         has disabled JS - reads the hoard open rather than losing it. This is
-         the same progressive-enhancement trick the chambers use (see the .js
-         rules in layout.css), and it is exactly why `hidden` would be the wrong
-         tool here: it is a promise only script is keeping, and if the script
-         never runs that promise is never kept.
-    ========================================================================== -->
-    <div class="vault" id="vault">
-      <p class="vault__head">
-        <span class="vault__title">The hoard</span>
-        <span class="vault__tally" role="status">
-          <span class="vault__coins" aria-hidden="true"></span>
-          <span id="gold-count">0</span> of <span id="gold-total">0</span> gold
-        </span>
-      </p>
-      <!-- Two real lists, side by side, rather than one list whose cells are
-           placed in columns 1 and 3. Both readings put the chests either side
-           of the shaft; this one also means each side is its own block, so a
-           chest opening on the left can never change the row height of the
-           right, and the two sides can be styled and re-ordered independently.
-
-           The id stays on this wrapper, so treasure.js still finds every
-           `.chest` with one getElementById + querySelectorAll - the split is a
-           layout change, not a behaviour one. -->
-      <div class="vault__row" id="vault-grid">
-        <ul class="vault__stack vault__stack--left">
-          <li class="vault__cell">
-            <button class="chest" type="button" data-chest="till" data-gold="3"
-                    aria-expanded="false" aria-controls="loot-till">
-              <span class="chest__lid" aria-hidden="true"></span>
-              <span class="chest__name">The till</span>
-              <span class="chest__sub">Mobile POS &amp; inventory</span>
-            </button>
-            <div class="chest__loot" id="loot-till">
-              <div class="chest__loot-in">
-                <p>An offline-first Android POS: barcode checkout, inventory tracking, sales analytics, forecasting and PDF receipts.</p>
-                <p class="chest__more"><a href="#projects">Full entry in the treasure vault</a></p>
-              </div>
-            </div>
-          </li>
-          <li class="vault__cell">
-            <button class="chest" type="button" data-chest="mirror" data-gold="1"
-                    aria-expanded="false" aria-controls="loot-mirror">
-              <span class="chest__lid" aria-hidden="true"></span>
-              <span class="chest__name">The mirror</span>
-              <span class="chest__sub">AI resume tailor</span>
-            </button>
-            <div class="chest__loot" id="loot-mirror">
-              <div class="chest__loot-in">
-                <p>Keeps one master resume and hot-swaps keywords for the target job, scoring the result against how an ATS parses it.</p>
-                <p class="chest__more"><a href="#projects">Full entry in the treasure vault</a></p>
-              </div>
-            </div>
-          </li>
-          <li class="vault__cell">
-            <button class="chest" type="button" data-chest="shelf" data-gold="1"
-                    aria-expanded="false" aria-controls="loot-shelf">
-              <span class="chest__lid" aria-hidden="true"></span>
-              <span class="chest__name">The shelf</span>
-              <span class="chest__sub">What I work in</span>
-            </button>
-            <div class="chest__loot" id="loot-shelf">
-              <div class="chest__loot-in">
-                <p>Kotlin, Java, Python, JavaScript and PHP; Android, React, Node, Django and Next; PostgreSQL, SQLite and MySQL.</p>
-                <p class="chest__more"><a href="#skills">The full list in the dirt layer</a></p>
-              </div>
-            </div>
-          </li>
-        </ul>
-
-        <!-- The right stack. Two chests, so it is shorter than the left; the row
-             is align-items:start, which is what stops the two lists stretching
-             to each other's height and leaving a gap under the shorter one. -->
-        <ul class="vault__stack vault__stack--right">
-          <li class="vault__cell">
-            <button class="chest" type="button" data-chest="exam" data-gold="2"
-                    aria-expanded="false" aria-controls="loot-exam">
-              <span class="chest__lid" aria-hidden="true"></span>
-              <span class="chest__name">The exam room</span>
-              <span class="chest__sub">Lock Task Mode &amp; live telemetry</span>
-            </button>
-            <div class="chest__loot" id="loot-exam">
-              <div class="chest__loot-in">
-                <p>An exam environment that locks the device with Lock Task Mode and streams WebSocket telemetry, with instructor remote controls and zero-loss draft sync.</p>
-                <p class="chest__more"><a href="#projects">Full entry in the treasure vault</a></p>
-              </div>
-            </div>
-          </li>
-          <li class="vault__cell">
-            <button class="chest" type="button" data-chest="bench" data-gold="2"
-                    aria-expanded="false" aria-controls="loot-bench">
-              <span class="chest__lid" aria-hidden="true"></span>
-              <span class="chest__name">The bench</span>
-              <span class="chest__sub">Build &amp; repair</span>
-            </button>
-            <div class="chest__loot" id="loot-bench">
-              <div class="chest__loot-in">
-                <p>Hardware and software repair, OS installation, printers and networks on Windows and Linux &mdash; and the web work that came out of it.</p>
-                <p class="chest__more"><a href="#experience">Full entry in the dungeon halls</a></p>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </div>
+    <p class="muted">
+      Everything I have built is written up in full above - the work, the tools, and
+      the projects they went into.
+    </p>
   </section>
+
  </div>
 </main>
 

@@ -1,10 +1,10 @@
 /* ==========================================================================
-   ui.js - the DOM side: reveals, depth rail, buttons, plain resume
+   ui.js - the DOM side: reveals, depth rail, plain resume
    ==========================================================================
-   The IntersectionObserver panel reveals, the depth rail active marker, the
-   print and email buttons, and the plain-resume disclosure with its print
-   hook. All resume text stays in index.html as real HTML; this only wires
-   behaviour to it. textContent and createElement only, never innerHTML.
+   The IntersectionObserver panel reveals, the depth rail active marker, and the
+   plain-resume disclosure with its print hook. All resume text stays in
+   index.html as real HTML; this only wires behaviour to it. textContent and
+   createElement only, never innerHTML.
    ========================================================================== */
 
 import {
@@ -25,11 +25,15 @@ if ('IntersectionObserver' in window) {
     }
   }, { threshold: 0.08, rootMargin: '0px 0px -10% 0px' });
 
-  var panels = document.querySelectorAll('.chamber, .treasure');
+  /* `.treasure` is out of this selector too. It was the treasure room, and the
+   room is gone from the markup - only `.chamber` elements remain, so observing a
+   class that matches nothing would have made the query look like it still had a
+   sixth panel to reveal. */
+  var panels = document.querySelectorAll('.chamber');
   for (var p = 0; p < panels.length; p++) io.observe(panels[p]);
 } else {
   /* No observer support: show everything rather than hide content. */
-  var fallback = document.querySelectorAll('.chamber, .treasure');
+  var fallback = document.querySelectorAll('.chamber');
   for (var f = 0; f < fallback.length; f++) fallback[f].classList.add('is-visible');
 }
 /* === Depth meter =========================================================
@@ -105,32 +109,23 @@ function updateCue() {
 }
 
 /* === Buttons =============================================================
-   textContent only. No innerHTML anywhere in this file.
+   This section used to hold the "Email" reveal button: a click assembled the
+   address in JS and wrote it into a span, so the address never sat in the
+   static HTML as a mailto: target for a scraper. It is now REMOVED, along with
+   the button it was wired to - the Email / Download PDF / LinkedIn / GitHub row
+   went with the treasure room's heading, and a new contact area is being built
+   into the cave instead.
 
-   Download PDF is a plain <a download> in the markup now, so there is no print
-   handler left in this module. Printing the resume is still fully supported:
-   Ctrl/Cmd-P fires the beforeprint hook below, which opens the plain resume,
-   and the @media print block in layout.css renders only that. Nothing about the
-   printed output depended on the button. */
+   Nothing is left here to guard, which is worth stating plainly: the old code
+   was already written as `if (emailBtn && emailSlot)`, so removing the markup
+   would not have thrown. Keeping a null-guarded handler for an element that no
+   longer exists is worse than deleting it - it reads in review as a live
+   feature, and the email address it assembled is still in this file's history.
 
-var emailBtn = document.getElementById('reveal-email');
-var emailSlot = document.getElementById('email-slot');
-if (emailBtn && emailSlot) {
-  emailBtn.addEventListener('click', function () {
-    if (emailBtn.dataset.done === '1') return;
-    emailBtn.dataset.done = '1';
-    emailBtn.textContent = 'Email';
-    emailBtn.disabled = true;
-    /* Assembled in JS so the address never sits in the static HTML as a
-       mailto: target for a scraper. See docs/privacy decision. */
-    var local = ['alchieandilab', '2003', 'gmail.com'];
-    var addr = local[0] + local[1] + '@' + local[2];
-    var a = document.createElement('a');
-    a.href = 'mailto:' + addr;
-    a.textContent = addr;
-    emailSlot.appendChild(a);
-  });
-}
+   PRINTING IS UNAFFECTED. The Download PDF button was a plain <a download>, so
+   no print behaviour was ever bound to it. Printing the resume is still fully
+   supported: Ctrl/Cmd-P fires the beforeprint hook below, which opens the plain
+   resume, and the @media print block in layout.css renders only that. */
 /* === Plain resume disclosure ===============================================
    The plain resume deliberately duplicates the panels, so it is collapsed by
    default and only revealed when it is actually asked for:
