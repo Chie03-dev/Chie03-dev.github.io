@@ -932,6 +932,57 @@ async function run() {
                 String(sheave).padStart(3) + '  ' + (failures === before ? 'ok' : 'PROBLEMS'));
   }
 
+  /* 7b. The contact block in the cave chamber.
+
+     mailAddress() is pure - it reads two attributes and returns a string - so it
+     is tested directly against a plain object with a getAttribute, rather than
+     through the DOM. That is not a shortcut to avoid the DOM; it is that the
+     function's entire job is the string, and the string is where every failure
+     mode lives.
+
+     THE EMPTY-HALF CASE IS THE POINT, not an edge case. index.html ships with
+     both halves blank rather than a guessed address, so "returns empty" is the
+     DEFAULT path a visitor hits today, and it is the one that decides whether
+     the Email entry is an inert label or a mailto: addressed to a stranger.
+     Removing the guard does not throw here - it silently returns '@', which is
+     why it survived a naive check and why it is asserted explicitly below. */
+  {
+    const C = M.contact;
+    if (!C) fail('js/contact.js did not load');
+    else {
+      const host = (u, d) => ({ getAttribute: k => (
+        k === 'data-mail-user' ? u : k === 'data-mail-domain' ? d :
+        k === 'data-at' ? '@' : null) });
+
+      const good = C.mailAddress(host('alchie', 'example.com'));
+      if (good !== 'alchie@example.com') {
+        fail('a complete address assembled as "' + good + '" instead of the joined halves');
+      }
+      /* Either half missing must yield NO address at all. Not a partial one:
+         a half-built mailto: opens a compose window pointed at a stranger. */
+      for (const [label, u, d] of [['user', '', 'example.com'],
+                                   ['domain', 'alchie', ''],
+                                   ['both', '', '']]) {
+        const got = C.mailAddress(host(u, d));
+        if (got !== '') {
+          fail('with the ' + label + ' half missing, mailAddress() returned "' + got +
+               '" instead of "" - that wires a mailto: to the wrong place');
+        }
+      }
+      /* Whitespace around a hand-edited attribute must not leak into the href. */
+      const padded = C.mailAddress(host('  alchie  ', '  example.com '));
+      if (padded !== 'alchie@example.com') {
+        fail('whitespace was not trimmed out of the halves: "' + padded + '"');
+      }
+      /* A missing host must not throw - the caller passes real nodes, but this
+         is the function a future caller could hand anything. */
+      let threw = false;
+      try { C.mailAddress(null); } catch (e) { threw = true; }
+      if (threw) fail('mailAddress(null) threw instead of returning ""');
+      console.log('  contact   mailto assembly ok (empty halves fail closed, trimmed)');
+    }
+  }
+
   /* 8. The pixel-art sheets must actually have produced art. See the note
        above: the drawn foliage is still baked as a fallback, so without
        this section the whole suite is satisfied by the fallback and the

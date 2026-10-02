@@ -272,3 +272,85 @@
 }
 #education .kv dd::before{left:0}
 #education .kv dd::after{right:0}
+
+/* ==========================================================================
+   Contact block - the bottom of the site, inside the cave chamber
+   ==========================================================================
+   Purpose: the four ways to reach the author, laid out so they are obviously a
+   group rather than a fourth paragraph of cave copy.
+
+   WHY A FLEX ROW AND NOT THE .chips LIST. The chip pattern used by #skills is
+   sized to short labels ("Python", "SQL"). Three of these four are place names
+   with their own natural widths, and forcing them onto one centered baseline
+   with padding sized for four-character words left two of them looking like
+   mis-aligned buttons. Wrapping is allowed, and the gap does the aligning.
+
+   44px MIN TOUCH TARGET. These are the only interactive controls in the whole
+   cave room, which makes them the easiest thing on the page to hit by accident
+   while walking around down here - so the hit area is the full row height, not
+   just the underline. .contact__link is inline-flex for that reason.
+
+   THE FAILED-EMAIL STATE. contact.js leaves the span inert when either half of
+   the address is missing rather than guessing at one. It must then look
+   obviously inert - .contact__link[data-mail-failed] - because a link-styled
+   span that does nothing is a broken promise. It keeps the accent colour and
+   loses the underline, which reads as "not a link" without hiding the text.
+
+   Under prefers-reduced-motion there is no transition on these anyway (see the
+   global block in base.css), and no transform on hover, so nothing here needs a
+   separate reduced-motion rule.
+   ========================================================================== */
+.contact{
+  margin-top:var(--space-md);
+  padding-top:var(--space-md);
+  border-top:2px dashed color-mix(in srgb,var(--layer-ore) 40%,transparent);
+}
+.contact__h{
+  margin:0 0 var(--space-sm);
+  font-family:var(--font-heading);
+  font-size:var(--step-1);
+  line-height:1.2;
+  color:var(--chalk);
+}
+.contact__list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--space-xs) var(--space-md);
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.contact__link{
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  color:var(--accent);
+  font-weight:600;
+  text-decoration:underline;
+  text-underline-offset:4px;
+  text-decoration-thickness:2px;
+  transition:color var(--dur) var(--ease);
+}
+/* :hover is scoped to a real anchor. The span fallback is styled by
+   [data-mail-failed] below, so a half-configured address can never pick up link
+   affordances by being hovered. */
+a.contact__link:hover,
+a.contact__link:focus-visible{
+  color:#ffe58a;
+  text-decoration-thickness:3px;
+}
+.contact__link[data-mail-failed]{
+  /* Deliberately NOT the accent colour: it is not a link and must not look like
+     one. The muted colour still meets contrast on the panel background, so the
+     word stays legible - it is a placeholder, not an error. */
+  color:var(--muted);
+  text-decoration:none;
+  cursor:default;
+}
+/* Phone: 360px has room for two of these per row at most, and a wrapped row of
+   inline-flex items is already doing the work - this only removes the top border
+   padding so the block does not push the chamber taller than its art. */
+@media (max-width:420px){
+  .contact__list{gap:var(--space-xs)}
+  .contact__link{font-size:var(--step--1)}
+}

@@ -14,6 +14,7 @@ import { advanceCar, seatDeck } from './deck.js';
 import { player, keys, WALK_SPEED, movePlayer, snapPlayerToGround } from './game.js';
 import { seedMotes, drawMotes, render } from './render.js';
 import { updateDepth, updateCue } from './ui.js';
+import { initContact } from './contact.js';
 /* treasure.js is GONE, along with the hoard it opened. Two things went with it:
    initHoard(), which ran once at boot to wire the chest buttons and tally the
    gold, and stepCave(), which ran every frame to highlight whichever chest the
@@ -168,6 +169,11 @@ window.addEventListener('orientationchange', function () { setTimeout(resize, 12
    creation. */
 resize();
 updateDepth();
+/* Contact first: it only reads attributes and swaps a span for an anchor, so it
+   cannot throw, and running it before whenSheets() means the links are live even
+   if a sprite sheet is slow or missing. A contact block that only appears once
+   the art has loaded is a contact block that fails to appear at all. */
+initContact();
 whenSheets(function (a) {
   /* The dirt tile is gone from the sheets, so the renderer is told so plainly and
      buildTextures() falls back to its own baked grit per band - which is what it

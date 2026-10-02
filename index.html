@@ -247,13 +247,64 @@
     <p class="chamber__name">The Cave</p>
     <h2 id="cave-h">Down here</h2>
     <p>
-      The bottom of the dig. The lift stops here, the shelves and the cage are yours
-      to climb, and the floor is uneven underfoot.
+      The bottom of the dig. The lift stops here, the cage is yours to ride back up,
+      and the floor is uneven underfoot. Nothing left below this line.
     </p>
     <p class="muted">
       Everything I have built is written up in full above - the work, the tools, and
       the projects they went into.
     </p>
+
+    <!-- ===================================================================
+      Contact. This is the bottom of the site, so it is the bottom of the dig
+      too, and it lives inside the cave chamber rather than in a sixth layer of
+      its own: adding a layer for four links would have put a scroll-length
+      between the reader and the thing they came for.
+
+      Real links, not buttons that run code. Every one of these works with
+      JavaScript disabled, with a middle-click, and with "open in new tab" - a
+      mailto: in particular has no scripted fallback worth having, because the
+      browser handling it is the entire feature.
+
+      The email is split across two attributes and assembled at runtime, which is
+      the same trick the old treasure room used and it is kept deliberately: a
+      plain href="mailto:..." is scraped by every address harvester that walks
+      the source, and this page is public. The visible text is written by
+      textContent, never innerHTML, and the href is only built once both halves
+      are present, so a half-edited attribute degrades to no link at all rather
+      than to a wrong address.
+
+      Print resume is a real <a href> to a real PDF, not a button that calls
+      window.print(). It downloads the file the reader wants, works offline, and
+      needs no script.
+      =================================================================== -->
+    <div class="contact">
+      <h3 class="contact__h" id="contact-h">Contact me</h3>
+      <ul class="contact__list" aria-labelledby="contact-h">
+        <li>
+          <a class="contact__link" href="https://linkedin.com/in/alchieandilab"
+             target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        </li>
+        <li>
+          <a class="contact__link" href="https://github.com/Chie03-dev"
+             target="_blank" rel="noopener noreferrer">GitHub</a>
+        </li>
+        <li>
+          <!-- TODO(you): set the two halves to your real address. Left blank on
+               purpose - I will not guess a contact address, and a wrong one is
+               worse than none: mailAddress() returns '' for a blank half, so the
+               script leaves this as inert "Email" text instead of wiring a
+               mailto: that would open a compose window addressed to a stranger.
+               Fill in data-mail-user and data-mail-domain and it becomes a link
+               on its own. Nothing else has to change. -->
+          <span class="contact__link" data-mail-user="" data-mail-domain=""
+                data-at="@">Email</span>
+        </li>
+        <li>
+          <a class="contact__link" href="assets/Alchie-Andilab-Resume.pdf" download>Print resume</a>
+        </li>
+      </ul>
+    </div>
   </section>
 
  </div>
