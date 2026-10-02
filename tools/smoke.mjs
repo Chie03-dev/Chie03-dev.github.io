@@ -1378,8 +1378,14 @@ async function run() {
               fillRect: () => {}, strokeRect: () => {},
               mobLayer: mobCtx
             };
+            /* `now` and `reduced` are passed EXPLICITLY. Left undefined they do not
+               throw - they go NaN, Math.round(NaN) is NaN, and every shape string
+               comes out as "NaNxNaN". That would make all four galleries compare
+               EQUAL and trip the "SAME creature" check below for a reason that has
+               nothing to do with the creatures. */
             art.drawRoom(ctx2, ['dirt', 'stone', 'caves', 'bedrock'][idx],
-                         { left: 48, right: 568 }, 600, 300, idx, 1);
+                         { left: 48, right: 568 }, 600, 300, idx, 1,
+                         /* reduced = */ true);
             /* SHAPE ONLY - width and height, never x. The creature's x is
                jittered per room from the rng, so comparing positions makes every
                gallery differ even when all four mobs are the same one, and the
@@ -1401,6 +1407,64 @@ async function run() {
                      'four galleries with the same mob is not a showcase');
               }
             }
+          }
+
+          /* ---- the creatures actually move, and actually stop. ----
+
+             Two checks that are the same question asked from opposite ends. Before
+             this, `t` was the RNG function - drawMob's signature asked for a time
+             and the caller handed it a function, which JavaScript is perfectly happy
+             to multiply by 7 and hand to Math.sin. It threw on nothing. */
+
+          /* One layer, three moments. Positions AND sizes, unlike the shape-only
+             check above - the point is that a pixel changes, so comparing only
+             sizes would miss a creature that slides without resizing. */
+          const frames = [0, 700, 1400].map(now => {
+            const out = [];
+            const mc = {
+              fillStyle: '', globalAlpha: 1,
+              fillRect: (x, y, w, h) => out.push(Math.round(x) + ',' + Math.round(y) +
+                                                  ',' + Math.round(w) + ',' + Math.round(h))
+            };
+            art.drawRoom({ fillStyle: '', strokeStyle: '', lineWidth: 0,
+                            globalAlpha: 1, createLinearGradient: () => ({ addColorStop() {} }),
+                            fillRect: () => {}, strokeRect: () => {}, mobLayer: mc },
+                          'dirt', { left: 48, right: 568 }, 600, 300, 0, 1,
+                          now, false);
+            return out.join('|');
+          });
+          if (!(frames[0] && frames[1] && frames[0] !== frames[1])) {
+            fail('the creature drew the same thing at t=0 and t=700ms - it is not ' +
+                 'animating, so `now` is not reaching it');
+          }
+          if (frames[0] === frames[1] && frames[1] === frames[2]) {
+            fail('the creature never changed at all across three frames');
+          }
+
+          /* prefers-reduced-motion. THE WHOLE PAGE is behind a canvas, so a reader
+             who asks for reduced motion gets a still page by default and an animated
+             one only from a bug - there is no HTML fallback to read instead. The
+             creatures must be there, and must be still. */
+          const still = [0, 700, 1400].map(now => {
+            const out = [];
+            const mc = {
+              fillStyle: '', globalAlpha: 1,
+              fillRect: (x, y, w, h) => out.push(Math.round(x) + ',' + Math.round(y) +
+                                                  ',' + Math.round(w) + ',' + Math.round(h))
+            };
+            art.drawRoom({ fillStyle: '', strokeStyle: '', lineWidth: 0,
+                            globalAlpha: 1, createLinearGradient: () => ({ addColorStop() {} }),
+                            fillRect: () => {}, strokeRect: () => {}, mobLayer: mc },
+                          'dirt', { left: 48, right: 568 }, 600, 300, 0, 1,
+                          now, /* reduced = */ true);
+            return out.join('|');
+          });
+          if (!still[0]) {
+            fail('reduced motion removed the creature entirely - it should freeze ' +
+                 'it, not delete it');
+          }
+          if (still[0] !== still[1] || still[1] !== still[2]) {
+            fail('the creature still moves under prefers-reduced-motion');
           }
 
           /* The taper check, now that it can be made about the right shapes. */

@@ -201,14 +201,25 @@ function drawCave(ctx, t, b, floorY, roofY, r, side) {
    every reload. A creature that hops around between frames is not a resident. */
 var MOBS = ['bat', 'golem', 'spider', 'worm'];
 
-function drawMob(ctx, t, kind, x, floorY, r, h) {
+/* ANIMATION.
+
+   Every creature moves the way THAT creature moves, because four things bobbing
+   in unison read as one thing bobbing four times. Each is a pure function of `t`
+   - no accumulated state, no frame counter - so the same moment always draws the
+   same pose, a test can ask for two times and compare, and a dropped frame cannot
+   leave a creature mid-limp.
+
+   AND EVERY ONE OF THEM STOPS UNDER prefers-reduced-motion. That is not a
+   nicety: this page's entire content is behind a canvas, so a reader who has asked
+   for reduced motion gets a static page by default and an animated one only from
+   a bug. Reduced motion removes the MOVEMENT, never the creature - a gallery
+   with nothing in it is a worse outcome than a still gallery - so it is handled
+   by freezing t at 0, which puts all four in their neutral pose at once, rather
+   than by special-casing each one. */
+function drawMob(ctx, t, kind, x, floorY, h) {
   var eye = '#ffd24a';
   var dark = '#0d1116';
 
-  function body(w, bh, dx) {
-    ctx.fillStyle = dark;
-    ctx.fillRect(x + dx - Math.round(w / 2), floorY - bh, w, bh);
-  }
   function eyes(dx, y, gap, size) {
     ctx.fillStyle = eye;
     ctx.fillRect(Math.round(x + dx - gap), y, size, size);
@@ -216,53 +227,61 @@ function drawMob(ctx, t, kind, x, floorY, r, h) {
   }
 
   if (kind === 'bat') {
-    /* Hangs from the roof, so its y comes down from the top, not up off the
-       floor - which is the whole difference between a bat and a beetle. */
+    /* HANGS, AND FLAPS. The wings rise and fall together while the body stays
+       put - a bat beats its wings and its body hangs, and that contrast is the
+       whole silhouette. Fast, because a bat is fast. */
+    var flap = Math.round(Math.sin(t * 7) * 5);
     var len = Math.round(h * 0.24);
     var y0 = floorY - len;
-    /* wings */
     ctx.fillStyle = dark;
-    ctx.fillRect(x - 22, y0 + 4, 12, 4);
-    ctx.fillRect(x + 10, y0 + 4, 12, 4);
-    ctx.fillRect(x - 26, y0 + 8, 6, 3);
-    ctx.fillRect(x + 20, y0 + 8, 6, 3);
-    /* body + head */
+    ctx.fillRect(x - 22, y0 + 4 - flap, 12, 4);
+    ctx.fillRect(x + 10, y0 + 4 - flap, 12, 4);
+    ctx.fillRect(x - 26, y0 + 8 + flap, 6, 3);
+    ctx.fillRect(x + 20, y0 + 8 + flap, 6, 3);
     ctx.fillRect(x - 5, y0, 10, 12);
     ctx.fillRect(x - 4, y0 - 7, 8, 8);
     eyes(0, y0 - 5, 3, 2);
   } else if (kind === 'golem') {
+    /* BREATHES. Slow and shallow, and the shoulders move with the mass so it
+       reads as something heavy breathing rather than something floating. */
+    var br = Math.round(Math.sin(t * 1.1) * 2);
     var gh = Math.round(h * 0.34);
-    body(34, gh, 0);
-    /* a second, wider block underneath reads as legs without drawing legs */
     ctx.fillStyle = dark;
+    ctx.fillRect(x - 17, floorY - gh - br, 34, gh + br);
     ctx.fillRect(x - 20, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
     ctx.fillRect(x + 8, floorY - Math.round(gh * 0.34), 12, Math.round(gh * 0.34));
-    /* shoulders */
-    ctx.fillRect(x - 22, floorY - gh - 6, 44, 8);
-    eyes(0, floorY - gh - 2, 7, 3);
+    ctx.fillRect(x - 22, floorY - gh - 6 - br, 44, 8);
+    eyes(0, floorY - gh - 2 - br, 7, 3);
   } else if (kind === 'spider') {
+    /* SCUTTLES. The legs step in alternating pairs, each on its own offset, so
+       the walk ripples down the row instead of the whole creature sliding side to
+       side - a sliding spider looks like a sprite on a rail. */
+    var scuttle = Math.round(Math.sin(t * 3.2) * 3);
     var sy = floorY - 14;
     ctx.fillStyle = dark;
-    /* legs first, so the body sits on top of them */
     for (var i = 0; i < 4; i++) {
       var lx = x - 16 + i * 10;
+      var step = Math.round(Math.sin(t * 6 + i * 1.7) * 4);
       var dy = 6 + (i % 2) * 4;
-      ctx.fillRect(lx, sy - dy, 3, dy + 14);
+      ctx.fillRect(lx, sy - dy + step, 3, dy + 14 - step);
     }
-    ctx.fillRect(x - 11, sy - 5, 22, 14);
-    ctx.fillRect(x - 7, sy - 11, 14, 8);
-    eyes(0, sy - 9, 4, 2);
+    ctx.fillRect(x - 11 + scuttle, sy - 5, 22, 14);
+    ctx.fillRect(x - 7 + scuttle, sy - 11, 14, 8);
+    eyes(scuttle, sy - 9, 4, 2);
   } else {
-    /* WORM: segments marching along the floor, the last one smaller. */
+    /* CRAWLS. A travelling wave down the segments: each lags the one before it, so
+       the body ripples forward instead of sliding as a bar. Only the head has
+       eyes, so the direction of travel is readable. */
     ctx.fillStyle = dark;
-    var wx = x - 26;
+    var wx = x - 26 + Math.round(Math.sin(t * 2.2) * 6);
     for (var s = 0; s < 5; s++) {
       var sw2 = 16 - s * 2;
       var sh = 12 - s;
-      ctx.fillRect(wx, floorY - sh, sw2, sh);
+      var wob = Math.round(Math.sin(t * 4 - s * 0.8) * 2);
+      ctx.fillRect(wx, floorY - sh + wob, sw2, sh);
       wx += sw2 - 3;
     }
-    eyes(0, floorY - 11, 3, 2);
+    eyes(0, floorY - 11 + Math.round(Math.sin(t * 4) * 2), 3, 2);
   }
 }
 
@@ -274,7 +293,7 @@ function drawMob(ctx, t, kind, x, floorY, r, h) {
    deliberate exception of the entrance's passage, which is drawn OUTSIDE b on
    purpose, because a doorway that stops at the wall is a doorway to nowhere.
    That is the point at which the shaft is. */
-function drawRoom(ctx, layer, b, floorY, roofY, index, side) {
+function drawRoom(ctx, layer, b, floorY, roofY, index, side, now, reduced) {
   if (!isFinite(floorY) || !isFinite(roofY)) return;
   var t = TINT[layer] || FALLBACK;
   var w = Math.max(0, b.right - b.left);
@@ -327,7 +346,15 @@ function drawRoom(ctx, layer, b, floorY, roofY, index, side) {
   if (ctx.mobLayer) {
     var mh = floorY - roofY;
     var mx = Math.round(b.left + 70 + r() * Math.max(1, (b.right - b.left) - 150));
-    drawMob(ctx.mobLayer, t, MOBS[index % MOBS.length], mx, floorY, r, mh);
+    /* The animation clock, in seconds. Divided out of the render's millisecond
+       `now` so every creature's frequencies are in readable units rather than
+       "times 7000".
+
+       `reduced ? 0 :` is the whole prefers-reduced-motion story for the
+       creatures, and it is one expression rather than a branch in each of four
+       bodies - see the note above drawMob. */
+    var mt = reduced ? 0 : now / 1000;
+    drawMob(ctx.mobLayer, mt, MOBS[index % MOBS.length], mx, floorY, mh);
   }
 
   /* --- props, drawn BEFORE the floor line so the floor always reads as the

@@ -803,7 +803,7 @@ function render(now) {
     var rm = vis[vi];
     drawRoom(ctx, roomLayer(rm), roomBounds(rm),
              roomFloorY(rm, (roomBounds(rm).left + roomBounds(rm).right) / 2),
-             roomRoof(rm), rm, entranceSide(rm));
+             roomRoof(rm), rm, entranceSide(rm), now, reduced);
   }
 
   /* THE CREATURES, composited over the rock they stand in. Their own layer means
