@@ -297,7 +297,7 @@ function parkedY() {
 
      So the parked line is the grass and nothing else, and seatDeck() opens both
      ends of its range to match rather than pulling the car back into the band. */
-  return soil;
+  return Math.max(soil, b.top);
 }
 
 /* Is the car in its parked phase right now - i.e. is the target the ground

@@ -722,6 +722,45 @@ async function run() {
            settle(0).toFixed(0) + ', grass at ' + L.surfaceFrom.toFixed(0) +
            ', band top at ' + band.top.toFixed(0) + ')');
     }
+    /* NO JUMP WHEN THE ELEVATOR ENTERS THE SHAFT. The parked car rode the grass up
+       as the page scrolled, all the way to the top of the screen and past it, and
+       then TELEPORTED down to the band when travel began: measured 417 -> 0 -> 370,
+       a 370px lurch at every viewport.
+
+       Every other assertion here missed it because each one settles hundreds of
+       frames before reading, so the jump - which lasts a single frame - was gone
+       before anything looked. This one walks the handover in small steps and
+       asserts no step exceeds a fraction of the band, which is the only way to
+       see a single-frame discontinuity.
+
+       The car must also never go above the top of its travel, which is the other
+       half of the same bug: riding the grass carried it off the screen entirely. */
+    let worstStep = 0, stepAt = 0, aboveTop = 0;
+    const bandSpan0 = band.bot - band.top;
+    for (let sc = Math.max(0, L.surfaceFrom - 400); sc <= L.surfaceFrom + 800; sc += 25) {
+      const y1 = settle(sc);
+      const y0 = settle(Math.max(0, sc - 25));
+      const step = Math.abs(y1 - y0);
+      /* While the car is RIDING THE GRASS a 1:1 rise is correct, not a jump:
+         the ground is moving with the page. So only steps at or after the travel
+         window - where the car is descending the band - can be a discontinuity.
+         Measuring every step flagged the ordinary 25px the grass rises per 25px of
+         scroll, which is the behaviour asked for. */
+      if (sc >= L.surfaceFrom && step > worstStep) { worstStep = step; stepAt = sc; }
+      if (y1 < D.deckBounds().top - 1) aboveTop++;
+    }
+    if (worstStep > Math.max(24, bandSpan0 / 4)) {
+      fail(label + ' the car jumps ' + worstStep.toFixed(1) + 'px between adjacent ' +
+           'scroll positions at ' + stepAt + ' (band is ' + bandSpan0.toFixed(0) +
+           'px tall). The parked car must stop riding the grass once the ground has ' +
+           'risen past the top of the shaft, or it leaves the screen and then snaps ' +
+           'down to the band when travel begins');
+    }
+    if (aboveTop) {
+      fail(label + ' the car was above the top of its travel on ' + aboveTop +
+           ' frame(s); riding the grass carried it off the top of the screen');
+    }
+
     /* AND IT DESCENDS AT A VISIBLE RATE. The car covers a fixed SCREEN distance -
        the band - so how fast it appears to travel is decided by how much PAGE that
        distance is spread over. With the window running from the surface all the way
@@ -736,7 +775,7 @@ async function run() {
     /* Sample 100px apart INSIDE the window, not at a fixed fraction of it: on a
        short viewport one viewport IS the whole window, so a fractional probe lands
        past the end where the car has stopped and measures 0. */
-    const probeGap = Math.min(100, Math.max(20, Math.round((end - L.surfaceFrom) / 4)));
+    const probeGap = Math.min(100, Math.max(10, Math.round((end - L.surfaceFrom) / 6)));
     const winEnd = Math.min(L.travelTo, L.surfaceFrom + L.viewH);
     const rateFrom = Math.round(L.surfaceFrom + (winEnd - L.surfaceFrom) * 0.3);
     const rateTo = rateFrom + probeGap;
@@ -828,8 +867,18 @@ async function run() {
            scroll position above it. Asserting it stayed inside the band reported it
            8px out, because it was at the grass while the band started lower down.
            The band is simply not where the car is while it is still in the sky. */
+        /* ON THE GRASS ONLY WHILE THE GRASS IS BELOW THE SHAFT'S TOP. Once the
+           ground has risen past the top of the travel band, the shaft takes over and
+           the car is inside it - it must NOT keep riding the grass up, because that
+           carried it off the top of the screen and then made it teleport back down to
+           the band when travel began. Measured: 417 -> 0, then a 370px jump to 370.
+
+           So above the surface the car is either on the grass or at the top of its
+           travel, never above it - and the two are equal where they meet. */
         const surf = L.surfaceFrom - sc;
-        if (Math.abs(y - surf) > 1) offSurface++;
+        const top = D.deckBounds().top;
+        const want = surf > top ? surf : top;
+        if (Math.abs(y - want) > 1) offSurface++;
         if (y > prevParked + 0.01) parkedFell++;
         prevParked = y;
       }
@@ -2063,7 +2112,8 @@ async function run() {
         D.advanceCar(1 / 60);
         G.snapPlayerToGround();
         const grass = L.surfaceFrom - sc;
-        const lag = Math.abs(D.groundY() - grass);
+        const lagWant = grass > D.deckBounds().top ? grass : D.deckBounds().top;
+        const lag = Math.abs(D.groundY() - lagWant);
         if (lag > worstLag) { worstLag = lag; lagAt = sc; }
       }
       /* AND A GENUINE RESIZE MUST NOT STRAND IT. main.js re-seats the car through
@@ -2081,10 +2131,11 @@ async function run() {
         for (let i2 = 0; i2 < 200; i2++) D.advanceCar(1 / 60);
         D.seatDeck(true);
         const grass = L.surfaceFrom - sc;
-        if (Math.abs(D.groundY() - grass) > 1) {
+        const seatWant = grass > D.deckBounds().top ? grass : D.deckBounds().top;
+        if (Math.abs(D.groundY() - seatWant) > 1) {
           fail('a re-seat with centre=true stranded the PARKED car off the grass ' +
                '(car at ' + D.groundY().toFixed(0) + ', grass at ' +
-               grass.toFixed(0) + '). seatDeck() must seat a parked car on the ' +
+               seatWant.toFixed(0) + '). seatDeck() must seat a parked car on the ' +
                'surface rather than centring it in the band, or the elevator ' +
                'visibly jumps away from the reader on rotate');
         }
@@ -2111,7 +2162,8 @@ async function run() {
         for (let i2 = 0; i2 < 200; i2++) D.advanceCar(1 / 60);
         G.snapPlayerToGround();
         const grass = L.surfaceFrom - sc;
-        const d = G.player.y + G.player.h - grass;
+        const carY = D.groundY();
+        const d = G.player.y + G.player.h - carY;
         if (Math.abs(d) > 1) { feetOff++; if (Math.abs(d) > Math.abs(feetWorst)) feetWorst = d; }
       }
       if (feetOff) {
