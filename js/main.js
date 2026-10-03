@@ -15,17 +15,10 @@ import { player, keys, WALK_SPEED, movePlayer, snapPlayerToGround } from './game
 import { seedMotes, drawMotes, render } from './render.js';
 import { updateDepth, updateCue } from './ui.js';
 import { initContact } from './contact.js';
-/* treasure.js is GONE, along with the hoard it opened. Two things went with it:
-   initHoard(), which ran once at boot to wire the chest buttons and tally the
-   gold, and stepCave(), which ran every frame to highlight whichever chest the
-   player was standing at and open it on approach.
-
-   stepCave() was the only per-frame reason main.js knew anything about the
-   hoard at all, so its removal is why update() below is back to being purely
-   about the car, the player and the dust. The cave itself is untouched: game.js
-   still hands the player over to it, render.js still draws it, and the lift
-   cage still stands in it. What is gone is the furniture inside the room, not
-   the room.
+/* treasure.js is gone, along with the hoard it opened: initHoard() at boot, and
+   stepCave() every frame. stepCave() was the only per-frame reason main.js knew
+   anything about the hoard, so its removal is why update() below is purely about
+   the car, the player and the dust. The cave itself is untouched.
 
    `html.js` is still set on the document by the boot below, and still has to
    be: the `.js` scoped reveal rules in layout.css collapse the chambers until
@@ -162,11 +155,9 @@ window.addEventListener('resize', function () {
 });
 window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
 /* === Boot ================================================================ */
-/* The hoard is gone, so the boot no longer has an early wiring step before the
-   sheets load. resize() still runs first, so the canvas has its real size
-   before the art is built: the slices are drawn into offscreen canvases sized
-   to the art, not to the viewport, so this only has to beat the first pattern
-   creation. */
+/* resize() runs before the sheets load, so the canvas has its real size before
+   the art is built. The slices are sized to the art rather than the viewport, so
+   this only has to beat the first pattern creation. */
 resize();
 updateDepth();
 /* Contact first: it only reads attributes and swaps a span for an anchor, so it

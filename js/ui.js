@@ -5,9 +5,8 @@
    resume text stays in index.html as real HTML; this only wires behaviour to it.
    textContent and createElement only, never innerHTML.
 
-   The plain-resume disclosure and its print hook used to live here too. Both are
-   gone, along with the element they drove - see the note further down for what
-   that cost. */
+   The plain-resume disclosure and its print hook used to live here too; both are
+   gone, along with the element they drove. See the note further down. */
 
 import {
   layers, activeLayerIndex, metresPerPx
@@ -27,10 +26,8 @@ if ('IntersectionObserver' in window) {
     }
   }, { threshold: 0.08, rootMargin: '0px 0px -10% 0px' });
 
-  /* `.treasure` is out of this selector too. It was the treasure room, and the
-   room is gone from the markup - only `.chamber` elements remain, so observing a
-   class that matches nothing would have made the query look like it still had a
-   sixth panel to reveal. */
+  /* Only ``.chamber`` elements remain; observing a class that matches nothing would
+     make the query look like it still had a sixth panel to reveal. */
   var panels = document.querySelectorAll('.chamber');
   for (var p = 0; p < panels.length; p++) io.observe(panels[p]);
 } else {
@@ -128,27 +125,21 @@ function updateCue() {
    print behaviour was ever bound to it and the contact block's "Print resume"
    link still works. What DID break is Ctrl/Cmd-P: see the note below. */
 /* === Plain resume: REMOVED ==================================================
-   There used to be a <details id="plain-resume"> here: a second, collapsed copy
-   of the whole resume, opened by the "Skip to plain resume" link, by a
-   #plain-resume URL hash, and by beforeprint. All four of those are gone with
-   it - the markup, the skip link, this opening handler and the print hook.
+   A <details id="plain-resume"> used to hold a second copy of the resume, opened
+   by a skip link, a URL hash and beforeprint. All four are gone with it: the
+   markup, the skip link, this opening handler and the print hook.
 
    WHAT THAT COSTS, stated plainly rather than left for someone to discover:
 
-   PRINTING. The @media print block in layout.css used to hide the game and
-   render only the plain resume. With the plain resume gone there is nothing
-   sensible left for it to isolate, so it is gone too, and Ctrl/Cmd-P now prints
-   the page as it appears on screen - canvas and all. The print resume link in
-   the contact block is unaffected: it is a plain <a download> to the real PDF
-   in assets/, and was never a print button. That is now the only way to get a
-   printable resume, which is a real loss of a working feature rather than a
-   cleanup.
+   PRINTING. The @media print block in layout.css used to hide the game and render
+   only the plain resume. With nothing sensible left to isolate it is gone too, so
+   Ctrl/Cmd-P now prints the page as it appears - canvas and all. The contact
+   block's "Print resume" link is unaffected: it is a plain <a download> to the
+   real PDF in assets/, and is now the only way to get a printable resume.
 
    ACCESSIBILITY. The skip link was the keyboard and screen-reader escape hatch
-   out of the scroll game. Without it there is no such way out - a keyboard user
-   reaching the end of the page now simply ends there. Everything the panels
-   hold is still real, semantic HTML and still reachable by tabbing, so this is
-   not a wall, but the shortcut is gone and the panels are far apart. */
+   out of the scroll game. Without it there is no such way out, though everything
+   the panels hold is still semantic HTML and still reachable by tabbing. */
 
 /* Public surface of this module. Collected here so that not one line of
    the code above needed a keyword added to it. */

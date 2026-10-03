@@ -27,51 +27,17 @@
 var DIR = 'assets/PixelArt/';
 
 /* Where each sprite lives INSIDE its sheet. These are measured from the files,
-   not guessed: the tight bounding box of the non-transparent pixels, and the
-   32px grid of the tileset. The tileset is a palette PNG of a 10x4 grid.
+   not guessed: the tight bounding box of the non-transparent pixels.
 
-   'turf' and 'dirt' are 32x32 cells addressed in GRID UNITS (col,row); the
-   rest are pixel rectangles. turf = a grass-topped dirt tile for the surface
-   band, dirt = a plain dirt tile for the repeating rock texture.
+   Only tree.png remains. The other sheets were removed because each put a
+   visible repeating motif in front of the reader - a 64px period for the dirt
+   tile, ~45 eye-level repeats for the grass cap - which read as a chain of the
+   same shape rather than as ground. Their art is now drawn procedurally
+   (bakeTile() in layers.js, the tuft and bush in sprites.js and biome-sky.js).
 
-   Every cut is now either a plain rectangle (tree.png) or a grid-cell strip
-   (tilesetgrass.png). The bush, the grass tuft and the dirt tile are gone; what
-   replaced the dirt tile is bakeTile() in layers.js, and the tuft and bush art
-   is procedural.
-
-   The reasoning that picked the dirt cell is worth keeping, because it is why
-   the sheet cannot tile the rock at all and the dirt tile was dropped for a tiled
-   band rather than merely restyled: dirt is (2,1) rather than (4,2), and the
-   sheet's cells are not interchangeable. Most have a hard vertical split - a lit
-   rocky column down one side, shadow down the other - and no 32px tile in the
-   sheet satisfies the wrap test (an edge column equal to its opposite
-   neighbour) except five flat single-colour ones. So the sheet cannot be tiled
-   directly, and the 2x2 mirrored version that fixed it made the split land on
-   both axes at once as a bold symmetric motif - every motif the same shape, so
-   the eye locked onto the 64px period immediately and the band read as a row of
-   identical arches. bakeTile() in layers.js avoids all of it. */
-/* Only the trees are sliced now.
-
-   Everything else this file used to read has been removed, one repetition at a
-   time, because each was a visible tile:
-
-     - the bush and the grass tuft were small sprites, tiled sparsely, so their
-       repeat was hidden by distance between copies;
-     - the dirt tile covered a whole rock band and put a 64px period in front of
-       the reader, with a symmetric motif that made the period obvious;
-     - the grass cap is the worst of them, and the LAST one standing. It is
-       32px wide and repeats across the full width of the surface at eye level,
-       right where the eye rests. Its motif - a dark blob with a lighter rim -
-       is identical in every copy, so the band read as a chain of the same shape
-       rather than as ground. Nothing about it tiles invisibly: at this width
-       the tile is ~45 repeats across, which is far more than enough for the
-       eye to resolve the period.
-
-   The replacement is the three stacked rects in skySurface(), which were
-   already here as the fallback and paint the grass as bands clipped to the
-   seam. A flat band can also be repetitive, but it has no motif to lock onto,
-   so there is nothing for the eye to count. */
-
+   Do not reintroduce a tiling sheet without checking its period against the
+   viewport width. The sheets' cells are not interchangeable: most have a hard
+   vertical split, so a tile chosen for the wrong cell tiles badly. */
 var CELLS = {
   tree:    { unit: false, cuts: [
     { key: 'tall',  x: 6,   y: 0,  w: 83, h: 96 },
@@ -208,10 +174,8 @@ function harvest(name, img) {
    So the filename is data, declared next to the crop rectangles that describe the
    same file, rather than a naming convention the code assumes.
 
-   One file is listed now. bush.png, grass.png and tilesetgrass.png are no longer
-   requested: their only crops are gone from CELLS above, so fetching them decoded
-   a sheet that produced nothing. The bush, tuft and grass art is drawn in
-   sprites.js and biome-sky.js instead. */
+   One file is listed now. A sheet belongs here only while CELLS above still has
+   crops that read from it - fetching an unused sheet only decodes it. */
 var SHEETS = {
   tree:    'tree.png'
 };

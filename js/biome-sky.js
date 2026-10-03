@@ -354,29 +354,22 @@ var PROP_SEED = 0x5EA51DE;
 var TREE_SINK = -3;
 
 /* === Why the meadow looked bare, and what actually fixes it ==================
-   Four ceilings, each of which capped the result. None was a matter of taste.
+   Four ceilings, each of which capped the result. None was a matter of taste, so
+   the mechanisms matter more than the history:
 
-   1. scaleFor() returns 1 or 2 - it is an integer MAGNIFIER, and it bottoms out
-      at 1. The sheet crops are 83x96 and 62x72. So a tree could only ever be
-      drawn at 83px or 166px wide, never smaller. Shrinking the gap to 1px
-      changed nothing, because after the first tree the walk cursor was already
-      past the end of the strip and the loop exited. Two trees on the whole page.
-
-   2. Flowers were drawn at `r() < 0.6` INSIDE the tree loop, so the number of
-      flowers was capped by the number of trees: 0.6 flowers per page.
-
-   3. There was no bush at all. SET.bushes did not exist.
-
-   4. The props were placed with gutters(), which excludes the panel's whole
-      horizontal column. For a painter that fills the band top to bottom that
-      is right; for props standing on the seam it is wrong, because the seam is
-      half a row-gap BELOW the panel. At 1440 the gutters came back [48, 602],
-      so the entire left half of the surface was a desert and every tree went
-      into the strip on the right. See meadowGutters() in biomes.js.
-
-   The fix for 1 is a target DRAWN width rather than an integer scale, which is
-   what blitOn()'s `wantW` argument is for. The fix for 2 is a separate cover
-   pass. The fix for 3 is bakeBush(). The fix for 4 is in biomes.js. */
+     1. scaleFor() is an integer MAGNIFIER and bottoms out at 1, so a tree could
+        only ever be drawn at 83px or 166px wide - never small enough for a
+        48px gutter. The fix is a target DRAWN width (blitOn()'s `wantW`), not a
+        smaller gap: shrinking the gap changed nothing, because after the first
+        tree the walk cursor was past the end of the strip.
+     2. Flowers were drawn inside the tree loop, so their count was capped by
+        the tree count: 0.6 flowers per page. The fix is a separate cover pass.
+     3. There was no bush at all. The fix is bakeBush().
+     4. Props were placed with gutters(), which excludes the panel's whole column.
+        Correct for a painter filling the band top to bottom; wrong for props
+        standing on the seam, which is half a row-gap BELOW the panel. At 1440
+        that put the entire left half of the surface bare. See meadowGutters()
+        in biomes.js. */
 
 /* Target widths in CSS pixels. blitOn() anchors the FEET, so a tree is sized by
    its crown and stands up in proportion - an 83x96 conifer at 118px wide stands
