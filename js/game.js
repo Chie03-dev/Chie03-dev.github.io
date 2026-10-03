@@ -39,11 +39,9 @@ var player = {
      Read by movePlayer() to pick the collision function, and by the renderer to
      decide whether the car is still worth drawing.
 
-     There is deliberately NO side-room flag. The four galleries used to have
-     `inRoom`, set by a handover that wrote the player's position directly - the
-     teleport. They are scenery now, at fixed document positions, and nothing
-     about being near one changes where the player is. See the note in
-     movePlayer() for the whole of it.
+    There is deliberately NO side-room flag. The galleries are scenery at fixed
+      document positions; nothing about being near one changes where the player
+      is. See the note in movePlayer().
 
      Starts false, because the page opens at the top where there is no cave. */
   inCave: false

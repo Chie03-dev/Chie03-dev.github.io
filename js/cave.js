@@ -59,12 +59,9 @@ var CAVE_SEED = 0x0CA7E;
    screen into nothing. Wide enough that the player sprite (64px) never gets
    wedged against it, which is what a margin narrower than the sprite would do. */
 var CAVE_MARGIN = 34;
-/* CAVE_REACH is GONE. It was how close the player had to be to a chest for it
-   to be "the one they are at" - the reach used by chestAnchors()/
-   nearestChest() below, both of which existed only to serve treasure.js. With
-   the hoard removed there is nothing in the room to be near, and a proximity
-   test with no target is not a smaller thing to keep than a whole one; it is
-   the same dead code at a smaller size. */
+/* CAVE_REACH is gone: it measured proximity to a chest, and with the hoard there is
+   nothing in the room to be near. A proximity test with no target is the same dead
+   code at a smaller size, so it went with chestAnchors() and nearestChest(). */
 /* Nominal height of the cave above its floor, at a normal viewport. Lives here
    rather than in game.js because BOTH need it - the collision clamps the head
    against it and the renderer places the void behind the rock - and a ceiling the
