@@ -286,15 +286,5 @@ the module loader and the graph check in tools/smoke.mjs both work on the
 block form, and an inline export is left unrewritten and becomes a
 syntax error the moment the file is evaluated. */
 export {
-  patrol,
-  pulse,
-  batPose,
-  golemPose,
-  spiderPose,
-  wormPose,
-  crabPose,
-  fishPose,
-  mothPose,
-  caterpillarPose,
   beastPose
 };

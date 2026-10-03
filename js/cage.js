@@ -143,9 +143,7 @@ function overCage(playerCx) {
    here, so smoke.mjs's graph check can read it. */
 export {
   CAGE_RISE,
-  CAGE_SPAN,
   measureCage,
-  cageMidX,
   cageSpan,
   cageActive,
   cageFloorY,

@@ -526,22 +526,25 @@ function checkGraph(files) {
        So the name must appear right after the module access, which is how the
        suite actually writes it. */
     for (const tool of readdirSync(join(ROOT, 'tools'))) {
-      if (!tool.endsWith('.mjs')) continue;
+      /* .mjs AND .html. The pixel probe is an HTML file that runs in the page and
+         calls sunSpot() directly; leaving it out is how that export came to be
+         reported as dead and then removed, with the pixel test dying on
+         `sunSpot is not a function` and nothing pointing at the cleanup. */
+      if (!/\.(mjs|html)$/.test(tool)) continue;
       const t = readFileSync(join(ROOT, 'tools', tool), 'utf8');
-      const re = /M\[['"]?([A-Za-z-]+?)['"]?\](\.[A-Za-z_$][\w$]*)?/g;
-      let m2;
-      while ((m2 = re.exec(t))) {
-        const target = m2[1] + '.js';
-        if (!exports[target]) continue;
-        const member = m2[2] ? m2[2].slice(1) : null;
-        (imported[target] = imported[target] || new Set());
-        if (member) {
-          imported[target].add(member);
-        } else {
-          /* The module is destructured whole (`const { a, b } = M['x']`), so every
-             name the tool names nearby is in play. Fall back to crediting all of
-             them: over-crediting is safe, under-crediting produces false alarms. */
-          for (const name of exports[target]) imported[target].add(name);
+      /* A name counts as used if the tool mentions it AT ALL. Blunt on purpose: it
+         cannot produce a false positive, and here a false positive costs a deleted
+         export that a test was using. Being wrong this way leaves a few names on
+         the list that a human could remove - visible, not dangerous.
+
+         The tools reach modules through load('cave.js') and a local alias, so the
+         call sites read G.movePlayerCave(...) with no path in sight; matching
+         M['x'].name - the obvious form - fired for none of them. */
+      for (const f of files) {
+        if (f === 'main.js') continue;
+        if (!imported[f]) imported[f] = new Set();
+        for (const name of exports[f]) {
+          if (new RegExp('\\b' + name + '\\b').test(t)) imported[f].add(name);
         }
       }
     }

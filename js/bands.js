@@ -78,4 +78,6 @@ function bandEdges(panels, floorY) {
 
 /* Public surface, collected at the bottom to match every other module in this
    project and so the graph check in tools/smoke.mjs can read it. */
-export { CAVE_GAP, bandEdges };
+export {
+  bandEdges
+};

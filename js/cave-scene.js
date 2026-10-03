@@ -461,9 +461,6 @@ function drawCage() {
 }
 
 export {
-  PARALLAX_FAR,
-  PARALLAX_MID,
-  PARALLAX_NEAR,
   drawBackdrop,
   drawStrata,
   drawCrystals,

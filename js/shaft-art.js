@@ -186,6 +186,5 @@ function drawShaftLamps(l, r) {
 export {
   drawTimberSets,
   drawBracing,
-  drawShaftLamps,
-  SET_STEP
+  drawShaftLamps
 };

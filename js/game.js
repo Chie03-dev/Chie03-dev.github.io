@@ -468,6 +468,5 @@ export {
   movePlayer,
   movePlayerCave,
   movePlayerCage,
-  caveCeiling,
   snapPlayerToGround
 };

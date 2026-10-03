@@ -468,8 +468,6 @@ function caveRoomTop() {
 }
 
 export {
-  CAVE_MARGIN,
-  CAVE_HEIGHT,
   CAVE_FLOOR_STEP,
   CAVE_RUBBLE_SEED,
   CAVE_VEIN_SEED,
