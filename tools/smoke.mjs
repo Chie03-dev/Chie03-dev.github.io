@@ -46,7 +46,7 @@ function countRects(draw) {
    browser - this file is not part of the site.
    ========================================================================== */
 
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -354,6 +354,54 @@ const fail = (msg) => { failures++; console.log('    FAIL ' + msg); };
    automatically deleted exports other modules still needed. */
 let noteCount = 0;
 const note = (msg) => { noteCount++; console.log('    note  ' + msg); };
+
+/* Every file under `dir`, as paths relative to it. Written by hand rather than
+   pulled in from node:fs because walking a tree is the only thing this suite
+   needs that readdirSync does not already do, and a recursive walk is four lines
+   against a dependency in a repo whose whole point is having none. */
+function listFiles(dir, prefix = '') {
+  const out = [];
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    const rel = prefix ? prefix + '/' + name : name;
+    if (statIsDir(full)) out.push(...listFiles(full, rel));
+    else out.push(rel);
+  }
+  return out;
+}
+const statIsDir = (p) => {
+  try { return statSync(p).isDirectory(); } catch { return false; }
+};
+
+/* How many places name this file in CODE.
+
+     `codeOnly` strips comments before matching, and that is the whole point: a
+     file named only in prose about how it stopped being used is not used. It also
+     skips docs/, which is local and never deployed.
+
+     Prose counts only when `codeOnly` is false, which is how a licence file like
+     OFL.txt stays legitimate - nothing links it, and nothing should. */
+function grepRepo(name, opts = {}) {
+  let n = 0;
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '')
+                        .replace(/^\s*\/\/.*$/gm, '')
+                        .replace(/<!--[\s\S]*?-->/g, '');
+  const scan = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      if (entry === '.git' || entry === 'node_modules' || entry === 'docs') continue;
+      const full = join(dir, entry);
+      if (statIsDir(full)) { scan(full); continue; }
+      if (!/\.(js|mjs|ps1|html|css|txt|json)$/.test(entry)) continue;
+      try {
+        let text = readFileSync(full, 'utf8');
+        if (opts.codeOnly) text = strip(text);
+        if (text.includes(name)) n++;
+      } catch { /* binary or unreadable: not a reference site */ }
+    }
+  };
+  scan(ROOT);
+  return n;
+}
 const near = (a, b) => Math.abs(a - b) < 1;
 
 /* Every import must resolve to a real export and be used, and the graph must be
@@ -574,6 +622,76 @@ async function run() {
   const deps = checkGraph(files);
   console.log('graph     ' + files.map(f => f.replace('.js', '') + '->[' +
               (deps[f] || []).map(d => d.replace('.js', '')).join(',') + ']').join('  '));
+
+  /* 2c. NOTHING SHIPPED THAT NOTHING ASKS FOR.
+
+     Three sprite sheets were deleted from assets/PixelArt for this: bush.png,
+     grass.png and tilesetgrass.png, about 8.5KB. Nothing fetched them. Their
+     crops had been replaced with drawn art, the sheet list had shrunk to
+     `tree` alone, and the only mention of any of them left in the codebase was a
+     comment explaining why they were no longer loaded - which is a very effective
+     way for a file to stop being visible.
+
+     They were on disk, in git, and served to every visitor, because no check
+     asked whether anything still references a file it ships. The modules have a
+     graph check; the assets had nothing.
+
+     Image loading is the one place a path is built at RUNTIME (`img.src = DIR +
+     file`), so a plain grep is not enough on its own - assets.js SHEETS is read
+     too, so a sheet listed there counts as used even though no literal path for
+     it appears in the file. */
+  {
+    const wanted = new Set();
+    for (const f of ['index.html']) {
+      const t = readFileSync(join(ROOT, f), 'utf8');
+      for (const m of t.matchAll(/(?:href|src)="(assets\/[^"]+)"/g)) wanted.add(m[1]);
+    }
+    for (const f of readdirSync(join(ROOT, 'css'))) {
+      const t = readFileSync(join(ROOT, 'css', f), 'utf8');
+      for (const m of t.matchAll(/url\(["']?\.\.\/(assets\/[^"')]+)/g)) wanted.add(m[1]);
+    }
+    /* comments name the deleted sheets, so strip them before matching */
+    const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    for (const f of files) {
+      const t = stripComments(readFileSync(join(ROOT, 'js', f), 'utf8'));
+      /* sheet files are named by value in SHEETS, e.g. tree: 'tree.png' */
+      for (const m of t.matchAll(/['"](\w[\w-]*\.png)['"]/g)) {
+        wanted.add('assets/PixelArt/' + m[1]);
+      }
+    }
+    const shipDir = join(ROOT, 'assets');
+    /* A LICENCE MUST SHIP even though no code references it. OFL.txt is required
+       to be distributed with Caveat, and nothing should ever link it - a page that
+       linked its own font licence would be the strange one. Prose counts as a
+       reference for exactly these files, and for nothing else. */
+    const PROSE_OK = /^(OFL|LICENSE|COPYING|NOTICE)/i;
+    const orphans = [];
+    for (const rel of listFiles(shipDir)) {
+      const full = 'assets/' + rel.split('\\').join('/');
+      const base = full.split('/').pop();
+      if (wanted.has(full)) continue;
+      /* COMMENTS DO NOT COUNT AS A REFERENCE. They did, and a sheet that is only
+         ever named in a comment explaining why it is no longer loaded came back
+         as "referenced" - which is the exact failure this check exists to catch,
+         reintroduced by its own fallback. assets.js carries three paragraphs
+         about bush.png, grass.png and tilesetgrass.png precisely BECAUSE they are
+         gone; that prose is the strongest possible evidence they are unreferenced.
+
+         So the fallback is: is the name used in code, meaning outside comments and
+         outside docs? */
+      const named = PROSE_OK.test(base) ? grepRepo(base) : 0;
+      if (named === 0) orphans.push(full);
+    }
+    if (orphans.length) {
+      for (const o of orphans) {
+        fail(o + ' is in the deployed tree but nothing references it - ' +
+             'it ships to every visitor for nothing');
+      }
+    }
+    console.log('assets    ' + (orphans.length === 0
+      ? 'every shipped file is referenced'
+      : orphans.length + ' orphaned'));
+  }
 
   /* 2b. IS GONE - the shaft channel through the treasure room.
        These were stylesheet checks, not behavioural ones, and they existed for a
