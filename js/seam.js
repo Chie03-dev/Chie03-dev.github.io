@@ -138,8 +138,6 @@ function seamPropY(layer, x) {
 /* Public surface. */
 export {
   mulberry32,
-  makeNoise,
-  seamNoise,
   seamY,
   seamVertexX,
   seamPropY,
