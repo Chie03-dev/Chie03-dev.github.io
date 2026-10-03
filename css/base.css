@@ -173,29 +173,15 @@ a:hover{color:#ffe58a}
 }
 
 /* Headings get the handwriting font ONLY; body copy stays sans (old rule). */
-h1,h2,h3,h4,.eyebrow,.kv dt,.depth__title{
+h1,h2,h3,h4,.kv dt,.depth__title{
   font-family:var(--font-heading);font-weight:400;line-height:1.2;
 }
-.eyebrow{margin:0 0 var(--space-2xs);font-size:var(--step-1);color:var(--accent)}
 h1{margin:0 0 var(--space-2xs);font-size:var(--step-4)}
 h2{margin:0 0 var(--space-2xs);font-size:var(--step-3)}
 h3{margin:0;font-size:var(--step-2)}
 .chamber>p{margin:var(--space-md) 0 0}
 .muted{color:var(--muted)}
 
-/* Old .btn: accent fill, 2px accent-ink border, 8px radius, 44px target. */
-.btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:var(--space-xs);
-  min-height:44px;padding:var(--space-xs) var(--space-md);
-  font:inherit;font-size:var(--step-0);font-weight:600;
-  color:var(--accent-ink);background:var(--accent);
-  border:2px solid var(--accent-ink);border-radius:var(--radius);
-  text-decoration:none;cursor:pointer;
-}
-.btn:hover{background:#ffe58a;color:var(--accent-ink)}
-.btn[disabled]{opacity:.6;cursor:default}
-.btn--ghost{background:transparent;color:var(--accent);border-color:currentColor}
-.btn--ghost:hover{background:rgba(255,210,74,.14);color:var(--accent)}
 /* `#email-slot` is GONE. It held the address the Email button assembled in JS,
    and both left the treasure room together when its button row was removed - the
    new contact area is built into the cave instead.

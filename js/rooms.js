@@ -336,13 +336,6 @@ function settledRoom() {
   return stillFrames >= SETTLE_FRAMES ? i : -1;
 }
 
-/* Reset the settle timer. Called from resize(), because a resize moves every
-   box under the reader and would otherwise present as the scroll having
-   changed - dropping the reader back in the car mid-room for a quarter of a
-   second every time they nudged the window. */
-function resetSettle() { lastScroll = null; stillFrames = 0; }
-
-
 /* The floor's absolute minimum screen y: high enough that a player standing on
    it fits entirely inside the frame.
 
@@ -427,12 +420,6 @@ function entranceSide(i) {
   return mid < (viewW / 2) ? 1 : -1;
 }
 
-function entranceX(i) {
-  if (!roomActive(i)) return NaN;
-  var b = bounds(i);
-  return entranceSide(i) > 0 ? b.right : b.left;
-}
-
 /* The roof, in screen space, from the floor. Never above the top of the frame
    and never so high that standing on this floor puts the sprite's head above
    it. Derived from the FLOOR rather than from the viewport - that is the bound
@@ -490,49 +477,6 @@ function bounds(i) {
      rather than teleporting the player across the screen. */
   if (!(right > left)) right = left + 1;
   return { left: left, right: right };
-}
-
-/* Put the player just INSIDE the entrance, on the floor, rather than wherever
-   they happened to be standing in the shaft.
-
-   This is the difference between walking into a room and being teleported into
-   one: the arrival point is the doorway, so the room reads as having been
-   entered through its own door, and leaving is the same journey in reverse.
-
-   The x is nudged INWARD from the door by the player's own width, not by a
-   constant, so they never start embedded in the wall - and the nudge is signed
-   by which wall the door is on, so a room entered from its left is not dropped
-   out through it. */
-function enterRoom(i, player) {
-  if (!roomActive(i)) return false;
-  var b = bounds(i);
-  var side = entranceSide(i);
-  if (side > 0) {
-    player.x = b.right - player.w - 4;
-  } else if (side < 0) {
-    player.x = b.left + 4;
-  } else {
-    /* No wall faces the shaft - a degenerate room. Fall back to the middle
-       rather than picking an edge and guessing. */
-    player.x = Math.round((b.left + b.right) / 2 - player.w / 2);
-  }
-  player.x = Math.max(b.left, Math.min(player.x, b.right - player.w));
-  player.y = screenFloorY(i, player.x + player.w / 2) - player.h - 8;
-  player.vx = 0;
-  player.vy = 0;
-  return true;
-}
-
-/* Hand the player back to the shaft, at the middle of the viewport, which is
-   where the shaft column is on a desktop layout. movePlayerShaft() clamps them
-   into the actual shaft on its next call, so the exact column does not matter
-   here - only that it is a finite number near the centre. */
-function leaveRoom(player) {
-  player.x = Math.round(viewW / 2 - player.w / 2);
-  if (!isFinite(player.x)) player.x = 0;
-  player.vx = 0;
-  player.vy = 0;
-  return true;
 }
 
 /* Exported as a block, not inline on each function. The module loader and the

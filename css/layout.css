@@ -345,8 +345,6 @@ main{position:relative;z-index:10}
   color:var(--accent);margin-top:var(--space-md)}
 .kv dd{margin:var(--space-2xs) 0 0}
 
-.btns{display:flex;flex-wrap:wrap;gap:var(--space-sm);margin:var(--space-lg) 0 0}
-
 /* ==========================================================================
    Reduced motion + print
    ========================================================================== */

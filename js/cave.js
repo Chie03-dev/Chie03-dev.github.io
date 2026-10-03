@@ -459,16 +459,6 @@ function setViewSize(w, h) {
   if (h > 0) viewH = h;
 }
 
-/* Refresh the cached viewport size. Called from measureCave(), so it moves with
-   the same re-measure event as everything else rather than on its own timer. */
-function setViewWidth(w) {
-  if (w > 0) viewW = w;
-}
-
-/* The room's top in DOCUMENT space, exposed so a check can rebuild the drawn
-   floor from the profile and the scroll alone. Reading it from here rather than
-   from screenFloorY() is what keeps the floor-agreement assertion independent of
-   the function it is testing. */
 /* The room's top in DOCUMENT space, exposed so a check can rebuild the drawn
    floor from the profile and the scroll alone. Reading it from here rather than
    from screenFloorY() is what keeps the floor-agreement assertion independent of

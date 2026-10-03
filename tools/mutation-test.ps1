@@ -147,7 +147,18 @@ Mutate 'the surface anchor is unclamped' 'js\deck.js' '  if (surfaceFrom > 0 && 
 Mutate 'the descent is stretched over the whole page' 'js\deck.js' '  var end = Math.min(travelTo, start + viewH);' '  var end = travelTo;'
 Mutate 'the contact email accepts a missing half' 'js\contact.js' '  if (!user || !domain) return '''';' '  // mutant'
 Mutate 'the contact email loses its @ separator' 'js\contact.js' 'user + (at || ''@'') + domain' 'user + domain'
-Mutate 'a side room drops the player away from its doorway' 'js\rooms.js' '  player.x = Math.max(b.left, Math.min(player.x, b.right - player.w));' '  player.x = b.left + 100;'
+/* NOTE: there is NO mutation here for the side room's doorway or its roof
+   geometry. There was one - "a side room drops the player away from its
+   doorway" - and it went when the code it targeted (enterRoom's clamp) was
+   deleted as dead. Two replacements were written and both SURVIVED: rooms.js
+   roof arithmetic and entranceSide() are covered by nothing, at any viewport,
+   in either direction.
+
+   So this file no longer claims to check that part of the module. Leaving a
+   mutation in place that does not fail is worse than leaving a gap, because the
+   survivor list reads as coverage. Fixing it means asserting the roof sits above
+   the floor and that each room's door faces the shaft - real checks, and the
+   honest next piece of work in rooms.js. */
 Mutate 'a side room puts its door on the wrong wall' 'js\rooms.js' '  return mid < (viewW / 2) ? 1 : -1;' '  return 1;'
 Mutate 'no side room is ever painted' 'js\rooms.js' '  var out = [];' '  var out = []; if (true) return out;'
 Mutate 'only the deepest side room is ever painted' 'js\rooms.js' '    if (bot > 0 && top < h) out.push(i);' '    if (bot > 0 && top < h && i === rooms.length - 1) out.push(i);'

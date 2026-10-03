@@ -348,6 +348,12 @@ const VIEWPORTS = [
 
 let failures = 0;
 const fail = (msg) => { failures++; console.log('    FAIL ' + msg); };
+/* A NOTE is recorded and printed but does NOT fail the run. Used where the suite
+   has something true and worth saying that should not by itself be a build
+   breaker - the dead-export survey being the one that matters, since enforcing it
+   automatically deleted exports other modules still needed. */
+let noteCount = 0;
+const note = (msg) => { noteCount++; console.log('    note  ' + msg); };
 const near = (a, b) => Math.abs(a - b) < 1;
 
 /* Every import must resolve to a real export and be used, and the graph must be
@@ -419,6 +425,115 @@ function checkGraph(files) {
     }
   }
   const state = {};
+  /* THE REVERSE CHECK: an export that nobody imports.
+
+     Everything above asks "does this import resolve and get used". Nothing asked
+     the other question - "is this export used by anyone" - so dead exports could
+     pile up invisibly. This cleanup found ten of them across three modules,
+     left over from the walk-through and the treasure room: resetSettle,
+     enterRoom, leaveRoom, entranceX, setViewWidth. Every one still parsed, still
+     type-checked, and still appeared in an export list that read as a deliberate
+     public API. Nothing could tell.
+
+     That is the same failure the mob layer had, one level up: the code kept
+     changing and the check only ever looked at one direction.
+
+     main.js is exempt - it is the entry point and imports everything for effect.
+     A name that IS used inside its own module but exported anyway is reported
+     separately, because that is usually an export left behind by a rename.
+
+     THE TOOLING COUNTS AS A CONSUMER. smoke.mjs reads these modules directly to
+     test them, so `territoryFor` and `MOBS` are imported for real by something -
+     just not by another module in js/. Without this the check flagged a dozen
+     deliberate test seams as dead, which is how a guard like this gets ignored
+     the first time it cries wolf. */
+  if (files.includes('main.js')) {
+    const imported = {};
+    for (const f of files) {
+      const t = sources[f];
+      /* `[^}]*` on its own is not enough: it stops at the FIRST `}`, which is not
+         the end of this import when the name list is preceded by a brace from an
+         earlier statement - and biomes.js line 120, which imports six names from
+         biome-sky.js, was silently skipped. Its six exports then looked imported
+         by nobody, which is the same false accusation this check exists to avoid.
+         The `[\s\S]*?` form below is the one that matches all three of biomes'
+         imports; the stricter one drops the middle. */
+      const re = /import\s*\{([\s\S]*?)\}\s*from\s*'\.\/([A-Za-z-]+)\.js'/g;
+      let im;
+      while ((im = re.exec(t))) {
+        const target = im[2] + '.js';
+        (imported[target] = imported[target] || new Set());
+        for (const raw of im[1].split(',').map(s => s.trim()).filter(Boolean)) {
+          imported[target].add(raw.split(/\s+/).filter(Boolean)[0]);
+        }
+      }
+    }
+    /* The suite reaches in through M['module'] rather than a static import, so it
+       is matched textually - but ONLY to credit the names it actually reaches for.
+       Crediting a module's WHOLE export list because the tool touched it would be
+       exactly the bug this check exists to find: biomes.js re-exports TREE_GAP
+       from biome-sky.js, so every name biome-sky exports would look used and the
+       real signal would be lost.
+
+       So the name must appear right after the module access, which is how the
+       suite actually writes it. */
+    for (const tool of readdirSync(join(ROOT, 'tools'))) {
+      if (!tool.endsWith('.mjs')) continue;
+      const t = readFileSync(join(ROOT, 'tools', tool), 'utf8');
+      const re = /M\[['"]?([A-Za-z-]+?)['"]?\](\.[A-Za-z_$][\w$]*)?/g;
+      let m2;
+      while ((m2 = re.exec(t))) {
+        const target = m2[1] + '.js';
+        if (!exports[target]) continue;
+        const member = m2[2] ? m2[2].slice(1) : null;
+        (imported[target] = imported[target] || new Set());
+        if (member) {
+          imported[target].add(member);
+        } else {
+          /* The module is destructured whole (`const { a, b } = M['x']`), so every
+             name the tool names nearby is in play. Fall back to crediting all of
+             them: over-crediting is safe, under-crediting produces false alarms. */
+          for (const name of exports[target]) imported[target].add(name);
+        }
+      }
+    }
+    /* Names a module exports purely SO THE SUITE CAN READ THEM. These are test
+     seams, not API: the suite destructures them (`const { FLOWERS } = M['x']`),
+     which the textual matcher above cannot tie to a specific name, so it credits
+     every export of any module the suite touches and would call these dead.
+
+     Listing them is honest. What is NOT honest is leaving them to be "discovered"
+     by a heuristic - they were nearly deleted by the first automated pass, and the
+     suite then died on `S.FLOWERS.length` with no hint that a cleanup had done it. */
+      const TEST_SEAMS = new Set(['sprites.js', 'assets.js']);
+      for (const f of files) {
+        if (f === 'main.js') continue;              /* the entry point */
+        if (TEST_SEAMS.has(f)) continue;           /* read by the suite, not by js/ */
+        const used = imported[f] || new Set();
+        for (const name of exports[f]) {
+          if (used.has(name)) continue;
+          /* Used internally but exported anyway: almost always a leftover from a
+             rename, and it advertises an API nobody calls.
+
+             Matches BOTH `function name(` and `var name =`, because most of what
+             this catches is not a function at all - palettes, tint tables, geometry
+             constants. A function-only pattern reported them as "dead". */
+          const decl = new RegExp('(?:\\bfunction\\s+' + name + '\\b|\\b(?:var|let|const)\\s+' +
+                                  name + '\\b)');
+          const kind = decl.test(sources[f].replace(/export\s*\{[\s\S]*?\}/, ''))
+            ? 'used only in its own module, so the export is not an API'
+            : 'unused entirely';
+          /* A NOTE, NOT A FAILURE. This is a survey and is deliberately not
+             enforced: an automated pass over these names removed exports that
+             other modules did need, and the suite then failed on missing art with
+             nothing pointing back at the cleanup. Forty-odd names is a human pass,
+             and having the list here makes that pass a diff rather than a hunt.
+
+             A guard that cries wolf on its first run gets ignored on the second. */
+          note(f + ' exports ' + name + ' - ' + kind);
+        }
+      }
+    }
   const walk = (n, stack) => {
     if (state[n] === 'done') return;
     if (state[n] === 'open') { fail('import cycle: ' + [...stack, n].join(' -> ')); return; }
