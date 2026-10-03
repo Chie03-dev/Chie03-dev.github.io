@@ -80,10 +80,23 @@ function drawMob(ctx, kind, x, floorY, h, pose) {
      room for free. */
   x += (pose.x || 0);
 
+  /* FACING. `pose.face` is +1 heading right and -1 heading left. Every beast
+     already computes it and nothing drew it, so they all reversed direction
+     without turning - legible on the golem, whose shoulders kept swinging the
+     same way as it walked back.
+
+     Biasing the eye pair toward the direction of travel is the cheapest thing
+     that reads as a head turning, and it is one expression in the one function
+     all eight species share. It is a suggestion rather than a full mirror: a
+     mirrored golem would put its shoulder block on the wrong side of the arm
+     swing, which is worse than not turning at all. */
+  var face = pose.face || 1;
   function eyes(dx, y, gap, size) {
+    /* shift the whole pair toward the way it is going */
+    var lead = (gap + size) * face * 0.5;
     ctx.fillStyle = eye;
-    ctx.fillRect(Math.round(x + dx - gap), y, size, size);
-    ctx.fillRect(Math.round(x + dx + gap - size), y, size, size);
+    ctx.fillRect(Math.round(x + dx - gap - lead), y, size, size);
+    ctx.fillRect(Math.round(x + dx + gap - size - lead), y, size, size);
   }
 
   if (kind === 'bat') {

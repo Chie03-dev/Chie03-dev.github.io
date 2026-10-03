@@ -1861,6 +1861,36 @@ async function run() {
             }
           }
 
+          /* `pose.face` MUST REACH THE PIXELS. It was set by all eight species and read by
+             none, so every beast reversed direction without turning - and the
+             suite was happy, because a symmetric creature drawing the same pixels
+             every frame looks exactly like a creature that has turned. This is
+             the same class of bug as the discarded pose: a value computed and
+             thrown away, with nothing downstream to notice.
+
+             So the eyes are drawn with the SAME pose and the only difference being
+             `face`, and the output must differ. */
+          const drawMobForFacing = (kind) => {
+            const pose = beastPose(kind, 4, 100);
+            const paint = (face) => {
+              const out = [];
+              drawMobForTest({ fillStyle: '', fillRect: (x, y, w, h) =>
+                               out.push([Math.round(x), Math.round(y),
+                                         Math.round(w), Math.round(h)]) },
+                             kind, 300, 600, 300, Object.assign({}, pose, { face }));
+              return out.join('|');
+            };
+            return [paint(1), paint(-1)];
+          };
+          for (const kind of ALL_SPECIES) {
+            const [right, left] = drawMobForFacing(kind);
+            if (right === left) {
+              fail(kind + ' draws identically facing left and right - pose.face is ' +
+                   'computed but never reaches the canvas, so it reverses without ' +
+                   'turning');
+            }
+          }
+
           /* More than one resident per gallery. A cave with a single animal in it reads as a
              diorama; a cave with three reads as somewhere somebody lives. Counted
              from the painted clusters, so this fails if the population silently
