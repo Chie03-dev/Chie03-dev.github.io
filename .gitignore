@@ -7,6 +7,18 @@ docs/
 .clineignore
 README.txt
 
+# The test suite, untracked at the reader's request.
+#
+# THE TRADE, STATED PLAINLY: smoke.mjs alone is 190KB and the mutation script is
+# 33KB, and neither is reachable from the deployed page - they are development
+# machinery. But they are also the suite that proves the claims this page makes,
+# and the commit history for them is most of the project's record.
+#
+# So after this, a fresh clone cannot run `npm run verify`: package.json still
+# has the scripts and the files will not be there. They remain on this machine,
+# which is where the work happens.
+tools/
+
 # Local environment files. Commit a .env.example with empty values if a
 # template is useful, but never the real thing.
 .env

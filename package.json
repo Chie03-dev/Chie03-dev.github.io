@@ -11,6 +11,7 @@
     "pixel": "node tools/pixel-test.mjs",
     "mutate": "powershell -ExecutionPolicy Bypass -File tools/mutation-test.ps1"
   },
+  "//scripts": "tools/ is gitignored, so a fresh clone has these scripts but not the files they run. They work in this checkout, which is where the work happens. Nothing on the deployed site depends on any of it - index.html loads js/ and css/ only.",
   "engines": {
     "node": ">=20"
   },
