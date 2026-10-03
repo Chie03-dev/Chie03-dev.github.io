@@ -21,15 +21,13 @@ import {
 import { groundY, deckBounds, sheaveY, reduced } from './deck.js';
 import { player } from './game.js';
 import { drawBiomes, drawSurfaceProps } from './biomes.js';
-/* The cave's geometry and the constants its art is drawn from. Imported here
-   rather than recomputed, so the rubble and the ore land on the SAME floor steps
-   the collision samples - two consumers of one profile that disagree about
-   where to read it is the meadow-twitch bug, and this is the same trap with
-   rocks on it. */
-import {
-  caveActive, screenFloorY, caveRnd,
-  CAVE_FLOOR_STEP, CAVE_RUBBLE_SEED, CAVE_VEIN_SEED
-} from './cave.js';
+/* The cave's geometry. Imported rather than recomputed, so what is drawn samples
+   the SAME floor steps the collision does - two consumers of one profile that
+   disagree about where to read it is the meadow-twitch bug.
+
+   The drawing constants moved to cave-scene.js with the art that uses them, so
+   only the two functions render.js itself still calls remain here. */
+import { caveActive, screenFloorY } from './cave.js';
 /* The four side rooms: geometry from rooms.js, appearance from room-art.js.
    Aliased on import because render.js already has a screenFloorY and a bounds
    in scope from cave.js, and a second unaliased one would shadow it silently -
@@ -40,13 +38,9 @@ import {
   bounds as roomBounds, roofY as roomRoof
 } from './rooms.js';
 import { drawRoom } from './room-art.js';
-/* The cage at the foot of the shaft. Its geometry is drawn from the same
-   functions the collision reads - cageFloorY() in particular - so the plate the
-   player lands on and the plate that is painted cannot be two different lines. */
-import { cageActive, cageFloorY, cageSpan } from './cage.js';
-/* The shaft's timber structure and lamps. Structure is drawn before the rails and
-   the lamps after them, because the sets carry the guides and the lamps hang off
-   them - the only ordering that makes the shaft read as built rather than decorated. */
+/* The cage's GEOMETRY lives in cage.js and its DRAWING now lives in
+   cave-scene.js, so nothing here imports cage.js directly - render.js decides
+   WHEN the cage is drawn, cave-scene.js decides HOW. */
 import { drawTimberSets, drawBracing, drawShaftLamps } from './shaft-art.js';
 
 /* The offscreen canvas the gallery creatures are drawn onto, so they can be
@@ -59,7 +53,7 @@ var mobLayer = null;
    be added here. */
 import {
   drawBackdrop, drawStrata, drawCrystals, drawTorches, drawStalactites,
-  drawForegroundRocks
+  drawForegroundRocks, drawCave, drawCaveLight, drawCaveVoid, drawCage
 } from './cave-scene.js';
 
 /* Tiny helper: draw one snapped, axis-aligned pixel rect. Snapping keeps
@@ -496,214 +490,9 @@ var biomesDrawn = 0;
    silently stops running must be visible to the smoke check, not invisible. */
 var propsDrawn = 0;
 
-/* === The bedrock cave =====================================================
-   Drawn only while the player is actually in it (caveActive()), and drawn
-   BEFORE the hoist and the player so the sprite stands on top of the floor
-   rather than behind it.
-
-   The floor is one polyline sampled at the same FLOOR_STEP the collision uses,
-   which is what keeps the art and the physics reading one curve. Two consumers
-   of a profile that disagreed about where to sample it is precisely the bug that
-   made the meadow twitch, so it is worth being explicit that this loop and
-   movePlayerCave() walk the same numbers.
-
-   Three passes, back to front: the dark void, the rock mass below the floor
-   line, then the lit detail - rubble catching the torchlight, and the ore veins.
-   Detail is drawn AFTER the mass so it is not buried by it. */
-/* THE VOID IS GONE, and that is the whole change.
-
-   It used to paint an opaque #05070a -> #12171e gradient across the entire cave
-   the moment caveActive() became true, which meant the DUNGEON BAND behind the
-   cave - the rock biome every other layer is made of, and the one the sixth room
-   is explicitly built from - was replaced the instant you entered the final
-   layer. Entering the cave did not take you deeper into the same world; it
-   swapped one world for another laid on top.
-
-   So nothing is filled here any more. The band's own rock is what shows through
-   the cave, and cave-scene.js draws its parallax backdrop, strata, crystals,
-   torches and stalactites ON TOP of that band - which is exactly how every
-   other layer's biome art works. The cave is now a room in the same world with
-   the same rock, seen from the inside, rather than a separate world painted over
-   the page.
-
-   `caveActive()` is deliberately NOT imported: render.js already gates every
-   call to this on it, and re-checking a second flag here would be a second gate
-   reading the same thing. */
-function drawCaveVoid() {
-  /* Intentionally empty - see the comment above. Kept as a function rather than
-     deleted at the call site so the render order still reads in one place, and
-     so restoring a fill is one line here rather than a hunt through render(). */
-}
-
-function drawCave() {
-  if (!caveActive()) return;
-
-  /* The viewport width is the fallback, NOT window.innerWidth directly. The smoke
-     harness drives the stub and innerWidth is 0 there for part of the run, and
-     with w = 0 the sample loop below never executes, pts stays empty, and the
-     first pts[0] read throws - which took render() down at three viewports. A
-     cave that cannot be measured is a cave with nothing to draw, not a crash. */
-  var w = viewW || window.innerWidth || 0;
-  if (!(w > 0)) return;
-  var step = CAVE_FLOOR_STEP;
-  var pts = [], x;
-  /* One extra step past the right edge, so the last segment reaches the edge
-     rather than stopping short of it and leaving a gap of bare band. */
-  for (x = 0; x <= w + step; x += step) {
-    pts.push([x, screenFloorY(x)]);
-  }
-  if (pts.length < 2) return;
-
-  /* How far the rock mass extends below the floor. Sized to the VIEWPORT rather
-     than a fixed 400: the player is clamped into the cave's bounds and stood on
-     this floor, and a mass that stopped short of the bottom of a tall window
-     would leave them standing on the edge of nothing. */
-  var deep = Math.max(viewH || 0, 400);
-
-
-  /* --- the rock mass below the floor line --- */
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-  ctx.lineTo(w + step, pts[pts.length - 1][1] + deep);
-  ctx.lineTo(-step, pts[0][1] + deep);
-  ctx.closePath();
-  var rockGrad = ctx.createLinearGradient(0, pts[0][1], 0, pts[0][1] + 260);
-  rockGrad.addColorStop(0, '#3a4450');
-  rockGrad.addColorStop(0.35, '#232a33');
-  rockGrad.addColorStop(1, '#0b0e12');
-  ctx.fillStyle = rockGrad;
-  ctx.fill();
-
-  /* The lit top edge of the floor. One pixel of warm light along the line the
-     player walks on is what sells the floor as a surface catching a torch,
-     rather than as the boundary of a fill. */
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-  ctx.strokeStyle = 'rgba(196,214,236,0.20)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  /* --- rubble on the floor, at the profile's own steps --- */
-  var r = caveRnd(CAVE_RUBBLE_SEED);
-  for (i = 0; i < pts.length; i++) {
-    if (i % 2) continue;                       /* every other step: half as many */
-    /* bx/by, NOT px/py: `px` is the drawing helper imported from sprites.js, and
-       a local var of the same name shadows it for the whole function - so the
-       first rubble block would have called a number. */
-    var bx = pts[i][0], by = pts[i][1];
-    var rw = 5 + ((r() * 16) | 0);
-    var rh = 3 + ((r() * 7) | 0);
-    var lit = 0.10 + r() * 0.16;
-    /* px() HERE is render.js's own five-argument helper - px(x, y, w, h, colour),
-       which draws into the module's own ctx and does NOT take a context as its
-       first argument. sprites.js has a second helper with the same name and a
-       different signature, px(g, x, y, w, h, colour), which does. Passing ctx as
-       the first argument here shifted every argument along by one, so the colour
-       string landed in x and Math.round("rgba(...)") produced the NaN that the
-       non-finite check caught. The two helpers sharing a name is the real hazard
-       in this codebase; the smoke test's finite() reporting on fillRect is what
-       turned a silently missing room into a named failure. */
-    px(bx - rw / 2, by - rh, rw, rh, 'rgba(18,22,28,0.85)');
-    px(bx - rw / 2, by - rh, rw, 1, 'rgba(190,206,226,' + lit.toFixed(3) + ')');
-  }
-
-  /* --- ore veins in the rock face, below the floor line --- */
-  for (i = 0; i < pts.length; i += 3) {
-    var pick = caveRnd(CAVE_VEIN_SEED + i);
-    if (((pick() * 3) | 0) !== 0) continue;
-    var vx = pts[i][0] + 20, vy = pts[i][1] + 26 + ((pick() * 90) | 0);
-    var vw = 3 + ((pick() * 9) | 0);
-    px(vx, vy, vw, 2, 'rgba(246,201,109,0.16)');
-  }
-}
-
-/* The cave floor the player is standing on, lit by their lantern. Drawn after
-   the mass so the pool of light lands on the rock rather than under it. */
-function drawCaveLight() {
-  if (!caveActive()) return;
-  var cx = player.x + player.w / 2;
-  var cy = screenFloorY(cx);
-  var g = ctx.createRadialGradient(cx, cy, 6, cx, cy, 190);
-  g.addColorStop(0, 'rgba(255,206,122,0.17)');
-  g.addColorStop(0.55, 'rgba(255,190,110,0.06)');
-  g.addColorStop(1, 'rgba(255,190,110,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(cx - 190, cy - 190, 380, 380);
-}
-
-/* === The cage at the foot of the shaft ====================================
-   Drawn with the cave and BEFORE the player, so the sprite stands on the plate
-   rather than behind it - the same reason drawCave() runs where it does.
-
-   It is an open steel frame, not a box: four corner posts, a lattice of bars on
-   the back and sides, a solid plate to stand on, and a pair of guide shoes
-   where the cage would meet the shaft's rails. Nothing here is a filled
-   rectangle across the opening, because the player is meant to walk in under it
-   and a solid back would hide them.
-
-   Every Y is read from cageFloorY() - the collision's own number - so the
-   painted lip is exactly the line the player is resolved against. That shared
-   number is the same arrangement drawCar() has with groundY(), and for the same
-   reason: two consumers of one fact that disagree is the seam twitch all over
-   again. */
-function drawCage() {
-  if (!caveActive() || !cageActive()) return;
-  var plate = cageFloorY();
-  if (!isFinite(plate)) return;
-  var s = cageSpan();
-
-  /* Posts: the frame's four corners, standing from the plate down to whatever
-     the floor happens to be beneath. The floor is sampled per post rather than
-     assumed flat, so the cage is planted on the rock instead of hovering over
-     the low point - which is exactly the failure the cage's own floor
-     calculation exists to prevent, reproduced here if the two disagreed. */
-  var postW = 5, inset = 3;
-  var l = s.left + inset, r = s.right - inset - postW;
-  var x, floorY;
-  for (x = 0; x < 2; x++) {
-    var postX = (x === 0) ? l : r;
-    floorY = screenFloorY(postX + postW / 2);
-    if (!isFinite(floorY) || floorY < plate) floorY = plate + 40;
-    var len = floorY - plate;
-    if (len > 0) {
-      px(postX, plate, postW, len, 'rgba(12,16,21,0.88)');
-      /* One lit edge per post, so the frame has a front face. */
-      px(postX, plate, 1, len, 'rgba(255,255,255,0.13)');
-      px(postX + postW - 1, plate, 1, len, 'rgba(0,0,0,0.45)');
-    }
-  }
-
-  /* Back lattice: vertical bars at a fixed rhythm between the posts, and one
-     horizontal rail a third of the way up. Sparse on purpose - the point is to
-     read as a cage you can see through, and this is what lets the player behind
-     it stay visible. */
-  var top = plate - 3 - 34;
-  var bar;
-  for (bar = l + 8; bar < r; bar += 11) {
-    px(bar, top, 2, 34, 'rgba(255,255,255,0.055)');
-  }
-  px(l, top + 16, r - l, 2, 'rgba(255,255,255,0.075)');
-
-  /* The plate itself. The lit lip is drawn AT EXACTLY plate, the Y
-     movePlayerCage() resolves against. */
-  px(l - inset, plate, (r + postW) - l + inset * 2, 2, 'rgba(255,210,74,0.26)');
-  px(l - inset, plate + 2, (r + postW) - l + inset * 2, 5, 'rgba(0,0,0,0.78)');
-  px(l - inset, plate + 2, (r + postW) - l + inset * 2, 1, 'rgba(255,255,255,0.12)');
-  /* Rivets, so the plate has a face rather than being a bar. */
-  for (var rivet = l - inset + 4; rivet < r; rivet += 9) {
-    px(rivet, plate + 4, 1, 1, 'rgba(255,255,255,0.10)');
-  }
-
-  /* Guide shoes, where the cage meets the shaft rails above it - the detail
-     that ties this structure to drawCar()'s shoes and makes the two read as the
-     same machine at two ends of its travel. */
-  px(l - 2, plate - 5, 7, 5, 'rgba(0,0,0,0.70)');
-  px(r - 5, plate - 5, 7, 5, 'rgba(0,0,0,0.70)');
-  px(l - 1, plate - 4, 5, 1, 'rgba(255,255,255,0.12)');
-  px(r - 4, plate - 4, 5, 1, 'rgba(255,255,255,0.12)');
-}
+/* drawCage() moved to cave-scene.js too, with the cave it stands in. The
+   render order is unchanged - render.js still decides WHEN it is drawn, and
+   cave-scene.js still decides HOW. 72 more lines out of an 854-line file. */
 
 function render(now) {
   biomesDrawn = 0;
