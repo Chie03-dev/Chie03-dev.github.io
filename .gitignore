@@ -16,6 +16,21 @@ README.txt
 # OS / editor noise
 .DS_Store
 Thumbs.db
+desktop.ini
+*.swp
+*~
+.idea/
+.vscode/
+
+# Build and coverage output. This project has no build step and no
+# dependencies, so none of this can be produced by `npm run` - but a stray
+# dist/ or a coverage report from an unrelated tool should never reach Pages.
+node_modules/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
 
 # The page the pixel test assembles from index.html + pixel-probe.html. It is
 # rewritten on every run and removed afterwards, so it should never be staged.
