@@ -1,0 +1,51 @@
+# Portfolio Project Guidelines & Rules for Cline
+
+## Tech Stack & Standards (2026)
+- Meta-Framework: Next.js 15 (App Router, Server Components by default)
+- Core Library: React 19 (Use React Compiler patterns, avoid manual `useMemo`/`useCallback` unless necessary)
+- Language: TypeScript 5+ (Strict mode enabled, no `any`)
+- Styling: Tailwind CSS v4 + Shadcn UI
+- Motion: `motion` (formerly Framer Motion)
+- Content: MDX via Velite or Contentlayer2
+
+## Architecture & Code Guidelines
+
+### 1. Component Rules
+- Default to React Server Components (RSC) unless interactivity (hooks, state, event listeners) is strictly required.
+- Add `'use client'` strictly at the top of client component files.
+- Keep components small, modular, and single-purpose in `src/components/`.
+- Use explicit TypeScript interfaces/types for all component props.
+
+### 2. Styling Rules
+- Use Tailwind CSS v4 inline classes and utility functions (`cn()` from `clsx` and `tailwind-merge`).
+- Do not create custom CSS files or heavy inline `style={}` objects when Tailwind utilities exist.
+- Support dark mode out of the box using CSS variables and Tailwind classes.
+
+### 3. File & Directory Structure
+src/
+├── app/              # Next.js App Router (pages, layouts, API routes)
+├── components/       # Reusable UI components
+│   ├── ui/           # Primitive design system components (Shadcn)
+│   └── showcases/    # Project case studies & complex interactive components
+├── content/          # MDX files for case studies and post-mortems
+├── lib/              # Utility functions, API helpers, GraphQL queries
+└── types/            # Global TypeScript definitions
+
+### 4. Quality & Execution Workflow
+- Always run type checking (`npx tsc --noEmit`) and linter checks after building or refactoring components.
+- Do not write legacy or deprecated code (e.g., Pages Router patterns, legacy Framer Motion imports, outdated Tailwind syntax).
+- Ensure high performance: optimize images via `next/image`, avoid heavy bundle sizes, and keep client-side JS minimal.
+
+## 5. Ponytail Minimalism Rules
+Before writing any code or introducing new files, evaluate the task in this exact order:
+1. Necessity: Does this functionality actually need to exist, or is it speculative?
+2. Native First: Can standard browser APIs, native HTML elements, or core runtime utilities solve this without new packages?
+3. Code Reuse: Does the current codebase already have a component, utility, or helper that solves this?
+4. Minimal Build: If new code is mandatory, write the minimum viable lines. Do not add wrappers, premature abstractions, or extra config.
+
+Note: Never strip security boundaries, error handling, accessibility, or type safety for brevity.
+
+## Agent Behavior Rules
+- Be concise and focus on writing production-ready, modular code.
+- Always check existing file structures before creating new files to prevent duplicate implementations.
+- If a task involves state management or client interactivity, clearly separate data-fetching logic into Server Components or Server Actions.
