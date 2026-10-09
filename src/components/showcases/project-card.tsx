@@ -1,7 +1,15 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 
+import { CaseStudyDrawer } from "@/components/showcases/case-study-drawer";
+import { CodeBlock } from "@/components/ui/code-block";
+import { MetricBar } from "@/components/ui/metric-bar";
 import { cn } from "@/lib/utils";
 import type { ProjectCaseStudy } from "@/types/project";
+
+type TabId = "overview" | "architecture" | "code";
 
 interface ProjectCardProps {
   project: ProjectCaseStudy;
@@ -65,10 +73,24 @@ function CheckIcon() {
 }
 
 /**
- * Project card rendered as a Server Component. All micro-interactions are
- * CSS-driven (hover color and border transitions), so no client JS is shipped.
+ * Interactive case-study card. Kept as a client component because the tabbed
+ * inspector and the post-mortem drawer both require local state. The static
+ * summary (header, description, tags) stays above the tabs for quick scanning.
  */
 export function ProjectCard({ project }: ProjectCardProps) {
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "overview", label: "Overview & Metrics" },
+    ...(project.systemArchitectureSteps
+      ? [{ id: "architecture" as TabId, label: "System Architecture" }]
+      : []),
+    ...(project.codeSnippet
+      ? [{ id: "code" as TabId, label: "Key Code" }]
+      : []),
+  ];
+
   return (
     <article
       className={cn(
@@ -95,35 +117,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
         {project.description}
       </p>
 
-      {/* Metrics grid */}
-      <dl className="mb-5 grid grid-cols-3 gap-3 rounded-md border border-border/60 bg-muted/30 p-4">
-        {project.metrics.map((metric) => (
-          <div key={metric.label} className="flex flex-col gap-1">
-            <dt className="text-xs font-medium text-muted-foreground">
-              {metric.label}
-            </dt>
-            <dd className="text-lg font-bold tracking-tight text-foreground">
-              {metric.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-
-      {/* Architecture highlights */}
-      <ul className="mb-5 flex flex-col gap-2">
-        {project.architectureHighlights.map((highlight) => (
-          <li
-            key={highlight}
-            className="flex items-start gap-2 text-sm text-muted-foreground"
-          >
-            <CheckIcon />
-            <span>{highlight}</span>
-          </li>
-        ))}
-      </ul>
-
       {/* Tech stack pills */}
-      <ul className="mb-6 flex flex-wrap gap-2">
+      <ul className="mb-5 flex flex-wrap gap-2">
         {project.tags.map((tag) => (
           <li
             key={tag}
@@ -134,31 +129,140 @@ export function ProjectCard({ project }: ProjectCardProps) {
         ))}
       </ul>
 
-      {/* Links */}
-      <div className="mt-auto flex flex-wrap gap-3 border-t border-border/60 pt-4">
-        {project.githubUrl ? (
-          <Link
-            href={project.githubUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      {/* Tabbed inspector */}
+      <div className="mt-auto border-t border-border/60 pt-4">
+        <div
+          role="tablist"
+          aria-label="Case study views"
+          className="mb-4 flex flex-wrap gap-1"
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              id={`${project.id}-tab-${tab.id}`}
+              aria-controls={`${project.id}-panel-${tab.id}`}
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                activeTab === tab.id
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div
+          role="tabpanel"
+          id={`${project.id}-panel-${activeTab}`}
+          aria-labelledby={`${project.id}-tab-${activeTab}`}
+          className="min-h-[8rem]"
+        >
+          {activeTab === "overview" ? (
+            <div className="flex flex-col gap-4">
+              {/* Metrics grid */}
+              <dl className="grid grid-cols-3 gap-3 rounded-md border border-border/60 bg-muted/30 p-4">
+                {project.metrics.map((metric) => (
+                  <div key={metric.label} className="flex flex-col gap-1">
+                    <dt className="text-xs font-medium text-muted-foreground">
+                      {metric.label}
+                    </dt>
+                    <dd className="text-lg font-bold tracking-tight text-foreground">
+                      {metric.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {/* Before/after telemetry */}
+              {project.beforeAfterMetrics?.map((metric) => (
+                <MetricBar key={metric.label} metric={metric} />
+              ))}
+
+              {/* Architecture highlights */}
+              <ul className="flex flex-col gap-2">
+                {project.architectureHighlights.map((highlight) => (
+                  <li
+                    key={highlight}
+                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <CheckIcon />
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {activeTab === "architecture" && project.systemArchitectureSteps ? (
+            <ol className="flex flex-col gap-4">
+              {project.systemArchitectureSteps.map((step, index) => (
+                <li key={step.title} className="flex gap-4">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {step.title}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      {step.description}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+
+          {activeTab === "code" && project.codeSnippet ? (
+            <CodeBlock snippet={project.codeSnippet} />
+          ) : null}
+        </div>
+
+        {/* Actions */}
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
+          {project.githubUrl ? (
+            <Link
+              href={project.githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <GitHubIcon />
+              Source
+            </Link>
+          ) : null}
+          {project.liveUrl ? (
+            <Link
+              href={project.liveUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ExternalLinkIcon />
+              Live Case Study
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="ml-auto inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <GitHubIcon />
-            Source
-          </Link>
-        ) : null}
-        {project.liveUrl ? (
-          <Link
-            href={project.liveUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ExternalLinkIcon />
-            Live Case Study
-          </Link>
-        ) : null}
+            Full Engineering Post-Mortem
+          </button>
+        </div>
       </div>
+
+      <CaseStudyDrawer
+        project={project}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </article>
   );
 }

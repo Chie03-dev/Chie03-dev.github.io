@@ -5,11 +5,15 @@ import { site } from "@/lib/site";
 
 import "./globals.css";
 
+// First name used for the page title so the full legal name never appears in
+// the browser tab, link previews, or search results.
+const TITLE_NAME = site.name.split(" ")[0];
+
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: {
-    default: `${site.name} - ${site.role}`,
-    template: `%s - ${site.name}`,
+    default: `${TITLE_NAME} - ${site.role}`,
+    template: `%s - ${TITLE_NAME}`,
   },
   description: site.description,
   keywords: [
@@ -41,12 +45,12 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: site.url,
     siteName: site.name,
-    title: `${site.name} - ${site.role}`,
+    title: `${TITLE_NAME} - ${site.role}`,
     description: site.description,
   },
   twitter: {
     card: "summary_large_image",
-    title: `${site.name} - ${site.role}`,
+    title: `${TITLE_NAME} - ${site.role}`,
     description: site.description,
   },
 };
@@ -81,7 +85,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+    <html lang="en" className="scroll-smooth scroll-pt-24" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />

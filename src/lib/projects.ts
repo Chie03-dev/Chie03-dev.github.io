@@ -37,6 +37,43 @@ const PROJECTS: ProjectCaseStudy[] = [
       "Implemented exam integrity protections including Android Lock Task Mode, real-time WebSocket telemetry, heartbeat tracking, local answer persistence, and device session recovery.",
       "Built server-side timer validation and automated question randomization across 8 question types verified against local server testing.",
     ],
+    systemArchitectureSteps: [
+      {
+        title: "Local Host Handshake",
+        description:
+          "The Electron desktop app starts a local WebSocket server and advertises a QR code plus a 4-digit PIN. Android clients resolve the host on the LAN and complete a handshake to receive the exam session token.",
+      },
+      {
+        title: "Telemetry Sync",
+        description:
+          "Student answers and presence stream to the host over WebSocket in real time. A heartbeat every 5 seconds tracks connectivity, and the host reconciles state so a dropped client can rejoin without data loss.",
+      },
+      {
+        title: "Lock Task Session Recovery",
+        description:
+          "On the client, Lock Task Mode pins the app for exam integrity. If the process is killed, local Room persistence restores the in-progress session and the device re-handshakes to resume where it left off.",
+      },
+    ],
+    codeSnippet: {
+      language: "kotlin",
+      filename: "ExamSession.kt",
+      code: `// Lock Task Mode pins the app so students cannot exit mid-exam.
+fun startLockedExamSession(activity: Activity) {
+    val admin = activity.getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+    if (admin.isLockTaskPermitted(activity.packageName)) {
+        activity.startLockTask()
+    }
+}
+
+// Heartbeat keeps the host aware of each connected student client.
+fun startHeartbeat(socket: WebSocket, scope: CoroutineScope) = scope.launch {
+    while (isActive) {
+        val frame = buildHeartbeatFrame(studentId, Clock.System.now())
+        socket.send(frame)
+        delay(HEARTBEAT_INTERVAL_MS)
+    }
+}`,
+    },
     githubUrl: "https://github.com/Chie03-dev",
     featured: true,
   },
@@ -67,6 +104,29 @@ const PROJECTS: ProjectCaseStudy[] = [
       "Built automated barcode scanning and transaction checkout workflows using CameraX and Google ML Kit.",
       "Integrated MPAndroidChart for sales analytics, demand forecasting, and inventory restock alerts alongside automated PDF receipt rendering via iText.",
     ],
+    codeSnippet: {
+      language: "kotlin",
+      filename: "ScanPipeline.kt",
+      code: `// CameraX analyzer decodes barcodes on the image stream.
+class BarcodeAnalyzer(
+    private val scanner: BarcodeScanner,
+    private val onScan: (String) -> Unit,
+) : ImageAnalysis.Analyzer {
+    override fun analyze(image: ImageProxy) {
+        val input = InputImage.fromMediaImage(image.image, image.imageInfo.rotationDegrees)
+        scanner.process(input)
+            .addOnSuccessListener { codes -> codes.firstOrNull()?.rawValue?.let(onScan) }
+            .addOnCompleteListener { image.close() }
+    }
+}
+
+// Persist each scan into Room inside a single transaction.
+suspend fun recordScan(dao: SaleDao, sku: String) = dao.withTransaction {
+    val item = dao.findBySku(sku) ?: return@withTransaction
+    dao.decrementStock(item.id)
+    dao.insertSaleLine(SaleLine(sku = sku, qty = 1))
+}`,
+    },
     githubUrl: "https://github.com/Chie03-dev",
     featured: true,
   },
@@ -96,6 +156,26 @@ const PROJECTS: ProjectCaseStudy[] = [
       "Optimized frontend performance by converting legacy images to WebP and removing custom web fonts, cutting served assets from 3.8 MB to 55 KB.",
       "Designed accessible UI components featuring dark mode, reduced-motion preferences, route protection, and API-ready loading states.",
     ],
+    beforeAfterMetrics: [
+      {
+        label: "Total Served Assets",
+        before: "3.8 MB",
+        after: "55 KB",
+        reductionPercentage: 98.5,
+      },
+    ],
+    codeSnippet: {
+      language: "typescript",
+      filename: "worker.ts",
+      code: `// Cloudflare Worker edge route: serve static assets, fall back to the app shell.
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const asset = await env.ASSETS.fetch(request);
+    if (asset.status !== 404) return asset;
+    return env.ASSETS.fetch(new Request(new URL(INDEX_PATH, request.url), request));
+  },
+};`,
+    },
     githubUrl: "https://github.com/Chie03-dev",
     featured: true,
   },

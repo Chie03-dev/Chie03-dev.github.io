@@ -82,6 +82,9 @@
    animate-hero-portrait utility composes with motion-reduce:animate-none. */
 @theme {
   --animate-hero-portrait: hero-portrait-drift 8s ease-in-out infinite;
+  --animate-card-in: card-in 0.4s ease-out both;
+  --animate-metric-fill: metric-fill 0.9s ease-out both;
+  --animate-hero-light-beam: hero-light-beam 7s ease-in-out infinite;
 }
 
 @keyframes hero-portrait-drift {
@@ -92,6 +95,62 @@
   50% {
     transform: scale(1.025) translateY(-5px);
   }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Passing light beam: a soft band of light drifts down the hero grid and
+   loops. Only the transform and opacity animate, so it stays cheap. */
+@keyframes hero-light-beam {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  80% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(500%);
+    opacity: 0;
+  }
+}
+
+/* Width meter draw-in. Only `from` is declared so the implicit `to` falls back
+   to each bar's inline width, animating from 0 on mount without extra JS. */
+@keyframes metric-fill {
+  from {
+    width: 0;
+  }
+}
+
+/*
+ * Cursor spotlight glow for cards. The --mouse-x and --mouse-y custom
+ * properties are set from JS on the wrapping element; the mask leaves only a
+ * thin border ring visible so the card interior stays untouched.
+ */
+.spotlight-glow {
+  background: radial-gradient(
+    400px circle at var(--mouse-x) var(--mouse-y),
+    color-mix(in oklab, var(--primary) 30%, transparent),
+    transparent 40%
+  );
+  padding: 1.5px;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
 }
 
 @layer base {

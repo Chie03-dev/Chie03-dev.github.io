@@ -1,6 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { HeroTerminal } from "@/components/showcases/hero-terminal";
+import { MagneticButton } from "@/components/ui/magnetic-button";
+import { TextScramble } from "@/components/ui/text-scramble";
+import { site } from "@/lib/site";
+
 const STACK_TAGS = [
   "Kotlin",
   "Jetpack Compose",
@@ -11,9 +16,10 @@ const STACK_TAGS = [
 ];
 
 /**
- * Engineering-focused hero section. Fully static (Server Component). The
- * ambient gradient and the live status ping are CSS-driven, so no client JS is
- * shipped for the visuals.
+ * Engineering-focused hero section. The layout is a Server Component; the
+ * interactive leaves (terminal, text scramble, magnetic CTAs) are client
+ * components. The ambient gradient, background grid, light beam, and status
+ * ping are all CSS-driven, so no extra JS is shipped for the scenery.
  */
 export function Hero() {
   return (
@@ -22,6 +28,18 @@ export function Hero() {
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_50%_0%,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_70%)] dark:bg-[radial-gradient(60%_50%_at_50%_0%,color-mix(in_oklab,var(--primary)_30%,transparent),transparent_70%)]"
+      />
+
+      {/* Subtle background grid, masked to fade out toward the fold */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"
+      />
+
+      {/* Passing light beam sweeping down over the grid */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 animate-hero-light-beam bg-[linear-gradient(to_bottom,transparent,color-mix(in_oklab,var(--primary)_40%,transparent),transparent)] opacity-60 motion-reduce:animate-none"
       />
 
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:gap-8 lg:px-8 lg:py-28">
@@ -33,12 +51,11 @@ export function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
             </span>
-            Available for senior engineering roles
+            Available for engineering opportunities
           </div>
 
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-            Mobile &amp; Full-Stack
-            <br className="hidden sm:block" /> Systems Engineer
+            <TextScramble text={site.role} />
           </h1>
 
           <p className="max-w-xl text-lg text-muted-foreground">
@@ -50,18 +67,22 @@ export function Hero() {
 
           {/* Call to action */}
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/#projects"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Explore Case Studies
-            </Link>
-            <Link
-              href="/#contact"
-              className="inline-flex items-center justify-center rounded-md border border-border bg-background px-5 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Get in Touch
-            </Link>
+            <MagneticButton className="w-full sm:w-auto">
+              <Link
+                href="/#projects"
+                className="inline-flex w-full items-center justify-center rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Explore Case Studies
+              </Link>
+            </MagneticButton>
+            <MagneticButton className="w-full sm:w-auto">
+              <Link
+                href="/#contact"
+                className="inline-flex w-full items-center justify-center rounded-md border border-border bg-background px-5 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Get in Touch
+              </Link>
+            </MagneticButton>
           </div>
 
           {/* Core stack tags */}
@@ -97,50 +118,9 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Terminal / architecture preview card */}
+        {/* Interactive terminal */}
         <div className="relative order-3 lg:col-span-2">
-          <div className="rounded-lg border border-border bg-card shadow-lg shadow-primary/5">
-            {/* Window chrome */}
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-              <span className="h-3 w-3 rounded-full bg-red-500/80" />
-              <span className="h-3 w-3 rounded-full bg-yellow-500/80" />
-              <span className="h-3 w-3 rounded-full bg-green-500/80" />
-              <span className="ml-2 text-xs text-muted-foreground">
-                architecture.ts
-              </span>
-            </div>
-            {/* Code body */}
-            <pre className="overflow-x-auto px-4 py-4 text-sm leading-relaxed">
-              <code className="font-mono">
-                <span className="text-muted-foreground">{"// core stack"}</span>
-                {"\n"}
-                <span className="text-primary">const</span>{" "}
-                <span className="text-foreground">engineer</span>{" = {\n"}
-                {"  "}
-                <span className="text-foreground">mobile</span>:{" "}
-                <span className="text-green-600 dark:text-green-400">
-                  &quot;Kotlin + Compose&quot;
-                </span>
-                {",\n  "}
-                <span className="text-foreground">web</span>:{" "}
-                <span className="text-green-600 dark:text-green-400">
-                  &quot;Next.js 15&quot;
-                </span>
-                {",\n  "}
-                <span className="text-foreground">desktop</span>:{" "}
-                <span className="text-green-600 dark:text-green-400">
-                  &quot;Electron&quot;
-                </span>
-                {",\n  "}
-                <span className="text-foreground">data</span>:{" "}
-                <span className="text-green-600 dark:text-green-400">
-                  &quot;PostgreSQL&quot;
-                </span>
-                {",\n"}
-                {"};"}
-              </code>
-            </pre>
-          </div>
+          <HeroTerminal />
         </div>
       </div>
     </section>

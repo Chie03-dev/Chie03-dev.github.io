@@ -8,6 +8,27 @@ export interface ProjectMetric {
   value: string;
 }
 
+/** A before/after comparison rendered as a visual telemetry bar. */
+export interface BeforeAfterMetric {
+  label: string;
+  before: string;
+  after: string;
+  reductionPercentage: number;
+}
+
+/** A minimal code sample with lightweight syntax highlighting. */
+export interface CodeSnippet {
+  language: string;
+  filename: string;
+  code: string;
+}
+
+/** A single ordered step in a system architecture sequence. */
+export interface ArchitectureStep {
+  title: string;
+  description: string;
+}
+
 /** A deep-dive engineering case study for a featured project. */
 export interface ProjectCaseStudy {
   id: string;
@@ -19,6 +40,9 @@ export interface ProjectCaseStudy {
   tags: string[];
   metrics: ProjectMetric[];
   architectureHighlights: string[];
+  beforeAfterMetrics?: BeforeAfterMetric[];
+  codeSnippet?: CodeSnippet;
+  systemArchitectureSteps?: ArchitectureStep[];
   githubUrl?: string;
   liveUrl?: string;
   featured: boolean;

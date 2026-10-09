@@ -1,15 +1,16 @@
 import Link from "next/link";
 
+import { CommandTrigger } from "@/components/layout/command-trigger";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { NavLinks } from "@/components/layout/nav-links";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { site } from "@/lib/site";
-import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Projects", href: "/#projects" },
   { label: "Experience", href: "/#experience" },
-  { label: "About", href: "/#about" },
+  { label: "Open Source", href: "/#open-source" },
   { label: "Contact", href: "/#contact" },
 ];
 
@@ -23,55 +24,48 @@ const INITIALS = site.name
   .join("");
 
 /**
- * Sticky, glassmorphic site header. Rendered as a Server Component; all
- * interactivity is isolated in the client leaf components (ThemeToggle,
- * MobileNav).
+ * Floating pill navigation. A Server Component that renders the centered,
+ * glassmorphic island; all interactivity (active-section tracking, command
+ * palette trigger, theme toggle, mobile menu) lives in client leaf components.
  */
 export function Navbar() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/70 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand */}
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+      <header className="pointer-events-auto flex w-full max-w-4xl items-center justify-between gap-4 rounded-full border border-border/60 bg-background/80 px-4 py-2.5 shadow-lg shadow-black/5 backdrop-blur-md">
+        {/* Brand + availability dot */}
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold uppercase text-primary-foreground">
             {INITIALS}
           </span>
-          <span className="text-base font-semibold tracking-tight">
-            {site.name}
+          <span className="hidden text-sm font-semibold tracking-tight sm:inline">
+            {site.githubUsername}
+          </span>
+          <span className="relative flex h-2 w-2" aria-label="Available">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
           </span>
         </Link>
 
-        {/* Desktop navigation */}
-        <nav aria-label="Primary" className="hidden md:flex md:items-center md:gap-1">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Desktop navigation with active-section tracking */}
+        <NavLinks items={NAV_ITEMS} />
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          <CommandTrigger />
+          <ThemeToggle className="rounded-full" />
           <Link
             href={site.resumeUrl}
-            className={cn(
-              "hidden items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:inline-flex",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            )}
+            className="hidden items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"
           >
             Resume
           </Link>
           <MobileNav items={NAV_ITEMS} />
         </div>
-      </div>
-    </header>
+      </header>
+    </div>
   );
 }
+

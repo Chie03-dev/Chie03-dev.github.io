@@ -35,7 +35,7 @@ export function MobileNav({ items }: MobileNavProps) {
         aria-label="Toggle navigation menu"
         aria-expanded={open}
         aria-controls="mobile-menu"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/60 bg-background/60 text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {open ? (
           <svg
@@ -74,18 +74,15 @@ export function MobileNav({ items }: MobileNavProps) {
       {open ? (
         <div
           id="mobile-menu"
-          className="absolute inset-x-0 top-16 border-b border-border bg-background/95 backdrop-blur-md"
+          className="fixed inset-x-4 top-20 z-50 rounded-2xl border border-border/60 bg-background/95 p-2 shadow-lg shadow-black/5 backdrop-blur-md md:hidden"
         >
-          <nav
-            aria-label="Mobile"
-            className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4 sm:px-6"
-          >
+          <nav aria-label="Mobile" className="flex flex-col gap-1">
             {items.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 {item.label}
               </Link>
@@ -94,7 +91,7 @@ export function MobileNav({ items }: MobileNavProps) {
               href="/#contact"
               onClick={() => setOpen(false)}
               className={cn(
-                "mt-2 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90",
+                "mt-1 inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90",
               )}
             >
               Get in Touch
