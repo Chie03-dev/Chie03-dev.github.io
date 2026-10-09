@@ -7,26 +7,39 @@
 # next.js
 /.next/
 /out/
+next-env.d.ts
 
 # production
 /build
 
 # misc
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+*.log
+*.swp
+*.swo
+*~
 
 # env files
 .env*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+
+# editor
+.idea/
+*.iml
+
+# ai coding agents
+.cline*
+.cursor*
+.claude*
+.aider*
+.windsurf*
+.tabnine*
+.github/copilot-instructions.md
 
 # vercel
 .vercel
