@@ -1,20 +1,113 @@
-﻿/**
- * Glooming monster eyes and reaching claws that loom in the murk behind the key. Purely
- * decorative: a Server Component with zero JS.
- * The eyes blink on an uneven cadence and drift slowly side to side.
- * Flanking the eyes are two shadowy arms with sharp glowing claws that creep and reach
- * toward the center.
- * All motion is CSS-driven and respects prefers-reduced-motion.
+﻿"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useHeroLock } from "@/context/hero-lock-context";
+
+/**
+ * Interactive monster eyes with reaching claws that react to the key.
+ * Tracks pointer proximity and triggers a "swat" animation when the key gets too close.
+ * All ambient motion is CSS-driven; swat is triggered via inline style.
  */
 export function MonsterEyes() {
+  const { isKeyDragging } = useHeroLock();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const leftArmRef = useRef<HTMLDivElement>(null);
+  const rightArmRef = useRef<HTMLDivElement>(null);
+  const [swatState, setSwatState] = useState<{
+    left: { x: number; y: number; rot: number } | null;
+    right: { x: number; y: number; rot: number } | null;
+  }>({ left: null, right: null });
+
+  const lastSwatRef = useRef<{ left: number; right: number }>({ left: 0, right: 0 });
+  const SWAT_COOLDOWN = 1500;
+
+  useEffect(() => {
+    if (!isKeyDragging) return;
+
+    const container = containerRef.current;
+    const leftArm = leftArmRef.current;
+    const rightArm = rightArmRef.current;
+    if (!container || !leftArm || !rightArm) return;
+
+    const getGhostPos = (): { x: number; y: number } | null => {
+      const ghost = document.querySelector(
+        '[data-ghost="key"]'
+      ) as HTMLElement | null;
+      if (!ghost) return null;
+      const rect = ghost.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    };
+
+    const handlePointerMove = () => {
+      const ghostPos = getGhostPos();
+      if (!ghostPos) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const centerX = containerRect.left + containerRect.width / 2;
+      const centerY = containerRect.top + containerRect.height / 2;
+
+      const LEFT_ARM_X = centerX - 200;
+      const RIGHT_ARM_X = centerX + 200;
+      const ARM_Y = centerY;
+
+      const dxLeft = ghostPos.x - LEFT_ARM_X;
+      const dyLeft = ghostPos.y - ARM_Y;
+      const distLeft = Math.hypot(dxLeft, dyLeft);
+
+      const dxRight = ghostPos.x - RIGHT_ARM_X;
+      const dyRight = ghostPos.y - ARM_Y;
+      const distRight = Math.hypot(dxRight, dyRight);
+
+      const SWAT_RADIUS = 140;
+      const now = Date.now();
+
+      if (distLeft < SWAT_RADIUS && now - lastSwatRef.current.left > SWAT_COOLDOWN) {
+        lastSwatRef.current.left = now;
+        const angle = Math.atan2(dyLeft, dxLeft);
+        const pushX = Math.cos(angle + Math.PI) * 60;
+        const pushY = Math.sin(angle + Math.PI) * 40;
+        const rot = (angle + Math.PI) * (180 / Math.PI) - 30;
+
+        setSwatState((prev) => ({ ...prev, left: { x: pushX, y: pushY, rot } }));
+        setTimeout(() => setSwatState((prev) => ({ ...prev, left: null })), 600);
+      }
+
+      if (distRight < SWAT_RADIUS && now - lastSwatRef.current.right > SWAT_COOLDOWN) {
+        lastSwatRef.current.right = now;
+        const angle = Math.atan2(dyRight, dxRight);
+        const pushX = Math.cos(angle + Math.PI) * 60;
+        const pushY = Math.sin(angle + Math.PI) * 40;
+        const rot = (angle + Math.PI) * (180 / Math.PI) + 30;
+
+        setSwatState((prev) => ({ ...prev, right: { x: pushX, y: pushY, rot } }));
+        setTimeout(() => setSwatState((prev) => ({ ...prev, right: null })), 600);
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    return () => window.removeEventListener("pointermove", handlePointerMove);
+  }, [isKeyDragging]);
+
   return (
     <div
+      ref={containerRef}
       aria-hidden="true"
       className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 -z-10 flex items-center justify-center"
     >
       <div className="animate-monster-drift motion-reduce:animate-none relative flex items-center justify-center">
         {/* Left Arm & Claw */}
-        <div className="animate-monster-arm-left motion-reduce:animate-none absolute -left-36 sm:-left-56 md:-left-64 flex items-center opacity-75 dark:opacity-85 pointer-events-none">
+        <div
+          ref={leftArmRef}
+          className="animate-monster-arm-left motion-reduce:animate-none absolute -left-36 sm:-left-56 md:-left-64 flex items-center opacity-75 dark:opacity-85 pointer-events-none"
+          style={
+            swatState.left
+              ? {
+                  animation: "none",
+                  transform: `translateX(${swatState.left.x}px) translateY(${swatState.left.y}px) rotate(${swatState.left.rot}deg)`,
+                }
+              : undefined
+          }
+        >
           <svg
             className="w-24 h-24 sm:w-32 sm:h-32 text-primary drop-shadow-[0_0_12px_var(--primary)]"
             viewBox="0 0 100 100"
@@ -32,26 +125,10 @@ export function MonsterEyes() {
             {/* Main palm glow / knuckle base */}
             <circle cx="52" cy="48" r="8" fill="currentColor" fillOpacity="0.4" strokeWidth="3" />
             {/* Claws reaching right/inwards */}
-            <path
-              d="M 54 42 Q 68 34 82 40"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 58 48 Q 78 44 94 53"
-              strokeWidth="4.5"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 54 54 Q 72 58 86 68"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 48 56 Q 56 68 66 74"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-            />
+            <path d="M 54 42 Q 68 34 82 40" strokeWidth="4" strokeLinecap="round" />
+            <path d="M 58 48 Q 78 44 94 53" strokeWidth="4.5" strokeLinecap="round" />
+            <path d="M 54 54 Q 72 58 86 68" strokeWidth="4" strokeLinecap="round" />
+            <path d="M 48 56 Q 56 68 66 74" strokeWidth="3.5" strokeLinecap="round" />
           </svg>
         </div>
 
@@ -75,7 +152,18 @@ export function MonsterEyes() {
         </div>
 
         {/* Right Arm & Claw (mirrored) */}
-        <div className="animate-monster-arm-right motion-reduce:animate-none absolute -right-36 sm:-right-56 md:-right-64 flex items-center opacity-75 dark:opacity-85 pointer-events-none scale-x-[-1]">
+        <div
+          ref={rightArmRef}
+          className="animate-monster-arm-right motion-reduce:animate-none absolute -right-36 sm:-right-56 md:-right-64 flex items-center opacity-75 dark:opacity-85 pointer-events-none scale-x-[-1]"
+          style={
+            swatState.right
+              ? {
+                  animation: "none",
+                  transform: `translateX(${swatState.right.x}px) translateY(${swatState.right.y}px) rotate(${swatState.right.rot}deg) scaleX(-1)`,
+                }
+              : undefined
+          }
+        >
           <svg
             className="w-24 h-24 sm:w-32 sm:h-32 text-primary drop-shadow-[0_0_12px_var(--primary)]"
             viewBox="0 0 100 100"
@@ -93,26 +181,10 @@ export function MonsterEyes() {
             {/* Main palm glow / knuckle base */}
             <circle cx="52" cy="48" r="8" fill="currentColor" fillOpacity="0.4" strokeWidth="3" />
             {/* Claws reaching right/inwards */}
-            <path
-              d="M 54 42 Q 68 34 82 40"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 58 48 Q 78 44 94 53"
-              strokeWidth="4.5"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 54 54 Q 72 58 86 68"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 48 56 Q 56 68 66 74"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-            />
+            <path d="M 54 42 Q 68 34 82 40" strokeWidth="4" strokeLinecap="round" />
+            <path d="M 58 48 Q 78 44 94 53" strokeWidth="4.5" strokeLinecap="round" />
+            <path d="M 54 54 Q 72 58 86 68" strokeWidth="4" strokeLinecap="round" />
+            <path d="M 48 56 Q 56 68 66 74" strokeWidth="3.5" strokeLinecap="round" />
           </svg>
         </div>
       </div>

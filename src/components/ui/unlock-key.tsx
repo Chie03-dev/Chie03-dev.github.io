@@ -156,6 +156,7 @@ export function UnlockKey() {
       <div
         ref={ghostRef}
         aria-hidden="true"
+        data-ghost="key"
         className="pointer-events-none fixed inset-0 left-0 top-0 z-[100] h-10 w-10 opacity-0"
       >
         <svg

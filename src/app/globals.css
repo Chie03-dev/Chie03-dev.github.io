@@ -85,6 +85,11 @@
   --animate-card-in: card-in 0.4s ease-out both;
   --animate-metric-fill: metric-fill 0.9s ease-out both;
   --animate-hero-light-beam: hero-light-beam 7s ease-in-out infinite;
+  --animate-monster-drift: monster-drift 12s ease-in-out infinite;
+  --animate-monster-blink: monster-blink 4s ease-in-out infinite;
+  --animate-monster-arm-left: monster-arm-left 6s ease-in-out infinite;
+  --animate-monster-arm-right: monster-arm-right 6.8s ease-in-out infinite;
+  --animate-monster-swat: monster-swat 0.6s ease-out;
 }
 
 @keyframes hero-portrait-drift {
@@ -132,6 +137,74 @@
 @keyframes metric-fill {
   from {
     width: 0;
+  }
+}
+
+/* Monster ambient animations */
+@keyframes monster-drift {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  25% {
+    transform: translateX(-8px) translateY(-4px);
+  }
+  50% {
+    transform: translateX(6px) translateY(6px);
+  }
+  75% {
+    transform: translateX(-4px) translateY(8px);
+  }
+}
+
+@keyframes monster-blink {
+  0%, 45%, 55%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes monster-arm-left {
+  0%, 100% {
+    transform: translateX(0) translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateX(12px) translateY(-8px) rotate(-6deg);
+  }
+  60% {
+    transform: translateX(-8px) translateY(10px) rotate(4deg);
+  }
+}
+
+@keyframes monster-arm-right {
+  0%, 100% {
+    transform: translateX(0) translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateX(-12px) translateY(-8px) rotate(6deg);
+  }
+  65% {
+    transform: translateX(8px) translateY(10px) rotate(-4deg);
+  }
+}
+
+/* Swat animation - quick aggressive strike */
+@keyframes monster-swat {
+  0% {
+    transform: translateX(0) translateY(0) rotate(0deg) scale(1);
+  }
+  15% {
+    transform: translateX(var(--swat-x, 0)) translateY(var(--swat-y, 0)) rotate(var(--swat-rot, 0deg)) scale(1.15);
+  }
+  35% {
+    transform: translateX(calc(var(--swat-x, 0) * 1.3)) translateY(calc(var(--swat-y, 0) * 1.3)) rotate(calc(var(--swat-rot, 0deg) * 1.2)) scale(1.25);
+  }
+  60% {
+    transform: translateX(calc(var(--swat-x, 0) * 0.8)) translateY(calc(var(--swat-y, 0) * 0.8)) rotate(calc(var(--swat-rot, 0deg) * 0.6)) scale(1.1);
+  }
+  100% {
+    transform: translateX(0) translateY(0) rotate(0deg) scale(1);
   }
 }
 
