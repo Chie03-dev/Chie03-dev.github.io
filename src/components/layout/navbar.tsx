@@ -30,7 +30,7 @@ const INITIALS = site.name
 export function Navbar() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
-      <header className="pointer-events-auto flex w-full max-w-4xl items-center justify-between gap-4 rounded-full border border-border/60 bg-background/80 px-4 py-2.5 shadow-lg shadow-black/5 backdrop-blur-md">
+      <header className="pointer-events-auto flex w-full max-w-6xl items-center justify-between gap-4 rounded-full border border-border/60 bg-background/80 px-4 py-2.5 shadow-lg shadow-black/5 backdrop-blur-md">
         {/* Brand + availability dot */}
         <Link
           href="/"

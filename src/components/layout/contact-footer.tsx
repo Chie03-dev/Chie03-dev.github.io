@@ -86,60 +86,65 @@ export function ContactFooter() {
       {/* Contact */}
       <section
         id="contact"
-        className="border-b border-border/40 py-20 lg:py-28"
+        className="relative isolate overflow-hidden border-b border-border/40 py-20 lg:py-28"
       >
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-sm text-muted-foreground">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-            </span>
-            Available for new opportunities
-          </div>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-10 sm:grid-cols-2 sm:gap-12">
+            {/* Intro */}
+            <div className="max-w-2xl">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-sm text-muted-foreground">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                </span>
+                Available for new opportunities
+              </div>
 
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Let us build something together
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-            I am open to mobile and full-stack engineering roles. If you
-            are hiring or have a project in mind, I would love to hear from you.
-          </p>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                Let us build something together
+              </h2>
+              <p className="mt-4 max-w-xl text-lg text-muted-foreground">
+                I am open to mobile and full-stack engineering roles. If you
+                are hiring or have a project in mind, I would love to hear from you.
+              </p>
 
-          {/* Email with copy */}
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href={`mailto:${site.email}`}
-              className="font-mono text-base font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {site.email}
-            </Link>
-            <CopyButton value={site.email} label="Copy email" />
-          </div>
+              {/* Email with copy */}
+              <div className="mt-6 flex flex-col items-start gap-3 sm:flex-row">
+                <Link
+                  href={`mailto:${site.email}`}
+                  className="font-mono text-base font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {site.email}
+                </Link>
+                <CopyButton value={site.email} label="Copy email" />
+              </div>
+            </div>
 
-          {/* Action buttons */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href={site.github}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={outlineLink}
-            >
-              <GitHubIcon />
-              GitHub
-            </Link>
-            <Link
-              href={site.linkedin}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={outlineLink}
-            >
-              <LinkedInIcon />
-              LinkedIn
-            </Link>
-            <Link href={site.resumeUrl} className={primaryLink}>
-              <DownloadIcon />
-              Download Resume
-            </Link>
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+              <Link
+                href={site.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={outlineLink}
+              >
+                <GitHubIcon />
+                GitHub
+              </Link>
+              <Link
+                href={site.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={outlineLink}
+              >
+                <LinkedInIcon />
+                LinkedIn
+              </Link>
+              <Link href={site.resumeUrl} className={primaryLink}>
+                <DownloadIcon />
+                Download Resume
+              </Link>
+            </div>
           </div>
         </div>
       </section>

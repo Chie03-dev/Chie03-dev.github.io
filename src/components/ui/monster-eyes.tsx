@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useHeroLock } from "@/context/hero-lock-context";
@@ -6,21 +6,26 @@ import { useHeroLock } from "@/context/hero-lock-context";
 /**
  * Interactive monster eyes with reaching claws that react to the key.
  * Tracks pointer proximity and triggers a "swat" animation when the key gets too close.
- * All ambient motion is CSS-driven; swat is triggered via inline style.
+ * The pupils smoothly follow the cursor, and the whole monster drifts/blinks via CSS.
+ * All ambient motion is CSS-driven; swat and pupil offsets are applied via inline style.
  */
 export function MonsterEyes() {
   const { isKeyDragging } = useHeroLock();
   const containerRef = useRef<HTMLDivElement>(null);
   const leftArmRef = useRef<HTMLDivElement>(null);
   const rightArmRef = useRef<HTMLDivElement>(null);
+  const leftEyeRef = useRef<HTMLSpanElement>(null);
+  const rightEyeRef = useRef<HTMLSpanElement>(null);
   const [swatState, setSwatState] = useState<{
     left: { x: number; y: number; rot: number } | null;
     right: { x: number; y: number; rot: number } | null;
   }>({ left: null, right: null });
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
   const lastSwatRef = useRef<{ left: number; right: number }>({ left: 0, right: 0 });
-  const SWAT_COOLDOWN = 1500;
+  const SWAT_COOLDOWN = 1000;
 
+  // Swat the claws when the dragged ghost key gets too close.
   useEffect(() => {
     if (!isKeyDragging) return;
 
@@ -88,6 +93,45 @@ export function MonsterEyes() {
     return () => window.removeEventListener("pointermove", handlePointerMove);
   }, [isKeyDragging]);
 
+  // Track the cursor so the pupils can follow it.
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, []);
+
+  // Compute the pupil offset (in px) for a given eye so the pupil looks toward the cursor.
+  const getPupilOffset = (
+    eyeRef: React.RefObject<HTMLSpanElement | null>
+  ): { x: number; y: number } => {
+    if (!mousePos || !eyeRef.current) return { x: 0, y: 0 };
+
+    const eyeRect = eyeRef.current.getBoundingClientRect();
+    const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+    const eyeCenterY = eyeRect.top + eyeRect.height / 2;
+
+    const deltaX = mousePos.x - eyeCenterX;
+    const deltaY = mousePos.y - eyeCenterY;
+
+    // Direction only, capped to the max travel distance of the pupil.
+    const maxOffset = 9;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance === 0) return { x: 0, y: 0 };
+
+    return {
+      x: (deltaX / distance) * maxOffset,
+      y: (deltaY / distance) * maxOffset,
+    };
+  };
+
+  const leftOffset = getPupilOffset(leftEyeRef);
+  const rightOffset = getPupilOffset(rightEyeRef);
+
   return (
     <div
       ref={containerRef}
@@ -98,7 +142,7 @@ export function MonsterEyes() {
         {/* Left Arm & Claw */}
         <div
           ref={leftArmRef}
-          className="animate-monster-arm-left motion-reduce:animate-none absolute -left-36 sm:-left-56 md:-left-64 flex items-center opacity-75 dark:opacity-85 pointer-events-none"
+          className="animate-monster-arm-left motion-reduce:animate-none absolute -left-40 sm:-left-60 md:-left-70 flex items-center opacity-75 dark:opacity-85 pointer-events-none"
           style={
             swatState.left
               ? {
@@ -109,52 +153,76 @@ export function MonsterEyes() {
           }
         >
           <svg
-            className="w-24 h-24 sm:w-32 sm:h-32 text-primary drop-shadow-[0_0_12px_var(--primary)]"
+            className="w-28 h-28 sm:w-36 sm:h-36 text-primary drop-shadow-[0_0_14px_var(--primary)]"
             viewBox="0 0 100 100"
             fill="none"
             stroke="currentColor"
             xmlns="http://www.w3.org/2000/svg"
           >
             {/* Forearm tapering toward the body murk */}
-            <path
-              d="M-10 65 Q 25 55 52 48"
-              strokeWidth="9"
-              strokeLinecap="round"
-              className="text-foreground/80 dark:text-foreground/60"
-            />
+
             {/* Main palm glow / knuckle base */}
-            <circle cx="52" cy="48" r="8" fill="currentColor" fillOpacity="0.4" strokeWidth="3" />
+            <circle cx="50" cy="50" r="14" fill="currentColor" fillOpacity="0.4" strokeWidth="3" />
             {/* Claws reaching right/inwards */}
-            <path d="M 54 42 Q 68 34 82 40" strokeWidth="4" strokeLinecap="round" />
-            <path d="M 58 48 Q 78 44 94 53" strokeWidth="4.5" strokeLinecap="round" />
-            <path d="M 54 54 Q 72 58 86 68" strokeWidth="4" strokeLinecap="round" />
-            <path d="M 48 56 Q 56 68 66 74" strokeWidth="3.5" strokeLinecap="round" />
+            <path d="M 50 36 Q 66 24 82 32" strokeWidth="4.5" strokeLinecap="round" />
+            <path d="M 52 30 Q 72 16 86 26" strokeWidth="5" strokeLinecap="round" />
+            <path d="M 56 24 Q 80 8 90 20" strokeWidth="4.5" strokeLinecap="round" />
+            <path d="M 62 18 Q 90 4 96 18" strokeWidth="4" strokeLinecap="round" />
           </svg>
         </div>
 
         {/* Monster Eyes Container */}
-        <div className="flex items-center gap-16 sm:gap-24">
+        <div className="relative flex items-center gap-20 sm:gap-28">
+          {/* Left Eyebrow */}
+          <div className="absolute left-10 top-[-26px] sm:left-14 sm:top-[-32px] h-2 sm:h-2.5 w-20 sm:w-28 bg-primary/70 rounded-full rotate-[8deg]" />
+
           {/* Left eye */}
           <span
-            className="animate-monster-blink motion-reduce:animate-none relative block h-14 w-24 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-75 dark:opacity-85 sm:h-20 sm:w-32"
+            ref={leftEyeRef}
+            className="animate-monster-blink motion-reduce:animate-none relative block h-20 w-32 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-90 dark:opacity-95 sm:h-24 sm:w-40"
             style={{ animationDelay: "-1.2s" }}
           >
-            <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-3.5 sm:w-3.5" />
+            {/* Enhanced pupil with depth */}
+            <span
+              className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_26px_var(--primary)] sm:h-6 sm:w-6"
+              style={{
+                transform: `translate(calc(-50% + ${leftOffset.x}px), calc(-50% + ${leftOffset.y}px))`,
+                transition: "transform 120ms ease-out",
+              }}
+            >
+              {/* Inner pupil glow */}
+              <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25" />
+            </span>
           </span>
+
+          {/* Right Eyebrow */}
+          <div className="absolute right-10 top-[-26px] sm:right-14 sm:top-[-32px] h-2 sm:h-2.5 w-20 sm:w-28 bg-primary/70 rounded-full -rotate-[8deg]" />
 
           {/* Right eye */}
           <span
-            className="animate-monster-blink motion-reduce:animate-none relative block h-14 w-24 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-75 dark:opacity-85 sm:h-20 sm:w-32"
+            ref={rightEyeRef}
+            className="animate-monster-blink motion-reduce:animate-none relative block h-20 w-32 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-90 dark:opacity-95 sm:h-24 sm:w-40"
             style={{ animationDelay: "-3.6s" }}
           >
-            <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-3.5 sm:w-3.5" />
+            {/* Enhanced pupil with depth */}
+            <span
+              className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_26px_var(--primary)] sm:h-6 sm:w-6"
+              style={{
+                transform: `translate(calc(-50% + ${rightOffset.x}px), calc(-50% + ${rightOffset.y}px))`,
+                transition: "transform 120ms ease-out",
+              }}
+            >
+              {/* Inner pupil glow */}
+              <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25" />
+            </span>
           </span>
         </div>
+
 
         {/* Right Arm & Claw (mirrored) */}
         <div
           ref={rightArmRef}
-          className="animate-monster-arm-right motion-reduce:animate-none absolute -right-36 sm:-right-56 md:-right-64 flex items-center opacity-75 dark:opacity-85 pointer-events-none scale-x-[-1]"
+          className="animate-monster-arm-right motion-reduce:animate-none absolute -right-40 sm:-right-60 md:-right-70 flex items-center opacity-75 dark:opacity-85 pointer-events-none scale-x-[-1]"
           style={
             swatState.right
               ? {
@@ -165,26 +233,21 @@ export function MonsterEyes() {
           }
         >
           <svg
-            className="w-24 h-24 sm:w-32 sm:h-32 text-primary drop-shadow-[0_0_12px_var(--primary)]"
+            className="w-28 h-28 sm:w-36 sm:h-36 text-primary drop-shadow-[0_0_14px_var(--primary)]"
             viewBox="0 0 100 100"
             fill="none"
             stroke="currentColor"
             xmlns="http://www.w3.org/2000/svg"
           >
             {/* Forearm tapering toward the body murk */}
-            <path
-              d="M-10 65 Q 25 55 52 48"
-              strokeWidth="9"
-              strokeLinecap="round"
-              className="text-foreground/80 dark:text-foreground/60"
-            />
+
             {/* Main palm glow / knuckle base */}
-            <circle cx="52" cy="48" r="8" fill="currentColor" fillOpacity="0.4" strokeWidth="3" />
+            <circle cx="50" cy="50" r="14" fill="currentColor" fillOpacity="0.4" strokeWidth="3" />
             {/* Claws reaching right/inwards */}
-            <path d="M 54 42 Q 68 34 82 40" strokeWidth="4" strokeLinecap="round" />
-            <path d="M 58 48 Q 78 44 94 53" strokeWidth="4.5" strokeLinecap="round" />
-            <path d="M 54 54 Q 72 58 86 68" strokeWidth="4" strokeLinecap="round" />
-            <path d="M 48 56 Q 56 68 66 74" strokeWidth="3.5" strokeLinecap="round" />
+            <path d="M 50 36 Q 66 24 82 32" strokeWidth="4.5" strokeLinecap="round" />
+            <path d="M 52 30 Q 72 16 86 26" strokeWidth="5" strokeLinecap="round" />
+            <path d="M 56 24 Q 80 8 90 20" strokeWidth="4.5" strokeLinecap="round" />
+            <path d="M 62 18 Q 90 4 96 18" strokeWidth="4" strokeLinecap="round" />
           </svg>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 import { cn } from "@/lib/utils";
 import type { ProjectCaseStudy } from "@/types/project";
@@ -20,6 +20,10 @@ export function CaseStudyDrawer({
 }: CaseStudyDrawerProps) {
   const [mounted, setMounted] = useState(false);
 
+  const handleEscape = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (open) {
       document.addEventListener("keydown", handleEscape);
@@ -33,11 +37,7 @@ export function CaseStudyDrawer({
       document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "";
     };
-  }, [open]);
-
-  const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === "Escape") onClose();
-  };
+  }, [open, handleEscape]);
 
   if (!mounted || !open) return null;
 
@@ -48,15 +48,16 @@ export function CaseStudyDrawer({
         onClick={onClose}
         aria-hidden="true"
       />
-      <div
-        className={cn(
-          "fixed right-0 top-0 z-50 flex h-full w-full max-w-2xl flex-col overflow-y-auto bg-background shadow-2xl ring-1 ring-border",
-          className,
-        )}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Case study: ${project.title}`}
-      >
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div
+          className={cn(
+            "relative w-full max-w-2xl bg-background shadow-2xl ring-1 ring-border max-h-[80vh] overflow-y-auto",
+            className,
+          )}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Case study: ${project.title}`}
+        >
         <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold tracking-tight text-foreground">
@@ -226,6 +227,7 @@ export function CaseStudyDrawer({
           Press Escape or click outside to close
         </div>
       </div>
+    </div>
     </>
   );
 }
