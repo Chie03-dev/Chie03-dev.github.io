@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { site } from "@/lib/site";
 import { getFeaturedProjects } from "@/lib/projects";
 import { getSkillCategories } from "@/lib/experience";
+import { useHeroLock } from "@/context/hero-lock-context";
 import { cn } from "@/lib/utils";
 
 interface TerminalLine {
@@ -20,7 +21,12 @@ const WELCOME: TerminalLine[] = [
   { id: 1, kind: "output", text: 'Type "help" to see available commands.' },
 ];
 
-function resolveCommand(command: string): OutputLine[] {
+const UNLOCK_SUCCESS = "[SUCCESS] Chains broken. Unbound mode activated.";
+
+function resolveCommand(
+  command: string,
+  isLocked: boolean,
+): OutputLine[] | { action: "unlock" } {
   switch (command.toLowerCase()) {
     case "help":
       return [
@@ -29,8 +35,13 @@ function resolveCommand(command: string): OutputLine[] {
         { kind: "output", text: "  skills    List my primary stack" },
         { kind: "output", text: "  projects  Highlight top projects" },
         { kind: "output", text: "  contact   Show my email" },
+        { kind: "output", text: "  unlock    Break the chains" },
         { kind: "output", text: "  clear     Clear the terminal" },
       ];
+    case "unlock":
+      return isLocked
+        ? { action: "unlock" }
+        : [{ kind: "output", text: "Already unbound. The chains are gone." }];
     case "skills": {
       const lines: OutputLine[] = [{ kind: "output", text: "Primary stack:" }];
       for (const category of getSkillCategories()) {
@@ -78,6 +89,7 @@ function resolveCommand(command: string): OutputLine[] {
  * and auto-scrolls the output on each command.
  */
 export function HeroTerminal() {
+  const { isLocked, unlockHero } = useHeroLock();
   const [lines, setLines] = useState<TerminalLine[]>(WELCOME);
   const [value, setValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -104,13 +116,23 @@ export function HeroTerminal() {
       return;
     }
 
+    const result = resolveCommand(command, isLocked);
+    const outputLines: TerminalLine[] =
+      "action" in result
+        ? [{ id: idRef.current++, kind: "output", text: UNLOCK_SUCCESS }]
+        : result.map((line) => ({
+            id: idRef.current++,
+            kind: line.kind,
+            text: line.text,
+          }));
+
+    if ("action" in result) {
+      unlockHero();
+    }
+
     const nextLines: TerminalLine[] = [
       { id: idRef.current++, kind: "input", text: command },
-      ...resolveCommand(command).map((line) => ({
-        id: idRef.current++,
-        kind: line.kind,
-        text: line.text,
-      })),
+      ...outputLines,
     ];
     setLines((prev) => [...prev, ...nextLines]);
     setValue("");
@@ -119,13 +141,13 @@ export function HeroTerminal() {
   return (
     <div
       onClick={focusInput}
-      className="rounded-lg border border-border bg-card shadow-lg shadow-primary/5"
+      className="rounded-lg border border-border/60 bg-[oklch(0.11_0.03_235)] shadow-lg shadow-primary/5"
     >
       {/* Window chrome */}
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">
         <span className="h-3 w-3 rounded-full bg-red-500/80" />
         <span className="h-3 w-3 rounded-full bg-yellow-500/80" />
-        <span className="h-3 w-3 rounded-full bg-green-500/80" />
+        <span className="h-3 w-3 rounded-full bg-primary/60" />
         <span className="ml-2 text-xs text-muted-foreground">~/portfolio</span>
       </div>
 
@@ -140,8 +162,8 @@ export function HeroTerminal() {
             className={cn(
               "break-words whitespace-pre-wrap",
               line.kind === "input" && "text-foreground",
-              line.kind === "output" && "text-muted-foreground",
-              line.kind === "error" && "text-red-500",
+              line.kind === "output" && "text-[oklch(0.82_0.02_200)]",
+              line.kind === "error" && "text-[oklch(0.7_0.18_25)]",
             )}
           >
             {line.kind === "input" ? `> ${line.text}` : line.text}
@@ -159,7 +181,7 @@ export function HeroTerminal() {
             autoComplete="off"
             spellCheck={false}
             placeholder="type a command, e.g. help"
-            className="w-full bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            className="w-full bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
           />
         </form>
       </div>

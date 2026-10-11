@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { CommandPalette } from "@/components/showcases/command-palette";
+import { HeroLockProvider } from "@/context/hero-lock-context";
+import { ScrollDusk } from "@/components/ui/scroll-dusk";
 import { site } from "@/lib/site";
 
 import "./globals.css";
@@ -101,7 +103,13 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        {children}
+        {/* Fixed dusk tint that deepens as the page scrolls. Sits at z-0 behind
+            the relative z-10 content layer so it darkens the page background
+            without dimming text or opaque cards. */}
+        <ScrollDusk />
+        <div className="relative z-10">
+          <HeroLockProvider>{children}</HeroLockProvider>
+        </div>
         <CommandPalette />
       </body>
     </html>

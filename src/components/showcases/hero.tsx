@@ -1,10 +1,18 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+
+import { ChainsOverlay } from "@/components/ui/chains-overlay";
 
 import { HeroTerminal } from "@/components/showcases/hero-terminal";
+
 import { MagneticButton } from "@/components/ui/magnetic-button";
-import { TextScramble } from "@/components/ui/text-scramble";
+import { useHeroLock } from "@/context/hero-lock-context";
+import { getScrollEngine } from "@/lib/scroll-engine";
 import { site } from "@/lib/site";
+import { cn } from "@/lib/utils";
 
 const STACK_TAGS = [
   "Kotlin",
@@ -15,36 +23,67 @@ const STACK_TAGS = [
   "Node.js",
 ];
 
+/*
+ * Split site.role into a muted lead line and an emphasized focal line at the
+ * last " Systems" boundary, so the headline keeps its controlled two-line
+ * layout while staying in sync with the single source of truth. Falls back to
+ * one line if the role ever changes shape.
+ */
+const ROLE_SPLIT = site.role.lastIndexOf(" Systems");
+const ROLE_LEAD = ROLE_SPLIT > 0 ? site.role.slice(0, ROLE_SPLIT) : site.role;
+const ROLE_FOCUS = ROLE_SPLIT > 0 ? site.role.slice(ROLE_SPLIT + 1) : "";
+
 /**
  * Engineering-focused hero section. The layout is a Server Component; the
- * interactive leaves (terminal, text scramble, magnetic CTAs) are client
- * components. The ambient gradient, background grid, light beam, and status
- * ping are all CSS-driven, so no extra JS is shipped for the scenery.
+ * interactive leaves (terminal, magnetic CTAs) are client components. The top of
+ * the hero is a stretched woodland banner that fades into the page background;
+ * the status ping is the only CSS-driven motion, so no extra JS is shipped for
+ * the scenery.
  */
 export function Hero() {
+  const { isLocked } = useHeroLock();
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Track the hero's 0..1 travel through the viewport to --hp, driving the
+  // banner's slow parallax drift and the copy/portrait "exit" hand-off. Owned by
+  // the shared scroll engine (single rAF + reduced-motion guard).
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    return getScrollEngine().track(el, "--hp");
+  }, []);
+
   return (
-    <section className="relative isolate overflow-hidden border-b border-border/40">
-      {/* Ambient gradient background */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_50%_0%,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_70%)] dark:bg-[radial-gradient(60%_50%_at_50%_0%,color-mix(in_oklab,var(--primary)_30%,transparent),transparent_70%)]"
-      />
+    <section
+      ref={sectionRef}
+      className="relative isolate overflow-hidden border-b border-border/40"
+    >
+      {/* Woodland banner: the illustration stretched edge-to-end into a short
+          band across the top of the hero. object-fill squashes it into the wide,
+          low box per the requested look. The inner media layer parallaxes with
+          scroll for depth; it's scaled slightly above 1 so the drift never
+          exposes a gap at the container edge. */}
+      <div className="relative -z-20 h-[34vh] w-full overflow-hidden sm:h-[50vh]">
+        <div className="hero-banner-media absolute inset-0">
+          <Image
+            src="/woodland.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-fill"
+          />
+        </div>
+        {/* Bottom fade so the stretched band blends into the page background. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background to-transparent"
+        />
+      </div>
 
-      {/* Subtle background grid, masked to fade out toward the fold */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"
-      />
-
-      {/* Passing light beam sweeping down over the grid */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 animate-hero-light-beam bg-[linear-gradient(to_bottom,transparent,color-mix(in_oklab,var(--primary)_40%,transparent),transparent)] opacity-60 motion-reduce:animate-none"
-      />
-
-      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:gap-8 lg:px-8 lg:py-28">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-4 pt-8 pb-20 sm:px-6 lg:grid-cols-2 lg:gap-8 lg:px-8 lg:pb-28">
         {/* Copy column */}
-        <div className="flex flex-col items-start gap-6 order-2 lg:order-1">
+        <div className="hero-exit flex flex-col items-start gap-6 order-1 lg:order-1">
           {/* Status badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-sm text-muted-foreground backdrop-blur">
             <span className="relative flex h-2 w-2">
@@ -54,11 +93,17 @@ export function Hero() {
             Available for engineering opportunities
           </div>
 
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-            <TextScramble text={site.role} />
+          {/* Hero headline — split from site.role into two controlled lines for
+              predictable breaks and clear emphasis: a muted lead line and a
+              bold, theme-colored focal line. */}
+          <h1 className="text-balance text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+            <span className="block text-foreground/70">{ROLE_LEAD}</span>
+            {ROLE_FOCUS ? (
+              <span className="block text-primary">{ROLE_FOCUS}</span>
+            ) : null}
           </h1>
 
-          <p className="max-w-xl text-lg text-muted-foreground">
+          <p className="max-w-xl text-pretty text-lg text-muted-foreground">
             I design and build resilient mobile and full-stack systems, from
             offline-first apps to the APIs and data pipelines behind them.
             Focused on performance, developer experience, and shipping products
@@ -69,10 +114,10 @@ export function Hero() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <MagneticButton className="w-full sm:w-auto">
               <Link
-                href="/#projects"
+                href="/#key"
                 className="inline-flex w-full items-center justify-center rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                Explore Case Studies
+                Key to the Cage
               </Link>
             </MagneticButton>
             <MagneticButton className="w-full sm:w-auto">
@@ -99,13 +144,27 @@ export function Hero() {
         </div>
 
         {/* Cinematic portrait */}
-        <div className="relative order-1 flex justify-center lg:order-2 lg:justify-end">
-          {/* Ambient glow behind the portrait */}
+        <div className="hero-exit relative order-2 flex flex-col items-center justify-center gap-4 lg:order-2 lg:items-center">
           <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle,color-mix(in_oklab,var(--primary)_25%,transparent)_0%,transparent_70%)]"
-          />
-          <div className="animate-hero-portrait motion-reduce:animate-none relative w-full max-w-[280px] md:max-w-[380px]">
+            id="hero-portrait"
+            className="relative isolate w-full max-w-[240px] text-foreground/30 md:max-w-[320px]"
+          >
+            {/* Containment glow bound to the portrait: hugs it and is present
+                only while the hero is chained, fading out when the cage breaks.
+                Sized larger than the portrait so the caged jostle stays within
+                it, and layered behind both the portrait and the chains. The
+                gradient uses closest-side so the circle fits inside the element
+                box and its top arc is never clipped. */}
+            <div
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute -inset-10 -z-10 motion-reduce:animate-none transition-opacity duration-700",
+                "bg-[radial-gradient(circle_closest-side_at_50%_50%,rgba(0,0,0,0.7)_0%,rgba(0,0,0,0.45)_40%,transparent_100%)]",
+                isLocked
+                  ? "animate-hero-vignette-pulse opacity-100"
+                  : "opacity-0",
+              )}
+            />
             <Image
               src="/portrait.webp"
               alt="Portrait of Alchie O. Andilab"
@@ -115,11 +174,12 @@ export function Hero() {
               sizes="(max-width: 768px) 280px, 380px"
               className="h-auto w-full [mask-image:linear-gradient(to_bottom,black_75%,transparent_100%)] object-cover"
             />
+            <ChainsOverlay isLocked={isLocked} />
           </div>
         </div>
 
         {/* Interactive terminal */}
-        <div className="relative order-3 lg:col-span-2">
+        <div className="relative order-3 mt-4 lg:col-span-2">
           <HeroTerminal />
         </div>
       </div>

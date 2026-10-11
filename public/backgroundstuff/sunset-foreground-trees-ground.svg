@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Sunset foreground trees and ground">
+<title>Sunset foreground trees and ground</title>
+<defs>
+<g id="pine"><path d="M0 0 -13 28 -6 26 -21 49 -10 46 -28 73 -12 68 -36 102 -14 94 -44 132 -17 124 -53 164 -20 153 -61 204 -18 190 -70 248 -16 230 -78 302 0 286 78 302 16 230 70 248 18 190 61 204 20 153 53 164 17 124 44 132 14 94 36 102 12 68 28 73 10 46 21 49 6 26 13 28Z" fill="currentColor"/><path d="M0 18 V302" stroke="#020d15" stroke-width="7" opacity=".65"/></g>
+<g id="spruce"><path d="M0 0 -8 19 -4 18 -13 34 -6 32 -18 51 -7 47 -23 69 -8 65 -28 89 0 84 28 89 8 65 23 69 7 47 18 51 6 32 13 34 4 18 8 19Z" fill="currentColor"/></g>
+<g id="house"><path d="M-18 0 0 -15 20 0 V22 H-18Z" fill="#13232a"/><path d="M-23 1 0 -20 24 1 19 3 0 -13 -19 3Z" fill="#07131b"/><rect x="-11" y="7" width="5" height="9" fill="#ffc56e"/><rect x="6" y="7" width="5" height="9" fill="#ffc56e"/></g>
+</defs>
+<g fill="#020d16"><path d="M0 745 72 718 139 742 204 730 270 762 335 768 401 808 477 797 535 833 610 842 680 873 V900 H0Z"/><path d="M1600 744 1530 719 1463 744 1401 730 1338 760 1271 767 1215 802 1148 794 1084 830 1005 841 942 874 V900 H1600Z"/></g>
+    <g color="#03131e"><use href="#pine" transform="translate(60 150) scale(1.7)"/><use href="#pine" transform="translate(260 280) scale(1.05)"/><use href="#pine" transform="translate(1510 95) scale(1.75)"/><use href="#pine" transform="translate(1320 305) scale(1.2)"/><use href="#pine" transform="translate(435 510) scale(.56)"/><use href="#pine" transform="translate(1190 505) scale(.7)"/></g>
+    <g stroke="#06121a" stroke-width="5" fill="none" stroke-linecap="round"><path d="M92 845l-8-39m8 20-20-17m20 5 20-28M145 865l-4-48m4 20-19-19m19 5 18-24M1370 862l9-44m-8 18-22-16m23 7 21-24M1290 865l4-38m-4 15-17-13m17 8 17-22"/></g>
+</svg>

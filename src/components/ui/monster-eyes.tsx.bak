@@ -1,0 +1,78 @@
+/**
+ * Glooming monster eyes that loom in the murk behind the hero. Purely
+ * decorative: a Server Component with zero JS. Each eye is an ember-lit almond
+ * built from a radial gradient reading var(--primary), so it re-tints with the
+ * theme and intensifies when the hero is unbound. The pair blinks on an uneven
+ * cadence and drifts side to side, as if a large shape is tracking the page.
+ * All motion is CSS-driven and composed with motion-reduce, so the eyes hold
+ * still when the visitor prefers reduced motion. aria-hidden: carries no meaning.
+ */
+export function MonsterEyes() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 top-[14%] -z-10 flex justify-center"
+    >
+      <div className="animate-monster-drift motion-reduce:animate-none flex items-center gap-24 sm:gap-32">
+        {/* Left eye */}
+        <span
+          className="animate-monster-blink motion-reduce:animate-none relative block h-14 w-24 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-70 dark:opacity-80 sm:h-20 sm:w-32"
+          style={{ animationDelay: "-1.2s" }}
+        >
+          <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-3.5 sm:w-3.5" />
+        </span>
+
+        {/* Right eye — offset blink delay so the pair never blinks in unison */}
+        <span
+          className="animate-monster-blink motion-reduce:animate-none relative block h-14 w-24 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-70 dark:opacity-80 sm:h-20 sm:w-32"
+          style={{ animationDelay: "-3.6s" }}
+        >
+          <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-3.5 sm:w-3.5" />
+        </span>
+      </div>
+    </div>
+  );
+  /**
+  * Glooming monster eyes and hands that loom in the murk behind the hero. Purely
+  * decorative: a Server Component with zero JS. The pair blinks on an uneven cadence
+  * and drifts side to side, as if a large shape is tracking the page. The hands
+  * move left and right in sync with the drift animation.
+  * All motion is CSS-driven and composed with motion-reduce, so the eyes and hands hold
+  * still when the visitor prefers reduced motion. aria-hidden: carries no meaning.
+  */
+  export function MonsterEyes() {
+    return (
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-[14%] -z-10 flex justify-center"
+      >
+        {/* Monster hands */}
+        <div className="animate-monster-drift motion-reduce:animate-none flex items-center gap-24 sm:gap-32">
+          <div className="animate-monster-gesture motion-reduce:animate-none flex h-24 w-24 items-center justify-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-70 dark:opacity-80 sm:h-32 sm:w-32">
+            <div className="animate-monster-hand motion-reduce:animate-none h-12 w-12 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-16 sm:w-16 relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="animate-monster-hand-move motion-reduce:animate-none h-4 w-4 rounded-full bg-[var(--primary)] sm:h-5 sm:w-5" />
+              </div>
+            </div>
+          </div>
+        
+          {/* Left eye */}
+          <span
+            className="animate-monster-blink motion-reduce:animate-none relative block h-14 w-24 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-70 dark:opacity-80 sm:h-20 sm:w-32"
+            style={{ animationDelay: "-1.2s" }}
+          >
+            <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-3.5 sm:w-3.5" />
+          </span>
+          
+          {/* Right eye — offset blink delay so the pair never blinks in unison */}
+          <span
+            className="animate-monster-blink motion-reduce:animate-none relative block h-14 w-24 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-70 dark:opacity-80 sm:h-20 sm:w-32"
+            style={{ animationDelay: "-3.6s" }}
+          >
+            <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-3.5 sm:w-3.5" />
+          </span>
+        </div>
+      </div>
+    );
+  }
+}

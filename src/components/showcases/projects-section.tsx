@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 
-import { ProjectCard } from "@/components/showcases/project-card";
-import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { CaseStudyDrawer } from "@/components/showcases/case-study-drawer";
+import { NotchedProjectCard } from "@/components/ui/notched-project-card";
+import { Reveal } from "@/components/ui/reveal";
 import { getFeaturedProjects } from "@/lib/projects";
 import { cn } from "@/lib/utils";
 import type { ProjectCaseStudy } from "@/types/project";
@@ -54,29 +55,49 @@ function matchesFilter(project: ProjectCaseStudy, filter: FilterId): boolean {
 }
 
 /**
+ * Cover art per project. Presentation data kept beside the section so the
+ * ProjectCaseStudy domain type stays image-free.
+ */
+const PROJECT_COVERS: Record<string, { image: string }> = {
+  "lan-quiz-system": { image: "/projects/Quiz.webp" },
+  "mobile-pos-inventory": { image: "/projects/mobilepos.webp" },
+  "barangay-demo-services-portal": { image: "/projects/barangay.webp" },
+};
+
+/** Derive the badge year from the leading date in the timeline string. */
+function coverBadge(project: ProjectCaseStudy): string | undefined {
+  const match = project.timeline.match(/(\d{4})/);
+  return match ? match[1] : undefined;
+}
+
+/**
  * Featured projects section with live tag filtering. A client component that
- * owns the active filter state and re-renders the grid without a page reload.
- * Cards replay a subtle entry animation on filter change and respect reduced
- * motion. The id matches the /#projects anchors used in the navbar and hero.
+ * owns the active filter and the open case-study drawer, and re-renders the
+ * grid without a page reload. Cards reveal on scroll (and replay when the
+ * filter key remounts) and respect reduced motion. The id matches the
+ * /#projects anchors used in the navbar and hero.
  */
 export function ProjectsSection() {
   const projects = getFeaturedProjects();
   const [active, setActive] = useState<FilterId>("all");
+  const [openId, setOpenId] = useState<string | null>(null);
   const visible = projects.filter((project) => matchesFilter(project, active));
 
   return (
-    <section id="projects" className="border-b border-border/40 py-20 lg:py-28">
+    <section
+      id="projects"
+      className="relative isolate overflow-hidden border-b border-border/40 py-20 lg:py-28"
+    >
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="mb-8 max-w-2xl">
+        <Reveal className="mb-8 max-w-2xl">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Featured Projects &amp; Engineering Case Studies
+            Projects
           </h2>
           <p className="mt-3 text-lg text-muted-foreground">
-            A look under the hood: system architecture, data flow, and the
-            measurable impact of the systems I have shipped.
+            Stuff I have built.
           </p>
-        </div>
+        </Reveal>
 
         {/* Filter bar */}
         <div
@@ -106,16 +127,40 @@ export function ProjectsSection() {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {visible.map((project) => (
-            <SpotlightCard
-              key={`${active}-${project.id}`}
-              className="animate-card-in motion-reduce:animate-none"
-            >
-              <ProjectCard project={project} />
-            </SpotlightCard>
-          ))}
+        <div className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8">
+          {visible.map((project, index) => {
+            const cover = PROJECT_COVERS[project.id];
+            return (
+              <Reveal
+                key={`${active}-${project.id}`}
+                className="h-full"
+                delay={(index % 3) * 90}
+              >
+                <NotchedProjectCard
+                  title={project.title}
+                  description={project.description}
+                  image={cover?.image ?? "/projects/barangay.webp"}
+                  imageAlt={`${project.title} cover`}
+                  badge={coverBadge(project)}
+                  tags={project.tags}
+                  onOpen={() => setOpenId(project.id)}
+                />
+              </Reveal>
+            );
+          })}
         </div>
+
+        {/* Post-mortem drawer for the open card */}
+        {visible.map((project) =>
+          openId === project.id ? (
+            <CaseStudyDrawer
+              key={project.id}
+              project={project}
+              open
+              onClose={() => setOpenId(null)}
+            />
+          ) : null,
+        )}
       </div>
     </section>
   );

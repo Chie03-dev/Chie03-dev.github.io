@@ -101,7 +101,7 @@ export function ContactFooter() {
             Let us build something together
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-            I am open to senior mobile and full-stack engineering roles. If you
+            I am open to mobile and full-stack engineering roles. If you
             are hiring or have a project in mind, I would love to hear from you.
           </p>
 

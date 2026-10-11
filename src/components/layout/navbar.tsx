@@ -3,14 +3,13 @@ import Link from "next/link";
 import { CommandTrigger } from "@/components/layout/command-trigger";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLinks } from "@/components/layout/nav-links";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { site } from "@/lib/site";
 import type { NavItem } from "@/types";
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Projects", href: "/#projects" },
   { label: "Experience", href: "/#experience" },
-  { label: "Open Source", href: "/#open-source" },
+  { label: "Cards", href: "/#life" },
   { label: "Contact", href: "/#contact" },
 ];
 
@@ -26,7 +25,7 @@ const INITIALS = site.name
 /**
  * Floating pill navigation. A Server Component that renders the centered,
  * glassmorphic island; all interactivity (active-section tracking, command
- * palette trigger, theme toggle, mobile menu) lives in client leaf components.
+ * palette trigger, mobile menu) lives in client leaf components.
  */
 export function Navbar() {
   return (
@@ -55,7 +54,6 @@ export function Navbar() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <CommandTrigger />
-          <ThemeToggle className="rounded-full" />
           <Link
             href={site.resumeUrl}
             className="hidden items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"

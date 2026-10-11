@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { HalloweenFlourish } from "@/components/ui/halloween-flourish";
+import { Reveal } from "@/components/ui/reveal";
 import { site } from "@/lib/site";
 
 /** Minimal shape of the GitHub repos API fields we consume. */
@@ -176,9 +178,14 @@ export async function GithubActivity() {
   });
 
   return (
-    <section id="open-source" className="py-20 lg:py-28">
+    <section
+      id="open-source"
+      className="relative isolate overflow-hidden py-20 lg:py-28"
+    >
+      {/* Floating Halloween flourishes drifting behind the open-source section */}
+      <HalloweenFlourish />
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-12 max-w-2xl">
+        <Reveal className="mb-12 max-w-2xl">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
             Open Source Activity
           </h2>
@@ -186,9 +193,9 @@ export async function GithubActivity() {
             A snapshot of my public repositories, primary languages, and recent
             work on GitHub.
           </p>
-        </div>
+        </Reveal>
 
-        <div className="rounded-lg border border-border bg-card p-6 sm:p-8">
+        <Reveal className="rounded-lg border border-border bg-card p-6 sm:p-8">
           {/* Header row */}
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-6">
             <Link
@@ -282,7 +289,7 @@ export async function GithubActivity() {
               </li>
             ))}
           </ul>
-        </div>
+        </Reveal>
       </div>
     </section>
   );

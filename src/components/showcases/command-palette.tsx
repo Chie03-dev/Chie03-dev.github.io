@@ -154,12 +154,12 @@ export function CommandPalette() {
         run: () => navigate("#experience"),
       },
       {
-        id: "open-source",
-        label: "Go to Open Source",
+        id: "life",
+        label: "Go to Cards",
         group: "Navigation",
-        keywords: "open source github repos activity",
+        keywords: "life card cards hobbies background dos donts",
         icon: <NavIcon />,
-        run: () => navigate("#open-source"),
+        run: () => navigate("#life"),
       },
       {
         id: "contact",

@@ -3,16 +3,14 @@
  * the contact footer, and the command palette to avoid duplicated literals.
  */
 export const site = {
-  name: "Alchie O. Andilab",
-  role: "Mobile & Full-Stack Systems Engineer",
+  name: "Alchie Andilab",
+  role: "Mobile & Software Engineer",
   description:
-    "Computer Science graduate specializing in native Android application development, offline-first architectures, and full-stack web platforms using Next.js 15, Kotlin, and TypeScript.",
-  url: "https://chie03-dev.github.io",
+    "Mobile and Systems engineer specializing in Android apps and modern web architectures.",
+  url: "https://example.com",
   email: "alchieandilab2003@gmail.com",
-  location: "Glendale, AZ",
-  github: "https://github.com/Chie03-dev",
-  githubUsername: "Chie03-dev",
-  linkedin: "https://linkedin.com/in/alchieandilab",
-  resumeUrl: "/Resume.pdf",
+  github: "https://github.com/chie03-dev",
+  githubUsername: "chie03-dev",
+  linkedin: "https://www.linkedin.com/in/alchieandilab",
+  resumeUrl: "/resume.pdf",
 } as const;
-

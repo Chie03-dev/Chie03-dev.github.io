@@ -1,5 +1,8 @@
 import { cn } from "@/lib/utils";
 import { getExperience, getSkillCategories } from "@/lib/experience";
+import { MonsterEyes } from "@/components/ui/monster-eyes";
+import { Reveal } from "@/components/ui/reveal";
+import { UnlockKey } from "@/components/ui/unlock-key";
 
 /**
  * Work experience timeline and technical skills matrix.
@@ -20,15 +23,14 @@ export function ExperienceSection() {
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="mb-12 max-w-2xl">
+        <Reveal className="mb-12 max-w-2xl">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Experience &amp; Technical Skills
+            Experience
           </h2>
           <p className="mt-3 text-lg text-muted-foreground">
-            Career milestones across mobile and full-stack engineering, and the
-            stack I reach for to ship them.
+           Experience and Skills I learned in life and in school.
           </p>
-        </div>
+        </Reveal>
 
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-5 lg:gap-16">
           {/* Timeline */}
@@ -37,22 +39,23 @@ export function ExperienceSection() {
               Work History
             </h3>
             <ol className="relative ml-1 border-l border-border">
-              {experience.map((item) => (
+              {experience.map((item, index) => (
                 <li key={item.id} className="relative mb-10 ml-6 last:mb-0">
                   {/* Timeline dot */}
                   <span
                     aria-hidden="true"
                     className="absolute -left-[31px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 border-primary bg-background"
                   />
-                  <article className="flex flex-col gap-2">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-                      <h4 className="text-lg font-semibold tracking-tight text-foreground">
-                        {item.role}
-                      </h4>
-                      <time className="shrink-0 text-xs font-medium text-muted-foreground">
-                        {item.period}
-                      </time>
-                    </div>
+                  <Reveal delay={index * 80}>
+                    <article className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+                        <h4 className="text-lg font-semibold tracking-tight text-foreground">
+                          {item.role}
+                        </h4>
+                        <time className="shrink-0 text-xs font-medium text-muted-foreground">
+                          {item.period}
+                        </time>
+                      </div>
                     <p className="text-sm font-medium text-primary">
                       {item.company}
                       <span className="text-muted-foreground">
@@ -98,7 +101,8 @@ export function ExperienceSection() {
                         </li>
                       ))}
                     </ul>
-                  </article>
+                    </article>
+                  </Reveal>
                 </li>
               ))}
             </ol>
@@ -110,8 +114,8 @@ export function ExperienceSection() {
               Skills Matrix
             </h3>
             <div className="flex flex-col gap-8">
-              {skillCategories.map((category) => (
-                <div key={category.category}>
+              {skillCategories.map((category, index) => (
+                <Reveal key={category.category} delay={index * 60}>
                   <h4 className="mb-3 text-sm font-semibold text-foreground">
                     {category.category}
                   </h4>
@@ -130,11 +134,13 @@ export function ExperienceSection() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>
         </div>
+
+        {/* Master key, watched over by the monster looming behind it */}
       </div>
     </section>
   );

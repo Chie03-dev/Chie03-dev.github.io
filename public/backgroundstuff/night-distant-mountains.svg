@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Night distant mountains">
+<title>Night distant mountains</title>
+<defs><linearGradient id="far" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#365b70"/><stop offset="1" stop-color="#1c394c"/></linearGradient></defs>
+<path d="M0 302 100 270 180 294 285 232 360 274 430 213 510 270 610 246 690 289 790 258 880 291 970 238 1050 274 1140 247 1230 285 1320 237 1410 277 1500 250 1600 282 V900 H0Z" fill="url(#far)"/><path d="M374 270 430 213 476 258 445 249 430 232 410 257Z M927 270 970 238 1008 268 980 258 970 248 950 268Z" fill="#a0a0a1" opacity=".23"/>
+</svg>

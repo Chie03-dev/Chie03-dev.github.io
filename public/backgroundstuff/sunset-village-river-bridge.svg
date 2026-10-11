@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Sunset village river and bridge">
+<title>Sunset village river and bridge</title>
+<defs><linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8eb1b3" stop-opacity=".1"/><stop offset=".45" stop-color="#f6d79a" stop-opacity=".88"/><stop offset="1" stop-color="#8ab1b5" stop-opacity=".1"/></linearGradient>
+<g id="pine"><path d="M0 0 -13 28 -6 26 -21 49 -10 46 -28 73 -12 68 -36 102 -14 94 -44 132 -17 124 -53 164 -20 153 -61 204 -18 190 -70 248 -16 230 -78 302 0 286 78 302 16 230 70 248 18 190 61 204 20 153 53 164 17 124 44 132 14 94 36 102 12 68 28 73 10 46 21 49 6 26 13 28Z" fill="currentColor"/><path d="M0 18 V302" stroke="#020d15" stroke-width="7" opacity=".65"/></g>
+<g id="spruce"><path d="M0 0 -8 19 -4 18 -13 34 -6 32 -18 51 -7 47 -23 69 -8 65 -28 89 0 84 28 89 8 65 23 69 7 47 18 51 6 32 13 34 4 18 8 19Z" fill="currentColor"/></g>
+<g id="house"><path d="M-18 0 0 -15 20 0 V22 H-18Z" fill="#13232a"/><path d="M-23 1 0 -20 24 1 19 3 0 -13 -19 3Z" fill="#07131b"/><rect x="-11" y="7" width="5" height="9" fill="#ffc56e"/><rect x="6" y="7" width="5" height="9" fill="#ffc56e"/></g>
+</defs>
+<path d="M836 488 Q884 521 856 550 Q826 579 864 601 Q906 624 878 647 Q850 671 900 694 Q935 714 904 739 Q881 761 925 790 L1015 824 Q948 789 956 762 Q967 734 928 712 Q887 690 923 662 Q955 636 914 615 Q875 596 905 570 Q931 548 900 520Z" fill="#193b48"/>
+    <path d="M881 512 Q910 540 880 563 Q850 588 883 607 Q921 629 892 650 Q870 671 911 695 Q943 714 916 737 Q895 759 936 790" fill="none" stroke="url(#water)" stroke-width="19"/>
+    <g fill="none" stroke="#ffc36b" stroke-linecap="round" opacity=".8"><path d="M867 562h30 M868 599h32 M888 622h26 M883 654h35 M898 684h32 M907 719h26 M915 751h34" stroke-width="2.5"/></g>
+    <g transform="translate(818 510)"><path d="M-61 0 Q0 -35 61 0" fill="none" stroke="#091a23" stroke-width="8"/><path d="M-66 2 Q0 -28 66 2" fill="none" stroke="#53656a" stroke-width="3"/></g>
+    <g transform="translate(1048 446) scale(.75)"><use href="#house"/></g><g transform="translate(1085 452) scale(.5)"><use href="#house"/></g><g transform="translate(694 484) scale(.52)"><use href="#house"/></g><g transform="translate(725 490) scale(.36)"><use href="#house"/></g>
+    <g fill="#ffc36b"><circle cx="1039" cy="451" r="2.5"/><circle cx="1060" cy="452" r="2.5"/><circle cx="1080" cy="456" r="1.8"/><circle cx="688" cy="487" r="1.8"/><circle cx="701" cy="487" r="1.8"/></g>
+</svg>
