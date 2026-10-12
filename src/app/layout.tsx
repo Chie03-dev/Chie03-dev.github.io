@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { CommandPalette } from "@/components/showcases/command-palette";
-import { SceneryDrift } from "@/components/ui/scenery-drift";
 import { UnlockFlash } from "@/components/ui/unlock-flash";
 import { HeroLockProvider } from "@/context/hero-lock-context";
 import { ScrollDusk } from "@/components/ui/scroll-dusk";
@@ -109,9 +108,6 @@ export default function RootLayout({
             the relative z-10 content layer so it darkens the page background
             without dimming text or opaque cards. */}
         <ScrollDusk />
-        {/* Drifting pines, clouds and mist on the same z-0 layer, rendered
-            after the tint so the silhouettes stay visible over it. */}
-        <SceneryDrift />
         <div className="relative z-10">
           <HeroLockProvider>
           {children}

@@ -51,7 +51,6 @@ interface Layer {
  */
 const LAYERS: Layer[] = [
   { name: "01-sky", intensity: 0.1 },
-  { name: "02-clouds", intensity: 0.13 },
   { name: "03-mountains-far", intensity: 0.17 },
   { name: "04-fog-back", intensity: 0.21 },
   { name: "05-mountains-mid", intensity: 0.27 },

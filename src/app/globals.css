@@ -210,19 +210,7 @@
  * drifting through for the whole scroll rather than only inside the hero
  * band. Transform only, so the sweep stays on the compositor.
  */
-.scenery-drift {
-  transform: translate3d(0, calc(var(--sp, 0) * var(--d-y, 0px)), 0);
-}
 
-/*
- * Containment vignette. Breathes while the hero is chained so the cage reads as
- * alive; only opacity animates, so it stays on the compositor.
- */
-@keyframes hero-vignette-pulse {
-  0%,
-  100% {
-    opacity: 0.75;
-  }
   50% {
     opacity: 1;
   }
@@ -399,9 +387,7 @@
   }
 
   /* The engine holds --sp at 0; pin the still composition. */
-  .scenery-drift {
-    transform: none;
-  }
+
 
   .hero-banner-stack {
     transition: none;
