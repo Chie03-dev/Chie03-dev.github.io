@@ -231,16 +231,18 @@ export function Hero() {
                   : "opacity-0",
               )}
             />
-            <Image
-              src="/portrait.webp"
-              alt="Portrait of Alchie O. Andilab"
-              width={380}
-              height={380}
-              priority
-              sizes="(max-width: 768px) 280px, 380px"
-              className="h-auto w-full [mask-image:linear-gradient(to_bottom,black_75%,transparent_100%)] object-cover"
-            />
-            <ChainsOverlay isLocked={isLocked} />
+            <div className="relative w-full" data-cage-drift>
+              <Image
+                src="/portrait.webp"
+                alt="Portrait of Alchie O. Andilab"
+                width={380}
+                height={380}
+                priority
+                sizes="(max-width: 768px) 280px, 380px"
+                className="h-auto w-full [mask-image:linear-gradient(to_bottom,black_75%,transparent_100%)] object-cover"
+              />
+              <ChainsOverlay isLocked={isLocked} />
+            </div>
           </div>
         </div>
 

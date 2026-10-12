@@ -25,6 +25,7 @@ interface Constraint {
 interface Lock {
   S: SimPoint;
   B: SimPoint;
+  hub: SimPoint;
   sw: number;
   bh: number;
   bw: number;
@@ -48,7 +49,7 @@ export function ChainsOverlay({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const portraitEl = canvas.parentElement?.querySelector("img");
+    const portraitEl = canvas.parentElement?.closest("[data-cage-drift]") as HTMLElement | null;
     // Respect the OS reduced-motion preference: when set, the cage stays calm
     // (no restless fidgeting or lunges) instead of emulating a caged animal.
     const reducedMotion =
@@ -253,7 +254,7 @@ export function ChainsOverlay({
       const cx = host ? host.left - canvasRect.left + hostW / 2 : canvas.clientWidth / 2;
       const cy = host ? host.top - canvasRect.top + hostH / 2 : canvas.clientHeight / 2;
       rest = Math.max(6, Math.min(10, hostW / 38));
-      fw = hostW * 0.96;
+      fw = hostW * 1.1;
       fh = hostH * 0.94;
       buildCx = cx;
       buildCy = cy;
@@ -283,25 +284,36 @@ export function ChainsOverlay({
       join(framePts[0], framePts[4]); // TL ↔ BR
       join(framePts[2], framePts[6]); // TR ↔ BL
 
-      // Padlock sits at the portrait centre so the chains radiate from the
-      // middle: corner diagonals form an X and the horizontal/vertical cross
-      // chains pass through it.
-      const S = pt(cx, cy - rest * 3, 0);
-      const B = pt(cx, cy - rest * 0.5, 0);
-      lock = { S, B, sw: rest * 1.3, bh: rest * 4.2, bw: rest * 2.8 };
+      // The visible padlock hangs from the top bar of the cage, clear of the
+      // The face stays clear: an invisible hub at collar-bone height gathers the
+      // diagonal and cross chains into the X across the torso. The lock anchors
+      // atop it, below the chin, so the padlock reads as hanging at the
+      // collarbone rather than strapped over the nose.
+      const hub = pt(cx, cy + fh * 0.32, 0);
+      // The padlock hangs right below the top spike where the corner
+      // X-chains converge — never on the face.
+      const S = pt(cx, cy - fh * 0.52 - rest * 1.1, 0);
+      const B = pt(cx, cy - fh * 0.52 + rest * 1.1, 0);
+      lock = { S, B, hub, sw: rest * 1.3, bh: rest * 4.2, bw: rest * 2.8 };
       join(S, B, rest * 2.2);
+      // Suspend the lock from the top edge so it hangs above the portrait
+      // instead of needing undefined anchor points.
+      hang.push(chainTo(framePts[1], S, 1.1));
+      hang.push(chainTo(framePts[0], S, 1.25));
+      hang.push(chainTo(framePts[2], S, 1.25));
 
-      // Corner diagonals converge on the centre padlock (an X across the frame).
-      const corners = [framePts[0], framePts[2], framePts[4], framePts[6]];
-      for (const c of corners) {
-        hang.push(chainTo(c, S, 1.12));
+      // Corner diagonals converge on the low hub (an X across the torso,
+      // clear of the face).
+      const lowCorners = [framePts[6], framePts[4], framePts[7], framePts[3]];
+      for (const c of lowCorners) {
+        hang.push(chainTo(c, hub, 1.12));
       }
-      // Horizontal cross: left-mid → padlock → right-mid.
-      hang.push(chainTo(framePts[7], S, 1.05));
-      hang.push(chainTo(S, framePts[3], 1.05));
-      // Vertical cross: top-mid → padlock → bottom-mid.
-      hang.push(chainTo(framePts[1], S, 1.05));
-      hang.push(chainTo(S, framePts[5], 1.05));
+      // Horizontal cross: left-mid → hub → right-mid (low, across the torso).
+      hang.push(chainTo(framePts[7], hub, 1.05));
+      hang.push(chainTo(hub, framePts[3], 1.05));
+      // Bottom tether only: hub → bottom-mid. No top-mid → hub chain, so
+      // nothing drops down the middle of the face.
+      hang.push(chainTo(hub, framePts[5], 1.05));
 
       // Cage wraps the portrait from several directions: two horizontal belts
       // (upper & lower) and two vertical belts (left & right), each offset from
