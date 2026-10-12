@@ -136,18 +136,8 @@ export function Hero() {
             <span className="mb-4 block text-xl font-semibold tracking-[0.12em] text-primary uppercase sm:text-2xl">
               Software Developer (Web &amp; Mobile)
             </span>
-            <span className="block">
-              Alchie builds apps{" "}
-              <span className="text-muted-foreground">
-                that survive the real world.
-              </span>
-            </span>
+            <span className="block">Apps that work — even offline.</span>
           </h1>
-
-          <p className="max-w-xl text-lg text-pretty text-muted-foreground">
-            I build mobile and web apps that work — even offline. From the
-            screens to the servers behind them.
-          </p>
 
           {/* Call to action */}
           <div className="flex flex-col gap-3 sm:flex-row">
