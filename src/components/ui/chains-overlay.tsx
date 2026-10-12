@@ -92,7 +92,7 @@ export function ChainsOverlay({
     let mouse = { x: 0, y: 0 };
     let animationFrame: number;
 
-    const FRAME_K = 0.14;
+    const FRAME_K = 0.09;
     let buildCx = 0;
     let buildCy = 0;
 
@@ -368,8 +368,8 @@ export function ChainsOverlay({
         // semi-random downward-ish direction for ~1.2s. The impulse is
         // weighted toward the points on the lunge side, so the cage tilts,
         // the ropes strain, then the anchor spring snaps it back.
-        const LUNGE_INTERVAL = 5;
-        const LUNGE_WINDOW = 0.2;
+        const LUNGE_INTERVAL = 3.2;
+        const LUNGE_WINDOW = 0.28;
         const lungePhase = time / LUNGE_INTERVAL;
         const frac = lungePhase - Math.floor(lungePhase);
         if (frac < LUNGE_WINDOW) {
@@ -378,7 +378,7 @@ export function ChainsOverlay({
           const h2 = Math.abs(Math.sin(seed * 78.233) * 43758.5453) % 1;
           const lungeAngle = -Math.PI / 2 + (h1 - 0.5) * Math.PI * 0.9;
           const env = Math.sin((frac / LUNGE_WINDOW) * Math.PI);
-          const strength = (3.5 + h2 * 3.5) * env;
+          const strength = (6 + h2 * 6) * env;
           for (const p of framePts) {
             const rel =
               ((p.bx - buildCx) * Math.cos(lungeAngle) + (p.by - buildCy) * Math.sin(lungeAngle)) /
@@ -570,7 +570,7 @@ export function ChainsOverlay({
         const dx = cx - buildCx;
         const dy = cy - buildCy;
         if (Number.isFinite(dx) && Number.isFinite(dy) && Number.isFinite(angle)) {
-          portraitEl.style.transform = `translate(${dx}px, ${dy}px) rotate(${angle}rad)`;
+          portraitEl.style.transform = `translate(${dx * 2}px, ${dy * 2}px) rotate(${angle * 2.5}rad)`;
         }
       }
       animationFrame = requestAnimationFrame(loop);
