@@ -12,7 +12,6 @@ import { HeroTerminal } from "@/components/showcases/hero-terminal";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { useHeroLock } from "@/context/hero-lock-context";
 import { getScrollEngine } from "@/lib/scroll-engine";
-import { site } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 const STACK_TAGS = [
@@ -25,14 +24,61 @@ const STACK_TAGS = [
 ];
 
 /*
- * Split site.role into a muted lead line and an emphasized focal line at the
- * last " Systems" boundary, so the headline keeps its controlled two-line
- * layout while staying in sync with the single source of truth. Falls back to
- * one line if the role ever changes shape.
+ * Proof points derived straight from the hero subhead — no new claims, just
+ * the same story in scannable form so the copy column isn't one gray wall.
  */
-const ROLE_SPLIT = site.role.lastIndexOf(" Systems");
-const ROLE_LEAD = ROLE_SPLIT > 0 ? site.role.slice(0, ROLE_SPLIT) : site.role;
-const ROLE_FOCUS = ROLE_SPLIT > 0 ? site.role.slice(ROLE_SPLIT + 1) : "";
+const HIGHLIGHTS = [
+  {
+    title: "Offline-first mobile",
+    desc: "Resilient Android apps that work without a connection.",
+  },
+  {
+    title: "APIs & pipelines",
+    desc: "The services and data flows behind the screens.",
+  },
+  {
+    title: "Performance & DX",
+    desc: "Fast products, clean tooling, shipped to scale.",
+  },
+];
+
+function ArrowDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M12 5v14" />
+      <path d="m19 12-7 7-7-7" />
+    </svg>
+  );
+}
+
+function ArrowUpRightIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M7 7h10v10" />
+      <path d="M7 17 17 7" />
+    </svg>
+  );
+}
 
 /**
  * Engineering-focused hero section. The layout is a Server Component; the
@@ -71,11 +117,11 @@ export function Hero() {
           any content height. See hero-banner.tsx. */}
       <HeroBanner />
 
-      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-4 pt-8 pb-20 sm:px-6 lg:grid-cols-2 lg:gap-8 lg:px-8 lg:pb-28">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-12 px-4 pt-8 pb-20 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10 lg:px-8 lg:pb-28">
         {/* Copy column */}
-        <div className="hero-exit flex flex-col items-start gap-6 order-1 lg:order-1">
+        <div className="hero-exit flex flex-col items-start gap-6">
           {/* Status badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-sm text-muted-foreground backdrop-blur">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 py-1 pr-4 pl-3 text-sm text-muted-foreground backdrop-blur">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
@@ -83,17 +129,22 @@ export function Hero() {
             Available for engineering opportunities
           </div>
 
-          {/* Hero headline — split from site.role into two controlled lines for
-              predictable breaks and clear emphasis: a muted lead line and a
-              bold, theme-colored focal line. */}
-          <h1 className="text-balance text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-            <span className="block text-foreground/70">{ROLE_LEAD}</span>
-            {ROLE_FOCUS ? (
-              <span className="block text-primary">{ROLE_FOCUS}</span>
-            ) : null}
+          {/* Hero headline — fixed hierarchy instead of the split-role hack: a
+              small eyebrow for the role, a big name-led statement, and the
+              subhead carrying the detail. */}
+          <h1 className="text-balance text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl lg:text-6xl">
+            <span className="mb-3 block text-sm font-semibold tracking-[0.2em] text-primary uppercase">
+              Mobile &amp; Software Engineer
+            </span>
+            <span className="block text-foreground">
+              Alchie builds apps
+            </span>
+            <span className="block text-foreground/60">
+              that survive the real world.
+            </span>
           </h1>
 
-          <p className="max-w-xl text-pretty text-lg text-muted-foreground">
+          <p className="max-w-xl text-lg text-pretty text-muted-foreground">
             I design and build resilient mobile and full-stack systems, from
             offline-first apps to the APIs and data pipelines behind them.
             Focused on performance, developer experience, and shipping products
@@ -104,33 +155,57 @@ export function Hero() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <MagneticButton className="w-full sm:w-auto">
               <Link
-                href="/#key"
-                className="inline-flex w-full items-center justify-center rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                href="#key"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Key to the Cage
+                <ArrowDownIcon className="size-4" />
               </Link>
             </MagneticButton>
             <MagneticButton className="w-full sm:w-auto">
               <Link
-                href="/#contact"
-                className="inline-flex w-full items-center justify-center rounded-md border border-border bg-background px-5 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                href="#contact"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border bg-background/60 px-6 py-3 text-sm font-medium backdrop-blur transition-colors hover:border-primary/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Get in Touch
+                <ArrowUpRightIcon className="size-4" />
               </Link>
             </MagneticButton>
           </div>
 
-          {/* Core stack tags */}
-          <ul className="flex flex-wrap gap-2 pt-2">
-            {STACK_TAGS.map((tag) => (
+          {/* Highlights — the same subhead story, scannable */}
+          <ul className="grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-3">
+            {HIGHLIGHTS.map((item) => (
               <li
-                key={tag}
-                className="rounded-md border border-border/60 bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
+                key={item.title}
+                className="rounded-lg border border-border/60 bg-muted/30 p-3"
               >
-                {tag}
+                <p className="text-sm font-semibold text-foreground">
+                  {item.title}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {item.desc}
+                </p>
               </li>
             ))}
           </ul>
+
+          {/* Core stack tags */}
+          <div>
+            <p className="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              Core stack
+            </p>
+            <ul className="flex flex-wrap gap-2">
+              {STACK_TAGS.map((tag) => (
+                <li
+                  key={tag}
+                  className="rounded-md border border-border/60 bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                >
+                  {tag}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         {/* Cinematic portrait */}
