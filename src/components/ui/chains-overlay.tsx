@@ -245,17 +245,19 @@ export function ChainsOverlay({
       framePts = [];
       lock = null;
 
-      // Size and center the cage on the host element (the portrait container)
-      // so the chains wrap the image instead of the whole section.
-      const canvasRect = canvas.getBoundingClientRect();
-      const host = canvas.parentElement?.getBoundingClientRect();
-      const hostW = host?.width ?? canvas.clientWidth;
-      const hostH = host?.height ?? canvas.clientHeight;
-      const cx = host ? host.left - canvasRect.left + hostW / 2 : canvas.clientWidth / 2;
-      const cy = host ? host.top - canvasRect.top + hostH / 2 : canvas.clientHeight / 2;
+      // The chain canvas is centered on its wrapper by construction
+      // (absolute left-1/2 top-1/2 -translate-1/2 inside the relative
+      // [data-cage-drift] box), so the canvas center IS the portrait
+      // center. No rect math needed — rects include live drift/translate
+      // transforms and drift the cage off the photo.
+      const hostEl = canvas.parentElement;
+      const hostW = hostEl?.clientWidth ?? canvas.clientWidth;
+      const hostH = hostEl?.clientHeight ?? canvas.clientHeight;
+      const cx = canvas.clientWidth / 2;
+      const cy = canvas.clientHeight / 2;
       rest = Math.max(6, Math.min(10, hostW / 38));
-      fw = hostW * 1.1;
-      fh = hostH * 0.94;
+      fw = hostW + 56;
+      fh = hostH + 56;
       buildCx = cx;
       buildCy = cy;
 
@@ -657,6 +659,18 @@ export function ChainsOverlay({
     }
 
     window.addEventListener("resize", build);
+    // Rebuild when the wrapper box changes size — the portrait image loads
+    // async, so the first build measures an empty box and the cage ends up
+    // misaligned until something forces a rebuild.
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && canvas.parentElement) {
+      ro = new ResizeObserver(() => {
+        build();
+      });
+      ro.observe(canvas.parentElement);
+      const img = canvas.parentElement.querySelector("img");
+      if (img) ro.observe(img);
+    }
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
@@ -666,6 +680,7 @@ export function ChainsOverlay({
 
     return () => {
       window.removeEventListener("resize", build);
+      if (ro) ro.disconnect();
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
