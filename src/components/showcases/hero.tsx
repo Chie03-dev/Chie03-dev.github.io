@@ -29,16 +29,16 @@ const STACK_TAGS = [
  */
 const HIGHLIGHTS = [
   {
-    title: "Offline-first mobile",
-    desc: "Resilient Android apps that work without a connection.",
+    title: "Mobile",
+    desc: "Offline-first Android apps that just work.",
   },
   {
-    title: "APIs & pipelines",
-    desc: "The services and data flows behind the screens.",
+    title: "Web",
+    desc: "Fast full-stack sites, front to back.",
   },
   {
-    title: "Performance & DX",
-    desc: "Fast products, clean tooling, shipped to scale.",
+    title: "Systems",
+    desc: "APIs, data, and services behind the screens.",
   },
 ];
 
@@ -130,25 +130,23 @@ export function Hero() {
           </div>
 
           {/* Hero headline — fixed hierarchy instead of the split-role hack: a
-              small eyebrow for the role, a big name-led statement, and the
+              larger eyebrow for the role, a big name-led statement, and the
               subhead carrying the detail. */}
           <h1 className="text-balance text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl lg:text-6xl">
-            <span className="mb-3 block text-sm font-semibold tracking-[0.2em] text-primary uppercase">
-              Mobile &amp; Software Engineer
+            <span className="mb-4 block text-xl font-semibold tracking-[0.12em] text-primary uppercase sm:text-2xl">
+              Software Developer (Web &amp; Mobile)
             </span>
-            <span className="block text-foreground">
-              Alchie builds apps
-            </span>
-            <span className="block text-foreground/60">
-              that survive the real world.
+            <span className="block">
+              Alchie builds apps{" "}
+              <span className="text-muted-foreground">
+                that survive the real world.
+              </span>
             </span>
           </h1>
 
           <p className="max-w-xl text-lg text-pretty text-muted-foreground">
-            I design and build resilient mobile and full-stack systems, from
-            offline-first apps to the APIs and data pipelines behind them.
-            Focused on performance, developer experience, and shipping products
-            that scale.
+            I build mobile and web apps that work — even offline. From the
+            screens to the servers behind them.
           </p>
 
           {/* Call to action */}
