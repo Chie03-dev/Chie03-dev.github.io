@@ -25,7 +25,6 @@ interface Constraint {
 interface Lock {
   S: SimPoint;
   B: SimPoint;
-  hub: SimPoint;
   sw: number;
   bh: number;
   bw: number;
@@ -83,8 +82,6 @@ export function ChainsOverlay({
 
     let points: SimPoint[] = [];
     let constraints: Constraint[] = [];
-    let hang: SimPoint[][] = [];
-    let belts: SimPoint[][] = [];
     let framePts: SimPoint[] = [];
     let lock: Lock | null = null;
     let locked: boolean = isLocked;
@@ -112,31 +109,6 @@ export function ChainsOverlay({
       });
     }
 
-    function chainTo(A: SimPoint, T: SimPoint, slack: number): SimPoint[] {
-      const d = Math.hypot(T.x - A.x, T.y - A.y);
-      const n = Math.max(4, Math.ceil((d * slack) / rest));
-      const L = n * rest;
-      const s = Math.sqrt(Math.max(0, (3 * d * (L - d)) / 8));
-      const arr: SimPoint[] = [A];
-
-      for (let k = 1; k < n; k++) {
-        const t = k / n;
-        arr.push(
-          pt(
-            A.x + (T.x - A.x) * t,
-            A.y + (T.y - A.y) * t + 4 * s * t * (1 - t),
-            1
-          )
-        );
-      }
-      arr.push(T);
-
-      for (let k = 0; k < n; k++) {
-        join(arr[k], arr[k + 1], rest, true);
-      }
-      return arr;
-    }
-
     function drawChainBar(
       top: { x: number; y: number },
       bottom: { x: number; y: number }
@@ -159,79 +131,6 @@ export function ChainsOverlay({
         px = nx2;
         py = ny2;
       }
-    }
-
-    function makeBelt(
-      phi: number,
-      bcx: number,
-      bcy: number,
-      scale = 1,
-      ox = 0,
-      oy = 0
-    ) {
-      const co = Math.cos(phi);
-      const si = Math.sin(phi);
-      const half =
-        1 /
-        Math.max(
-          Math.abs(co) / ((fw / 2) * scale),
-          Math.abs(si) / ((fh / 2) * scale)
-        );
-      const r = rest * 0.8;
-      const a = half + rest * 2.5 - r;
-      const per = 4 * a + 2 * Math.PI * r;
-      const n = Math.round(per / rest / 2) * 2;
-      const d = per / n;
-      const pts: SimPoint[] = [];
-
-      for (let i = 0; i < n; i++) {
-        let s = i * d;
-        let u = 0;
-        let v = 0;
-
-        if (s < 2 * a) {
-          u = -a + s;
-          v = -r;
-        } else if ((s -= 2 * a) < Math.PI * r) {
-          const t = -Math.PI / 2 + s / r;
-          u = a + r * Math.cos(t);
-          v = r * Math.sin(t);
-        } else if ((s -= Math.PI * r) < 2 * a) {
-          u = a - s;
-          v = r;
-        } else {
-          s -= 2 * a;
-          const t = Math.PI / 2 + s / r;
-          u = -a + r * Math.cos(t);
-          v = r * Math.sin(t);
-        }
-
-        const lx = u * co - v * si;
-        const ly = u * si + v * co;
-        const p = pt(bcx + ox + lx, bcy + oy + ly, 1);
-        p.tx = ox + lx;
-        p.ty = oy + ly;
-        p.k = Math.abs(u) > half ? 0.05 : 0.22;
-        pts.push(p);
-      }
-
-      for (let i = 0; i < n; i++) {
-        join(pts[i], pts[(i + 1) % n], d);
-      }
-
-      for (const p of pts) {
-        let near = framePts[0];
-        let nd = Infinity;
-        for (const f of framePts) {
-          const dist = Math.hypot(f.bx - p.bx, f.by - p.by);
-          if (dist < nd) {
-            nd = dist;
-            near = f;
-          }
-        }
-        join(p, near, nd);
-      }
-      belts.push(pts);
     }
 
     function frameTransform() {
@@ -264,8 +163,6 @@ export function ChainsOverlay({
 
       points = [];
       constraints = [];
-      hang = [];
-      belts = [];
       framePts = [];
       lock = null;
 
@@ -278,10 +175,10 @@ export function ChainsOverlay({
       const hostW = hostEl?.clientWidth ?? canvas.clientWidth;
       const hostH = hostEl?.clientHeight ?? canvas.clientHeight;
       const cx = canvas.clientWidth / 2;
-      const cy = canvas.clientHeight / 2 - hostH * 0.05;
+      const cy = canvas.clientHeight / 2;
       rest = Math.max(6, Math.min(10, hostW / 38));
       fw = hostW + 56;
-      fh = hostH + 32;
+      fh = hostH + 56;
       buildCx = cx;
       buildCy = cy;
 
@@ -310,49 +207,14 @@ export function ChainsOverlay({
       join(framePts[0], framePts[4]); // TL ↔ BR
       join(framePts[2], framePts[6]); // TR ↔ BL
 
-      // The visible padlock hangs from the top bar of the cage, clear of the
-      // The face stays clear: an invisible hub at collar-bone height gathers the
-      // diagonal and cross chains into the X across the torso. The lock anchors
-      // atop it, below the chin, so the padlock reads as hanging at the
-      // collarbone rather than strapped over the nose.
-      const hub = pt(cx, cy + fh * 0.32, 0);
-      // The padlock hangs right below the top spike where the corner
-      // X-chains converge — never on the face.
-      const S = pt(cx, cy - fh * 0.52 - rest * 1.1, 0);
-      const B = pt(cx, cy - fh * 0.52 + rest * 1.1, 0);
-      lock = { S, B, hub, sw: rest * 1.3, bh: rest * 4.2, bw: rest * 2.8 };
+      // A single centred padlock. Its S/B points are im:0 (fixed by the
+      // solver) and re-pinned to the portrait's centre every step, so it
+      // stays centred and sways with the box instead of drooping over the
+      // face. It clasps the middle vertical bar — no extra hang chains.
+      const S = pt(cx, cy - rest * 3, 0);
+      const B = pt(cx, cy - rest * 3 + rest * 2.2, 0);
+      lock = { S, B, sw: rest * 1.3, bh: rest * 4.2, bw: rest * 2.8 };
       join(S, B, rest * 2.2);
-      // Suspend the lock from the top edge so it hangs above the portrait
-      // instead of needing undefined anchor points.
-      hang.push(chainTo(framePts[1], S, 1.1));
-      hang.push(chainTo(framePts[0], S, 1.25));
-      hang.push(chainTo(framePts[2], S, 1.25));
-
-      // Corner diagonals converge on the low hub (an X across the torso,
-      // clear of the face).
-      const lowCorners = [framePts[6], framePts[4], framePts[7], framePts[3]];
-      for (const c of lowCorners) {
-        hang.push(chainTo(c, hub, 1.12));
-      }
-      // Horizontal cross: left-mid → hub → right-mid (low, across the torso).
-      hang.push(chainTo(framePts[7], hub, 1.05));
-      hang.push(chainTo(hub, framePts[3], 1.05));
-      // Bottom tether only: hub → bottom-mid. No top-mid → hub chain, so
-      // nothing drops down the middle of the face.
-      hang.push(chainTo(hub, framePts[5], 1.05));
-
-      // Cage wraps the portrait from several directions: two horizontal belts
-      // (upper & lower) and two vertical belts (left & right), each offset from
-      // centre so they band the image at different spots - the "contained" look.
-      // All are axis-aligned (phi 0 or PI/2) and mirrored about the centre, so
-      // their solver forces cancel instead of drifting the cage sideways (a 45deg
-      // belt did exactly that and was removed). Verified drift-free in simulation.
-      const oy = 0.95 * (fh / 2);
-      const ox = 0.95 * (fw / 2);
-      makeBelt(0, cx, cy, 0.95, 0, -oy); // upper horizontal
-      makeBelt(0, cx, cy, 0.95, 0, oy); // lower horizontal
-      makeBelt(Math.PI / 2, cx, cy, 0.95, -ox, 0); // left vertical
-      makeBelt(Math.PI / 2, cx, cy, 0.95, ox, 0); // right vertical
     }
 
     function step() {
@@ -360,6 +222,17 @@ export function ChainsOverlay({
       const { cx, cy, angle } = frameTransform();
       const ca = Math.cos(angle);
       const sa = Math.sin(angle);
+
+      // Keep the padlock centred on the portrait, riding the same clamped
+      // motion as the photo so it never drifts off the middle vertical bar.
+      if (lock) {
+        const ldx = Math.max(-14, Math.min(14, cx - buildCx));
+        const ldy = Math.max(-14, Math.min(14, cy - buildCy));
+        lock.S.x = buildCx + ldx;
+        lock.S.y = buildCy + ldy - rest * 3;
+        lock.B.x = buildCx + ldx;
+        lock.B.y = buildCy + ldy - rest * 3 + rest * 2.2;
+      }
 
       for (const p of points) {
         if (p.im === 0) continue;
@@ -579,19 +452,13 @@ export function ChainsOverlay({
       if (!ctx) return;
       ctx.clearRect(0, 0, W / devicePixelRatio, H / devicePixelRatio);
 
-      for (const ch of hang) {
-        for (let i = 0; i < ch.length - 1; i += 2) {
-          drawLink(ch[i], ch[i + 1], false);
-        }
-        for (let i = 1; i < ch.length - 1; i += 2) {
-          drawLink(ch[i], ch[i + 1], true);
-        }
-      }
-
-      for (const pts of belts) {
-        for (let i = 0; i < pts.length; i++) {
-          drawLink(pts[i], pts[(i + 1) % pts.length], i % 2 === 1);
-        }
+      // Jail-cell box: the four frame corners joined as chain edges, so the
+      // portrait sits inside a chained rectangle that sways with the cage.
+      if (framePts.length >= 7) {
+        drawChainBar(framePts[0], framePts[2]); // top
+        drawChainBar(framePts[2], framePts[4]); // right
+        drawChainBar(framePts[4], framePts[6]); // bottom
+        drawChainBar(framePts[6], framePts[0]); // left
       }
 
       // Jail bars: three vertical chain runs spanning the cage's top and
@@ -617,13 +484,6 @@ export function ChainsOverlay({
       }
 
       padlock();
-
-      for (const ch of hang) {
-        ctx.beginPath();
-        ctx.arc(ch[0].x, ch[0].y, 9, 0, Math.PI * 2);
-        ctx.fillStyle = "#4a4f54";
-        ctx.fill();
-      }
     }
 
     function loop() {
