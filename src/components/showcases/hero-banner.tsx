@@ -32,6 +32,12 @@ interface Layer {
   name: string;
   /** Parallax intensity scaled to the pack's depth order (0.10 = sky, 0.72 = front fog). */
   intensity: number;
+  /**
+   * Resting downward offset (px) applied before any scroll drift. The tree
+   * layers carry a small one so their silhouette tops settle inside the seam
+   * fade at the band's bottom edge instead of standing proud above it.
+   */
+  base?: number;
 }
 
 /**
@@ -49,10 +55,10 @@ const LAYERS: Layer[] = [
   { name: "03-mountains-far", intensity: 0.17 },
   { name: "04-fog-back", intensity: 0.21 },
   { name: "05-mountains-mid", intensity: 0.27 },
-  { name: "06-forest-far", intensity: 0.33 },
+  { name: "06-forest-far", intensity: 0.33, base: 20 },
   { name: "09-fog-mid", intensity: 0.51 },
-  { name: "10-forest-mid", intensity: 0.58 },
-  { name: "11-forest-front", intensity: 0.66 },
+  { name: "10-forest-mid", intensity: 0.58, base: 30 },
+  { name: "11-forest-front", intensity: 0.66, base: 80 },
   { name: "12-fog-front", intensity: 0.72 },
   { name: "13-vignette", intensity: 0 },
 ];
@@ -62,13 +68,15 @@ const VARIANTS = ["night", "sunset"] as const;
 /**
  * Per-layer motion. `--p-y` is the upward offset applied as `--hp` grows;
  * `--p-overscan` grows the element by exactly that much at the bottom so the
- * travel never exposes a gap under the layer.
+ * travel never exposes a gap under the layer; `--p-base` is a fixed resting
+ * drop (see `Layer.base`) that positions the silhouette before any drift.
  */
-function layerStyle(intensity: number): CSSProperties {
+function layerStyle({ intensity, base = 0 }: Layer): CSSProperties {
   const y = -(intensity * TRAVEL);
   return {
     "--p-y": `${y.toFixed(1)}px`,
     "--p-overscan": `${Math.abs(y).toFixed(1)}px`,
+    "--p-base": `${base}px`,
   } as CSSProperties;
 }
 
@@ -93,7 +101,7 @@ export function HeroBanner() {
               alt=""
               draggable={false}
               className="hero-parallax-layer"
-              style={layerStyle(layer.intensity)}
+              style={layerStyle(layer)}
             />
           ))}
         </div>

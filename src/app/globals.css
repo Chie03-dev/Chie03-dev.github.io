@@ -166,7 +166,10 @@
 /*
  * One parallax plane. Each layer carries its own --p-y travel, set inline from
  * the pack's per-layer depth, and is grown by exactly that much at the bottom
- * (--p-overscan) so the upward drift never exposes a gap beneath it.
+ * (--p-overscan) so the upward drift never exposes a gap beneath it. Tree
+ * layers also carry --p-base, a fixed resting drop that settles their
+ * silhouette tops inside the seam fade at the band's bottom edge so they
+ * blend into the border instead of standing above it.
  *
  * `width: 100%` is load-bearing, not redundant. As an absolutely-positioned
  * *replaced* element with `left`/`right` both set, an `auto` width would
@@ -197,7 +200,7 @@
   width: 100%;
   height: calc(100% + var(--p-overscan, 0px));
   object-fit: fill;
-  transform: translate3d(0, calc(var(--hp, 0) * var(--p-y, 0px)), 0);
+  transform: translate3d(0, calc(var(--p-base, 0px) + var(--hp, 0) * var(--p-y, 0px)), 0);
 }
 
 /*
@@ -389,9 +392,10 @@
     transform: none;
   }
 
-  /* The engine snaps --hp to 0.5; flatten that so the planes sit still. */
+  /* The engine snaps --hp to 0.5; flatten that so the planes sit still,
+     keeping each tree layer's resting base drop. */
   .hero-parallax-layer {
-    transform: none;
+    transform: translateY(var(--p-base, 0px));
   }
 
   /* The engine holds --sp at 0; pin the still composition. */
