@@ -91,6 +91,10 @@ export function ChainsOverlay({
     let animationFrame: number;
 
     const FRAME_K = 0.09;
+    // Portrait and cage share ONE clamped rigid transform, so the cage
+    // never outruns the photo during a lunge or drag.
+    const CLAMP_POS = 14;
+    const CLAMP_ROT = 0.06;
     let buildCx = 0;
     let buildCy = 0;
 
@@ -226,8 +230,8 @@ export function ChainsOverlay({
       // Keep the padlock centred on the portrait, riding the same clamped
       // motion as the photo so it never drifts off the middle vertical bar.
       if (lock) {
-        const ldx = Math.max(-14, Math.min(14, cx - buildCx));
-        const ldy = Math.max(-14, Math.min(14, cy - buildCy));
+        const ldx = Math.max(-CLAMP_POS, Math.min(CLAMP_POS, cx - buildCx));
+        const ldy = Math.max(-CLAMP_POS, Math.min(CLAMP_POS, cy - buildCy));
         lock.S.x = buildCx + ldx;
         lock.S.y = buildCy + ldy - rest * 3;
         lock.B.x = buildCx + ldx;
@@ -452,33 +456,54 @@ export function ChainsOverlay({
       if (!ctx) return;
       ctx.clearRect(0, 0, W / devicePixelRatio, H / devicePixelRatio);
 
-      // Jail-cell box: the four frame corners joined as chain edges, so the
-      // portrait sits inside a chained rectangle that sways with the cage.
+      // The cage is drawn through the SAME clamped rigid transform the
+      // portrait uses, so the box and bars move in lockstep with the photo
+      // instead of outrunning it. Each simulated corner keeps its own
+      // deformation (the organic wobble) layered on top of that shared pose.
       if (framePts.length >= 7) {
-        drawChainBar(framePts[0], framePts[2]); // top
-        drawChainBar(framePts[2], framePts[4]); // right
-        drawChainBar(framePts[4], framePts[6]); // bottom
-        drawChainBar(framePts[6], framePts[0]); // left
-      }
+        const { cx, cy, angle } = frameTransform();
+        const cdx = Math.max(-CLAMP_POS, Math.min(CLAMP_POS, cx - buildCx));
+        const cdy = Math.max(-CLAMP_POS, Math.min(CLAMP_POS, cy - buildCy));
+        const crot = Math.max(-CLAMP_ROT, Math.min(CLAMP_ROT, angle));
+        const dx = cx - buildCx;
+        const dy = cy - buildCy;
+        const ca = Math.cos(crot);
+        const sa = Math.sin(crot);
+        const fa = Math.cos(angle);
+        const fs = Math.sin(angle);
 
-      // Jail bars: three vertical chain runs spanning the cage's top and
-      // bottom edges. Interpolated from the live simulated frame corners so
-      // they sway, lunge and settle with the cage every frame. Corners map
-      // to the frame's [TL, TR, BL, BR] so each bar runs top-to-bottom
-      // (vertical), drawn as chain links to match the rest of the cage.
-      if (framePts.length >= 7) {
-        const tl = framePts[0]; // top-left
-        const tr = framePts[2]; // top-right
-        const bl = framePts[6]; // bottom-left
-        const br = framePts[4]; // bottom-right
-        const lx = (a: SimPoint, b: SimPoint, t: number) =>
+        // Simulated corner -> clamped rigid pose + its own deformation.
+        const rig = (p: SimPoint) => {
+          const ox = p.bx - buildCx;
+          const oy = p.by - buildCy;
+          const predX = buildCx + dx + fa * ox - fs * oy;
+          const predY = buildCy + dy + fs * ox + fa * oy;
+          return {
+            x: buildCx + cdx + ca * ox - sa * oy + (p.x - predX),
+            y: buildCy + cdy + sa * ox + ca * oy + (p.y - predY),
+          };
+        };
+
+        const TL = rig(framePts[0]); // top-left
+        const TR = rig(framePts[2]); // top-right
+        const BR = rig(framePts[4]); // bottom-right
+        const BL = rig(framePts[6]); // bottom-left
+
+        // Box: four chain edges around the portrait.
+        drawChainBar(TL, TR);
+        drawChainBar(TR, BR);
+        drawChainBar(BR, BL);
+        drawChainBar(BL, TL);
+
+        // Three vertical chain bars spanning top to bottom.
+        const lx = (a: { x: number; y: number }, b: { x: number; y: number }, t: number) =>
           a.x + (b.x - a.x) * t;
-        const ly = (a: SimPoint, b: SimPoint, t: number) =>
+        const ly = (a: { x: number; y: number }, b: { x: number; y: number }, t: number) =>
           a.y + (b.y - a.y) * t;
         for (const t of [0.25, 0.5, 0.75]) {
           drawChainBar(
-            { x: lx(tl, tr, t), y: ly(tl, tr, t) },
-            { x: lx(bl, br, t), y: ly(bl, br, t) }
+            { x: lx(TL, TR, t), y: ly(TL, TR, t) },
+            { x: lx(BL, BR, t), y: ly(BL, BR, t) }
           );
         }
       }
@@ -494,9 +519,9 @@ export function ChainsOverlay({
         // Portrait rides the cage 1:1 but clamped: wild chain motion stays
         // visible while the portrait itself can never leave its box and
         // break the hero layout.
-        const dx = Math.max(-14, Math.min(14, cx - buildCx));
-        const dy = Math.max(-14, Math.min(14, cy - buildCy));
-        const rot = Math.max(-0.06, Math.min(0.06, angle));
+        const dx = Math.max(-CLAMP_POS, Math.min(CLAMP_POS, cx - buildCx));
+        const dy = Math.max(-CLAMP_POS, Math.min(CLAMP_POS, cy - buildCy));
+        const rot = Math.max(-CLAMP_ROT, Math.min(CLAMP_ROT, angle));
         if (Number.isFinite(dx) && Number.isFinite(dy) && Number.isFinite(rot)) {
           portraitEl.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}rad)`;
         }
