@@ -137,6 +137,36 @@ export function ChainsOverlay({
       return arr;
     }
 
+    function drawBar(
+    top: { x: number; y: number },
+    bottom: { x: number; y: number }
+  ): void {
+      if (!ctx) return;
+      // Rod width scales with the link rest length so bars stay in proportion
+      const w = rest * 1.1;
+      // Perpendicular vector for bar thickness
+      const dx = bottom.x - top.x;
+      const dy = bottom.y - top.y;
+      const length = Math.hypot(dx, dy);
+      if (length === 0) return;
+      const nx = -dy / length;
+      const ny = dx / length;
+      // Double stroke for steel rod effect: dark outline + lighter fill
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(top.x + nx * w / 2, top.y + ny * w / 2);
+      ctx.lineTo(bottom.x + nx * w / 2, bottom.y + ny * w / 2);
+      ctx.lineTo(bottom.x - nx * w / 2, bottom.y - ny * w / 2);
+      ctx.lineTo(top.x - nx * w / 2, top.y - ny * w / 2);
+      ctx.closePath();
+      ctx.strokeStyle = "hsl(0 0% 0% / 0.8)"; // Dark outline
+      ctx.lineWidth = (w * 0.3) / devicePixelRatio;
+      ctx.stroke();
+      ctx.fillStyle = "hsl(0 0% 85% / 0.9)"; // Light steel fill
+      ctx.fill();
+      ctx.restore();
+    }
+
     function makeBelt(
       phi: number,
       bcx: number,
@@ -566,6 +596,27 @@ export function ChainsOverlay({
         }
       }
 
+      // Jail bars: three vertical steel rods spanning the cage's top and
+      // bottom edges. Interpolated from the live simulated frame corners so
+      // they sway, lunge and settle with the cage every frame (a real part
+      // of the render loop, not a one-shot static overlay).
+      if (framePts.length >= 7) {
+        const tl = framePts[6];
+        const tr = framePts[0];
+        const bl = framePts[4];
+        const br = framePts[2];
+        const lx = (a: SimPoint, b: SimPoint, t: number) =>
+          a.x + (b.x - a.x) * t;
+        const ly = (a: SimPoint, b: SimPoint, t: number) =>
+          a.y + (b.y - a.y) * t;
+        for (const t of [0.25, 0.5, 0.75]) {
+          drawBar(
+            { x: lx(tl, tr, t), y: ly(tl, tr, t) },
+            { x: lx(bl, br, t), y: ly(bl, br, t) }
+          );
+        }
+      }
+
       padlock();
 
       for (const ch of hang) {
@@ -707,3 +758,6 @@ export function ChainsOverlay({
     />
   );
 }
+
+
+
