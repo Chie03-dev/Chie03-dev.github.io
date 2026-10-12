@@ -4,6 +4,7 @@ import { CommandPalette } from "@/components/showcases/command-palette";
 import { UnlockFlash } from "@/components/ui/unlock-flash";
 import { HeroLockProvider } from "@/context/hero-lock-context";
 import { ScrollDusk } from "@/components/ui/scroll-dusk";
+import { SmoothScroll } from "@/components/ui/smooth-scroll";
 import { site } from "@/lib/site";
 
 import "./globals.css";
@@ -88,7 +89,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="scroll-smooth scroll-pt-24" suppressHydrationWarning>
+    <html lang="en" className="scroll-pt-24" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
@@ -108,6 +109,7 @@ export default function RootLayout({
             the relative z-10 content layer so it darkens the page background
             without dimming text or opaque cards. */}
         <ScrollDusk />
+        <SmoothScroll />
         <div className="relative z-10">
           <HeroLockProvider>
           {children}
