@@ -191,6 +191,22 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
     let dpr = 1;
     /** Master scale: min(width, height). Every size derives from this. */
     let S = 0;
+    /** Monster-body scale: S shrunk by MONSTER. Body, arms, eyes, and mouth
+     * draw from this; the key, grab radius, physics, and strike targets keep
+     * full S so the game plays identically. */
+    let MS = 0;
+    /**
+     * Guardian body scale. The monster reads oversized next to the key game,
+     * so the body, arms, and eyes draw at 70% while the key, grab radius, and
+     * alert distances keep full scale — the game stays exactly as playable.
+     */
+    const MONSTER = 0.7;
+    /**
+     * Horizontal squeeze applied to the body silhouette, eyes, mouth, and arm
+     * anchors. Only widths slim — heights stay full so he reads thinner, not
+     * shorter.
+     */
+    const SLIM = 0.62;
     let cx = 0;
     let cy = 0;
     /** Guardian body centre — sits just below the key's home position. */
@@ -287,17 +303,18 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       cv.height = Math.round(H * dpr);
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       S = Math.min(W, H);
+      MS = S * MONSTER;
       cx = W / 2;
       cy = H / 2;
       mx = cx;
       my = cy + 0.2 * S;
 
       for (const a of arms) {
-        a.sx = cx + a.side * 0.3 * S;
-        a.sy = cy + 0.14 * S;
-        a.rx = cx + a.side * 0.44 * S;
-        a.ry = cy + 0.36 * S;
-        a.L = 0.27 * S;
+        a.sx = cx + a.side * 0.3 * MS * SLIM;
+        a.sy = cy + 0.14 * MS;
+        a.rx = cx + a.side * 0.44 * MS * SLIM;
+        a.ry = cy + 0.36 * MS;
+        a.L = 0.27 * MS;
         if (a.stage === "idle") {
           a.t = 0;
           a.hx = a.rx;
@@ -761,28 +778,30 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       const sx = (Math.random() - 0.5) * jitter;
       const sy = (Math.random() - 0.5) * jitter;
       // Post-win the guardian sinks and fades out.
-      const drop = defeat * 0.3 * S;
+      const drop = defeat * 0.3 * MS;
       const fade = 1 - defeat * 0.75;
 
       c.save();
       c.globalAlpha = fade;
       c.translate(mx + sx, my + sy + drop);
-      c.scale(br, br);
+      // Thin: squeeze x around the body centre. The blobs, eyes, and mouth
+      // all draw relative to mx, so one scale thins the whole silhouette.
+      c.scale(br * SLIM, br);
       c.translate(-mx, -(my + drop));
       c.fillStyle = BODY;
-      blob(mx, my + 0.22 * S, 0.5 * S, 0.4 * S, 0.03, 0);
-      blob(mx, my - 0.3 * S, 0.33 * S, 0.3 * S, 0.025, 2);
-      eye(mx - 0.13 * S, my - 0.37 * S, 0.06 * S, 0.03 * S, -1);
-      eye(mx + 0.13 * S, my - 0.37 * S, 0.06 * S, 0.03 * S, 1);
+      blob(mx, my + 0.22 * MS, 0.5 * MS, 0.4 * MS, 0.03, 0);
+      blob(mx, my - 0.3 * MS, 0.33 * MS, 0.3 * MS, 0.025, 2);
+      eye(mx - 0.13 * MS, my - 0.37 * MS, 0.06 * MS, 0.03 * MS, -1);
+      eye(mx + 0.13 * MS, my - 0.37 * MS, 0.06 * MS, 0.03 * MS, 1);
 
       // Mouth: dark red interior between two opposing curves, fanged.
-      const x0 = mx - 0.21 * S;
-      const x1 = mx + 0.21 * S;
-      const y0 = my - 0.21 * S;
+      const x0 = mx - 0.21 * MS;
+      const x1 = mx + 0.21 * MS;
+      const y0 = my - 0.21 * MS;
       const open =
-        0.035 * S + alertLevel * 0.07 * S + Math.sin(t * 0.03) * 0.004 * S;
-      const up = { x: mx, y: y0 + 0.04 * S };
-      const lo = { x: mx, y: y0 + 0.04 * S + 2 * open };
+        0.035 * MS + alertLevel * 0.07 * MS + Math.sin(t * 0.03) * 0.004 * MS;
+      const up = { x: mx, y: y0 + 0.04 * MS };
+      const lo = { x: mx, y: y0 + 0.04 * MS + 2 * open };
 
       c.fillStyle = "#4a0008";
       c.beginPath();
@@ -797,8 +816,8 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       // Upper fangs point down; the middle pair is drawn longer, like canines.
       for (let i = 0; i < 9; i++) {
         const p = quad(P0, up, P1, (i + 0.5) / 9);
-        const w = 0.016 * S;
-        const h = i === 1 || i === 7 ? 0.06 * S : 0.032 * S;
+        const w = 0.016 * MS;
+        const h = i === 1 || i === 7 ? 0.06 * MS : 0.032 * MS;
         c.beginPath();
         c.moveTo(p.x - w, p.y);
         c.lineTo(p.x + w, p.y);
@@ -808,8 +827,8 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       // Lower fangs point up.
       for (let i = 0; i < 8; i++) {
         const p = quad(P0, lo, P1, (i + 0.5) / 8);
-        const w = 0.015 * S;
-        const h = i === 2 || i === 5 ? 0.05 * S : 0.026 * S;
+        const w = 0.015 * MS;
+        const h = i === 2 || i === 5 ? 0.05 * MS : 0.026 * MS;
         c.beginPath();
         c.moveTo(p.x - w, p.y);
         c.lineTo(p.x + w, p.y);
@@ -825,16 +844,21 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
      */
     function drawKey() {
       const k = key;
-      const L = 0.17 * S;
-      const r = 0.034 * S;
-      const th = 0.012 * S;
+      // Fixed pixel size matching the drag ghost outside the section (56px
+      // box, 20-unit viewBox): one unit = 2.8px. Same bow, shaft, and teeth
+      // numbers as the ghost SVG, so the two read as one key. Physics and
+      // grab radius keep full S — only the drawing shrinks.
+      const u = 56 / 20;
+      const L = 17 * u;
+      const r = 3.4 * u;
+      const th = 1.2 * u;
       const bx = -L / 2 + r;
 
       c.save();
       c.translate(k.x, k.y);
       c.rotate(k.a);
       c.shadowColor = "rgba(255,200,80,.85)";
-      c.shadowBlur = 0.05 * S * (0.6 + alertLevel * 0.6 + defeat);
+      c.shadowBlur = 10 * (0.6 + alertLevel * 0.6 + defeat);
       const grad = c.createLinearGradient(0, -r, 0, r);
       grad.addColorStop(0, GOLD_HI);
       grad.addColorStop(0.5, GOLD_MID);
@@ -848,6 +872,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       c.beginPath();
       c.arc(bx, 0, r, 0, 7);
       c.stroke();
+      c.lineWidth = th;
       c.beginPath();
       c.arc(bx, 0, r * 0.35, 0, 7);
       c.stroke();
@@ -869,10 +894,10 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
         c.save();
         c.translate(k.x, k.y);
         c.strokeStyle = GOLD_HI;
-        c.lineWidth = 0.012 * S;
+        c.lineWidth = th;
         c.globalAlpha = 0.6 + Math.sin(t * 0.1) * 0.3;
         c.beginPath();
-        c.arc(0, 0, 0.12 * S, 0, 7);
+        c.arc(0, 0, L * 0.7, 0, 7);
         c.stroke();
         c.restore();
       }
@@ -884,18 +909,18 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       c.lineCap = "round";
       c.fillStyle = BODY;
       c.strokeStyle = BODY;
-      c.lineWidth = 0.085 * S;
+      c.lineWidth = 0.085 * MS * SLIM;
       c.beginPath();
       c.moveTo(a.sx, a.sy);
       c.lineTo(a.ex, a.ey);
       c.stroke();
-      c.lineWidth = 0.06 * S;
+      c.lineWidth = 0.06 * MS * SLIM;
       c.beginPath();
       c.moveTo(a.ex, a.ey);
       c.lineTo(a.cx, a.cy);
       c.stroke();
       c.beginPath();
-      c.arc(a.cx, a.cy, 0.045 * S, 0, 7);
+      c.arc(a.cx, a.cy, 0.045 * MS * SLIM, 0, 7);
       c.fill();
 
       const dr = Math.atan2(a.cy - a.ey, a.cx - a.ex);
@@ -904,15 +929,15 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       c.lineWidth = 1.2;
       for (const o of [-0.7, -0.23, 0.23, 0.7]) {
         const an = dr + o;
-        const bx = a.cx + Math.cos(an) * 0.035 * S;
-        const by = a.cy + Math.sin(an) * 0.035 * S;
-        const tx = a.cx + Math.cos(an) * 0.2 * S + Math.cos(dr) * 0.03 * S;
-        const ty = a.cy + Math.sin(an) * 0.2 * S + Math.sin(dr) * 0.03 * S;
+        const bx = a.cx + Math.cos(an) * 0.035 * MS;
+        const by = a.cy + Math.sin(an) * 0.035 * MS;
+        const tx = a.cx + Math.cos(an) * 0.2 * MS + Math.cos(dr) * 0.03 * MS;
+        const ty = a.cy + Math.sin(an) * 0.2 * MS + Math.sin(dr) * 0.03 * MS;
         // Perpendicular offset gives each claw a hollow, curved outline.
-        const nx = -Math.sin(an) * 0.009 * S;
-        const ny = Math.cos(an) * 0.009 * S;
-        const mx2 = (bx + tx) / 2 + Math.cos(dr) * 0.04 * S;
-        const my2 = (by + ty) / 2 + Math.sin(dr) * 0.04 * S;
+        const nx = -Math.sin(an) * 0.009 * MS;
+        const ny = Math.cos(an) * 0.009 * MS;
+        const mx2 = (bx + tx) / 2 + Math.cos(dr) * 0.04 * MS;
+        const my2 = (by + ty) / 2 + Math.sin(dr) * 0.04 * MS;
         c.beginPath();
         c.moveTo(bx + nx, by + ny);
         c.quadraticCurveTo(mx2 + nx * 0.3, my2 + ny * 0.3, tx, ty);
@@ -1188,19 +1213,6 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
         Escape hatch: the game is a pointer-only interaction, so a real button
         gives keyboard and switch users the same outcome.
       */}
-      <div className="py-5 text-center">
-        <button
-          type="button"
-          onClick={() => claimRef.current?.()}
-          className={cn(
-            "rounded-md px-3 py-1.5 font-mono text-xs tracking-widest text-muted-foreground",
-            "transition-colors hover:text-foreground",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          )}
-        >
-          Break containment directly
-        </button>
-      </div>
     </div>
   );
 }
