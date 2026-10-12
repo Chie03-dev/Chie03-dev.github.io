@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 
 interface LifeCardData {
   hobbies: string[];
-  dailyRoutine: { time: string; activity: string }[];
+  dailyRoutine?: { time: string; activity: string }[];
   background: string[];
   dos: string[];
   donts: string[];
@@ -18,16 +18,6 @@ const LIFE_DATA: LifeCardData = {
     "Urban photography",
     "Specialty coffee brewing",
     "Learning human languages (currently: Japanese)",
-  ],
-  dailyRoutine: [
-    { time: "06:30", activity: "Wake up, coffee, light stretch" },
-    { time: "07:30", activity: "Deep work: architecture & code reviews" },
-    { time: "11:30", activity: "Walk / gym / movement break" },
-    { time: "12:30", activity: "Lunch + reading (tech blogs, papers)" },
-    { time: "13:30", activity: "Collaborative work: pairing, design docs, meetings" },
-    { time: "17:30", activity: "Side projects / learning / open source" },
-    { time: "19:30", activity: "Dinner, unwind, hobby time" },
-    { time: "22:00", activity: "Wind down, journal, sleep" },
   ],
   background: [
     "Started coding at 12 with GameMaker â†’ fell in love with systems",
@@ -45,9 +35,9 @@ const LIFE_DATA: LifeCardData = {
     "Build for the 90% case, extend for the 10%",
   ],
   donts: [
-    "Don't optimize prematurely â€” measure first",
+    "Don't optimize prematurely measure first",
     "Don't gatekeep knowledge; share context freely",
-    "Don't ship broken windows â€” fix it now or flag it",
+    "Don't ship broken windows fix it now or flag it",
     "Don't conflate velocity with value",
     "Don't ignore friction in developer workflows",
     "Don't let perfect be the enemy of shipped",

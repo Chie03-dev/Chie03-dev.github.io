@@ -10,6 +10,7 @@ import { HeroBanner } from "@/components/showcases/hero-banner";
 import { HeroTerminal } from "@/components/showcases/hero-terminal";
 
 import { MagneticButton } from "@/components/ui/magnetic-button";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { useHeroLock } from "@/context/hero-lock-context";
 import { getScrollEngine } from "@/lib/scroll-engine";
 import { cn } from "@/lib/utils";
@@ -24,21 +25,72 @@ const STACK_TAGS = [
 ];
 
 /*
- * Proof points derived straight from the hero subhead — no new claims, just
- * the same story in scannable form so the copy column isn't one gray wall.
+ * What I do, in three scannable pillars. Each is a real discipline I work in,
+ * with a concrete, honest one-liner (no buzzword padding). Icons are inline
+ * SVGs in the house line-icon style so there's no extra dependency.
  */
 const HIGHLIGHTS = [
   {
     title: "Mobile",
-    desc: "Offline-first Android apps that just work.",
+    desc: "Offline-first Android apps in Kotlin & Compose that stay fast on real devices.",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="size-5"
+      >
+        <rect width="14" height="20" x="5" y="2" rx="2" />
+        <path d="M12 18h.01" />
+      </svg>
+    ),
   },
   {
     title: "Web",
-    desc: "Fast full-stack sites, front to back.",
+    desc: "Full-stack sites and dashboards — typed end to end, tuned for Core Web Vitals.",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="size-5"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M2 12h20" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+    ),
   },
   {
     title: "Systems",
-    desc: "APIs, data, and services behind the screens.",
+    desc: "APIs, data pipelines and background services that scale and stay observable.",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="size-5"
+      >
+        <ellipse cx="12" cy="5" rx="9" ry="3" />
+        <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+        <path d="M3 12a9 3 0 0 0 18 0" />
+      </svg>
+    ),
   },
 ];
 
@@ -129,15 +181,25 @@ export function Hero() {
             Available for engineering opportunities
           </div>
 
-          {/* Hero headline — fixed hierarchy instead of the split-role hack: a
-              larger eyebrow for the role, a big name-led statement, and the
-              subhead carrying the detail. */}
-          <h1 className="text-balance text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl lg:text-6xl">
-            <span className="mb-4 block text-xl font-semibold tracking-[0.12em] text-primary uppercase sm:text-2xl">
-              Software Developer (Web &amp; Mobile)
-            </span>
-            <span className="block">Apps that work — even offline.</span>
-          </h1>
+          {/* Hero headline — role eyebrow, then a name-led statement that says
+              what I actually build, then a one-line positioning summary. */}
+          <div>
+            <h1 className="text-balance text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              <span className="mb-3 block text-lg font-semibold tracking-[0.14em] text-primary uppercase sm:text-xl">
+                Software Developer (Web &amp; Mobile)
+              </span>
+              <span className="block">
+                I build software that{" "}
+                <span className="text-primary">works offline</span> and scales
+                online.
+              </span>
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+              Android engineer by depth, full-stack by range. I ship
+              offline-first mobile apps and the APIs behind them — obsessed with
+              performance, clean architecture, and developer experience.
+            </p>
+          </div>
 
           {/* Call to action */}
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -161,19 +223,23 @@ export function Hero() {
             </MagneticButton>
           </div>
 
-          {/* Highlights — the same subhead story, scannable */}
-          <ul className="grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-3">
+          {/* What I do — three pillars as spotlight cards (icon + title + line) */}
+          <ul className="grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
             {HIGHLIGHTS.map((item) => (
-              <li
-                key={item.title}
-                className="rounded-lg border border-border/60 bg-muted/30 p-3"
-              >
-                <p className="text-sm font-semibold text-foreground">
-                  {item.title}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {item.desc}
-                </p>
+              <li key={item.title}>
+                <SpotlightCard className="h-full rounded-lg border border-border/60 bg-muted/20">
+                  <div className="flex h-full flex-col gap-2 p-4">
+                    <span className="flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/60 text-primary">
+                      {item.icon}
+                    </span>
+                    <p className="text-sm font-semibold text-foreground">
+                      {item.title}
+                    </p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {item.desc}
+                    </p>
+                  </div>
+                </SpotlightCard>
               </li>
             ))}
           </ul>

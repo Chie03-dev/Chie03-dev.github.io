@@ -17,13 +17,6 @@ export function KeySection() {
         Rendered at the section level rather than inside the heading's wrapper so
         the guardian band can run edge to edge.
       */}
-      <div className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 lg:px-8 lg:pt-20">
-        <Reveal className="max-w-2xl">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            The Vault Key
-          </h2>
-        </Reveal>
-      </div>
       <KeyVault />
     </section>
   );

@@ -2,7 +2,7 @@
 <linearGradient id="sk-g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="520">
 <stop offset="0" stop-color="#020709"/><stop offset=".4" stop-color="#030910"/><stop offset=".5" stop-color="#01040a"/><stop offset=".7" stop-color="#02050b"/><stop offset=".87" stop-color="#010306"/>
 <stop offset=".5" stop-color="#cf4a5c"/><stop offset=".62" stop-color="#f26a44"/><stop offset=".74" stop-color="#ff9a3e"/>
-<stop offset=".87" stop-color="#ffc766"/><stop offset="1" stop-color="#31324e"/></linearGradient>
+<stop offset=".87" stop-color="#030303"/><stop offset="1" stop-color="#31324e"/></linearGradient>
 <radialGradient id="sk-glow" cx="1250" cy="432" r="640" gradientUnits="userSpaceOnUse">
 <stop offset="0" stop-color="#fff0b8" stop-opacity=".95"/><stop offset=".18" stop-color="#ffcf70" stop-opacity=".65"/>
 <stop offset=".5" stop-color="#ff8a44" stop-opacity=".25"/><stop offset="1" stop-color="#ff8a44" stop-opacity="0"/></radialGradient>
