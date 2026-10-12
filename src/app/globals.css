@@ -85,11 +85,7 @@
   --animate-card-in: card-in 0.4s ease-out both;
   --animate-metric-fill: metric-fill 0.9s ease-out both;
   --animate-hero-light-beam: hero-light-beam 7s ease-in-out infinite;
-  --animate-monster-drift: monster-drift 12s ease-in-out infinite;
-  --animate-monster-blink: monster-blink 4s ease-in-out infinite;
-  --animate-monster-arm-left: monster-arm-left 6s ease-in-out infinite;
-  --animate-monster-arm-right: monster-arm-right 6.8s ease-in-out infinite;
-  --animate-monster-swat: monster-swat 0.6s ease-out;
+  --animate-hero-vignette-pulse: hero-vignette-pulse 4.5s ease-in-out infinite;
 }
 
 @keyframes hero-portrait-drift {
@@ -140,71 +136,279 @@
   }
 }
 
-/* Monster ambient animations */
-@keyframes monster-drift {
-  0%, 100% {
-    transform: translateX(0) translateY(0);
-  }
-  25% {
-    transform: translateX(-8px) translateY(-4px);
+/*
+ * Layered hero banner. Two complete SVG stacks (the pack's `sunset/` and
+ * `night/` variant folders) sit on top of each other and crossfade: sunset is
+ * the resting mood while the hero is contained, and it turns to a full-moon
+ * night once the cage breaks (.unbound-mode on <html>). Mirrors
+ * --dusk-max-opacity below — same trigger, same idea.
+ */
+.hero-banner-stack {
+  transition: opacity 900ms ease;
+}
+
+.hero-banner-stack--night {
+  opacity: 0;
+}
+
+.hero-banner-stack--sunset {
+  opacity: 1;
+}
+
+.unbound-mode .hero-banner-stack--night {
+  opacity: 1;
+}
+
+.unbound-mode .hero-banner-stack--sunset {
+  opacity: 0;
+}
+
+/*
+ * One parallax plane. Each layer carries its own --p-y travel, set inline from
+ * the pack's per-layer depth, and is grown by exactly that much at the bottom
+ * (--p-overscan) so the upward drift never exposes a gap beneath it.
+ *
+ * `width: 100%` is load-bearing, not redundant. As an absolutely-positioned
+ * *replaced* element with `left`/`right` both set, an `auto` width would
+ * resolve to the image's intrinsic size (these SVGs carry width="1920"
+ * height="720") and the over-constrained `right` would be dropped — rendering
+ * a fixed-width strip instead of spanning the band.
+ *
+ * `object-fit: fill` is deliberate, not lazy. The band is `aspect-video` but is
+ * clamped by `max-h-[80vh]`, so its aspect drifts from 16:9 whenever the
+ * viewport isn't itself ~16:9 — e.g. 1440x648 desktop (2.22:1) or 390x304
+ * mobile (1.28:1). The art is 1920x720 (2.67:1), so an undistorted `cover`
+ * inside those boxes scales by width and can only ever show a slice of the
+ * scene's height — neither sky nor road survives at both extremes. Filling
+ * shows the whole scene (sky -> ridges -> forest -> ground) at any
+ * band size, full-bleed, which is also how the pack's own preview.html
+ * stretches its layers. The accepted cost is a vertical stretch (~1.2x on
+ * desktop, ~2.1x on mobile); the layers are stylized flat vectors, so it reads
+ * as panoramic rather than broken.
+ *
+ * --p-overscan still grows the height past the band so the upward drift never
+ * exposes a gap underneath; with `fill` that just stretches the art slightly
+ * more, which is invisible on these shapes.
+ */
+.hero-parallax-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(100% + var(--p-overscan, 0px));
+  object-fit: fill;
+  transform: translate3d(0, calc(var(--hp, 0) * var(--p-y, 0px)), 0);
+}
+
+/*
+ * Page-wide drifting scenery (<SceneryDrift />). Each element rests at its
+ * base position and is slid upward by --sp (global page progress, written by
+ * the shared scroll engine) times its own --d-y travel, so the clouds keep
+ * drifting through for the whole scroll rather than only inside the hero
+ * band. Transform only, so the sweep stays on the compositor.
+ */
+.scenery-drift {
+  transform: translate3d(0, calc(var(--sp, 0) * var(--d-y, 0px)), 0);
+}
+
+/*
+ * Containment vignette. Breathes while the hero is chained so the cage reads as
+ * alive; only opacity animates, so it stays on the compositor.
+ */
+@keyframes hero-vignette-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
   }
   50% {
-    transform: translateX(6px) translateY(6px);
-  }
-  75% {
-    transform: translateX(-4px) translateY(8px);
+    opacity: 1;
   }
 }
 
-@keyframes monster-blink {
-  0%, 45%, 55%, 100% {
-    transform: scaleY(1);
-  }
-  50% {
-    transform: scaleY(0.08);
-  }
+/*
+ * Hero copy/portrait exit hand-off. Driven by the scroll engine's --hp (0..1
+ * travel through the viewport) rather than time, so the drift tracks scrolling
+ * exactly. Transform + opacity only.
+ *
+ * The fade is deliberately offset: --hp is already ~0.3-0.5 while the hero is
+ * sitting at rest at the top of the page, so fading linearly from --hp 0 would
+ * dim the hero the moment it loads. The clamp holds full opacity until the hero
+ * is ~60% scrolled past, then eases it out over the remaining travel.
+ */
+.hero-exit {
+  --hp-exit: clamp(0, calc((var(--hp, 0) - 0.6) * 2.5), 1);
+  opacity: calc(1 - var(--hp-exit) * 0.85);
+  transform: translateY(calc(var(--hp-exit) * -28px));
 }
 
-@keyframes monster-arm-left {
-  0%, 100% {
-    transform: translateX(0) translateY(0) rotate(0deg);
-  }
-  30% {
-    transform: translateX(12px) translateY(-8px) rotate(-6deg);
-  }
-  60% {
-    transform: translateX(-8px) translateY(10px) rotate(4deg);
-  }
+/*
+ * Once containment is broken, the page-wide "restricted" cues stand down. The
+ * dusk tint's ceiling drops from deep night to a shallow shade, so the lower
+ * sections brighten as the hero is unbound. ScrollDusk reads --dusk-max-opacity
+ * and scales its inline opacity by it, so the lift is continuous rather than a
+ * jump. Applied to <html> by HeroLockProvider.
+ */
+:root {
+  --dusk-max-opacity: 0.72;
 }
 
-@keyframes monster-arm-right {
-  0%, 100% {
-    transform: translateX(0) translateY(0) rotate(0deg);
-  }
-  35% {
-    transform: translateX(-12px) translateY(-8px) rotate(6deg);
-  }
-  65% {
-    transform: translateX(8px) translateY(10px) rotate(-4deg);
-  }
+.unbound-mode {
+  --dusk-max-opacity: 0.3;
 }
 
-/* Swat animation - quick aggressive strike */
-@keyframes monster-swat {
+/*
+ * Break-containment flash (see <UnlockFlash />). Fires once when the cage is
+ * unlocked: a hard black/red snap carrying the werewolf artwork, then the whole
+ * thing fades off the screen. Runs for 2s — long enough to actually read the
+ * artwork rather than just register a strobe.
+ *
+ * Everything animates opacity and transform only, so the sequence stays on the
+ * compositor and never triggers layout. The art holds at scale(1) through the
+ * first 55% so the wolf stays fully in frame, then eases to 1.05 as it fades —
+ * a slight drift instead of a push that crops. The black strobe and red bloom
+ * both finish inside the first quarter, leaving ~1.5s of unobstructed artwork.
+ * The red layer is a radial bloom with a screen blend so it tints the artwork
+ * instead of flattening it.
+ *
+ * `forwards` pins the end state (opacity 0) so the overlay is inert once done;
+ * it is also `pointer-events-none`, so the finished layer can never intercept a
+ * click. The overlay itself still renders nothing until containment breaks —
+ * the only at-rest cost is the preloaded sting, so audio starts on the same
+ * frame as the flash instead of waiting on a fetch.
+ */
+@keyframes unlock-flash-out {
   0% {
-    transform: translateX(0) translateY(0) rotate(0deg) scale(1);
+    opacity: 1;
+    transform: scale(1);
   }
-  15% {
-    transform: translateX(var(--swat-x, 0)) translateY(var(--swat-y, 0)) rotate(var(--swat-rot, 0deg)) scale(1.15);
-  }
-  35% {
-    transform: translateX(calc(var(--swat-x, 0) * 1.3)) translateY(calc(var(--swat-y, 0) * 1.3)) rotate(calc(var(--swat-rot, 0deg) * 1.2)) scale(1.25);
-  }
-  60% {
-    transform: translateX(calc(var(--swat-x, 0) * 0.8)) translateY(calc(var(--swat-y, 0) * 0.8)) rotate(calc(var(--swat-rot, 0deg) * 0.6)) scale(1.1);
+  55% {
+    opacity: 1;
+    transform: scale(1);
   }
   100% {
-    transform: translateX(0) translateY(0) rotate(0deg) scale(1);
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+/* Red bloom: snaps in, stutters like a flare catching, then bleeds off —
+   all inside the first 38% so the artwork is left uncovered. */
+@keyframes unlock-flash-red {
+  0% {
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.9;
+  }
+  12% {
+    opacity: 0.3;
+  }
+  20% {
+    opacity: 0.75;
+  }
+  38% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Hard black strobe: a blackout on entry, a second stutter, then clear by 24%
+   (480ms) — deliberately front-loaded so it punches without eating into the
+   ~1.5s the artwork is meant to be visible for. */
+@keyframes unlock-flash-black {
+  0% {
+    opacity: 1;
+  }
+  5% {
+    opacity: 1;
+  }
+  14% {
+    opacity: 0;
+  }
+  19% {
+    opacity: 0.7;
+  }
+  24% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.unlock-flash-art,
+.unlock-flash-red,
+.unlock-flash-black {
+  position: absolute;
+  inset: 0;
+  animation-duration: 2000ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: forwards;
+}
+
+.unlock-flash-art {
+  background-color: #000;
+  /* `contain`, not `cover`. The source is portrait and the overlay is a
+     landscape viewport, so `cover` scales by width and crops the frame down to
+     the wolf's chest. `contain` keeps the whole figure in view, letterboxed on
+     the black backdrop — the bars read as part of the blackout rather than as
+     gaps. */
+  background-image: url("/wolf.jpg");
+  background-position: 50% 45%;
+  background-size: contain;
+  background-repeat: no-repeat;
+  /* Light touch so the figure stays legible under the red bloom — the bloom is
+     what should read as blood-tinted, not a globally crushed image. */
+  filter: grayscale(0.25) contrast(1.2) brightness(0.9);
+  animation-name: unlock-flash-out;
+}
+
+.unlock-flash-red {
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(255, 32, 32, 0.92) 0%,
+      rgba(186, 12, 12, 0.72) 38%,
+      rgba(60, 0, 0, 0.55) 72%,
+      rgba(0, 0, 0, 0.25) 100%
+    );
+  mix-blend-mode: screen;
+  animation-name: unlock-flash-red;
+}
+
+.unlock-flash-black {
+  background: #000;
+  animation-name: unlock-flash-black;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-exit {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* The engine snaps --hp to 0.5; flatten that so the planes sit still. */
+  .hero-parallax-layer {
+    transform: none;
+  }
+
+  /* The engine holds --sp at 0; pin the still composition. */
+  .scenery-drift {
+    transform: none;
+  }
+
+  .hero-banner-stack {
+    transition: none;
+  }
+
+  /* A full-screen strobing overlay is exactly the kind of motion this
+     preference exists to remove: no flash, no scale, no bloom. */
+  .unlock-flash-art,
+  .unlock-flash-red,
+  .unlock-flash-black {
+    display: none;
   }
 }
 

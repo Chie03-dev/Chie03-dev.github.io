@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 
 import { ChainsOverlay } from "@/components/ui/chains-overlay";
 
+import { HeroBanner } from "@/components/showcases/hero-banner";
 import { HeroTerminal } from "@/components/showcases/hero-terminal";
 
 import { MagneticButton } from "@/components/ui/magnetic-button";
@@ -36,12 +37,12 @@ const ROLE_FOCUS = ROLE_SPLIT > 0 ? site.role.slice(ROLE_SPLIT + 1) : "";
 /**
  * Engineering-focused hero section. The layout is a Server Component; the
  * interactive leaves (terminal, magnetic CTAs) are client components. The top of
- * the hero is a stretched woodland banner that fades into the page background;
- * the status ping is the only CSS-driven motion, so no extra JS is shipped for
- * the scenery.
+ * the hero is a layered parallax band (see HeroBanner) that fades into the page
+ * background; the status ping is the only CSS-driven motion, so no extra JS is
+ * shipped for the scenery.
  */
 export function Hero() {
-  const { isLocked } = useHeroLock();
+  const { isLocked, isDropHot } = useHeroLock();
   const sectionRef = useRef<HTMLElement>(null);
 
   // Track the hero's 0..1 travel through the viewport to --hp, driving the
@@ -58,28 +59,17 @@ export function Hero() {
       ref={sectionRef}
       className="relative isolate overflow-hidden border-b border-border/40"
     >
-      {/* Woodland banner: the illustration stretched edge-to-end into a short
-          band across the top of the hero. object-fill squashes it into the wide,
-          low box per the requested look. The inner media layer parallaxes with
-          scroll for depth; it's scaled slightly above 1 so the drift never
-          exposes a gap at the container edge. */}
-      <div className="relative -z-20 h-[34vh] w-full overflow-hidden sm:h-[50vh]">
-        <div className="hero-banner-media absolute inset-0">
-          <Image
-            src="/woodland.png"
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-fill"
-          />
-        </div>
-        {/* Bottom fade so the stretched band blends into the page background. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background to-transparent"
-        />
-      </div>
+      {/* Layered parallax scenery band across the top of the hero. Thirteen
+          aligned SVG planes drifting at different depths, crossfading from
+          sunset to a full-moon night when the cage breaks.
+
+          Deliberately a normal flow block rather than an absolutely-positioned
+          backdrop: the art's sun/moon (upper sky) and ground (lower edge) both
+          need to stay unobstructed, and the copy is ~1076px tall — taller than
+          most viewports. As a backdrop the copy covered the sky; as a flow
+          block the copy starts below the band, so sky and ground are clear at
+          any content height. See hero-banner.tsx. */}
+      <HeroBanner />
 
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-4 pt-8 pb-20 sm:px-6 lg:grid-cols-2 lg:gap-8 lg:px-8 lg:pb-28">
         {/* Copy column */}
@@ -162,6 +152,19 @@ export function Hero() {
                 "bg-[radial-gradient(circle_closest-side_at_50%_50%,rgba(0,0,0,0.7)_0%,rgba(0,0,0,0.45)_40%,transparent_100%)]",
                 isLocked
                   ? "animate-hero-vignette-pulse opacity-100"
+                  : "opacity-0",
+              )}
+            />
+
+            {/* Drop-zone outline. inset-0 so it traces the portrait's own box
+                exactly — the same rect the drop hit-test uses, with no extra
+                tolerance, so what you see is precisely what you must hit. */}
+            <div
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute inset-0 -z-10 border-2 border-primary transition-opacity duration-150",
+                isDropHot && isLocked
+                  ? "opacity-100 shadow-[0_0_28px_var(--primary)]"
                   : "opacity-0",
               )}
             />

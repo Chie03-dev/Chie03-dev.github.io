@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CopyButton } from "@/components/ui/copy-button";
+import { LifeCard } from "@/components/showcases/life-card";
 import { site } from "@/lib/site";
 
 function GitHubIcon() {
@@ -118,32 +119,37 @@ export function ContactFooter() {
                 </Link>
                 <CopyButton value={site.email} label="Copy email" />
               </div>
+
+              {/* Action buttons */}
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  href={site.github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={outlineLink}
+                >
+                  <GitHubIcon />
+                  GitHub
+                </Link>
+                <Link
+                  href={site.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={outlineLink}
+                >
+                  <LinkedInIcon />
+                  LinkedIn
+                </Link>
+                <Link href={site.resumeUrl} className={primaryLink}>
+                  <DownloadIcon />
+                  Download Resume
+                </Link>
+              </div>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-              <Link
-                href={site.github}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={outlineLink}
-              >
-                <GitHubIcon />
-                GitHub
-              </Link>
-              <Link
-                href={site.linkedin}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={outlineLink}
-              >
-                <LinkedInIcon />
-                LinkedIn
-              </Link>
-              <Link href={site.resumeUrl} className={primaryLink}>
-                <DownloadIcon />
-                Download Resume
-              </Link>
+            {/* Life cards */}
+            <div id="life">
+              <LifeCard />
             </div>
           </div>
         </div>

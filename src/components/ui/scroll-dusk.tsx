@@ -8,7 +8,11 @@ import { getScrollEngine } from "@/lib/scroll-engine";
 // built-in vertical gradient. Kept strong enough to read as "descending into
 // night" over the dark teal background, while text and opaque cards (which live
 // in the z-10 content layer above this overlay) stay legible.
-const MAX_OPACITY = 0.72;
+//
+// The ceiling comes from the --dusk-max-opacity custom property, which drops
+// once containment is broken (see .unbound-mode in globals.css), so unlocking
+// visibly lifts the mood of the whole page.
+const FALLBACK_MAX_OPACITY = 0.72;
 
 /**
  * A fixed full-viewport dusk tint that deepens as the page scrolls, giving the
@@ -26,10 +30,17 @@ export function ScrollDusk() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
     // The engine calls back immediately and owns the single rAF loop plus the
     // reduced-motion guard (it passes 0 when motion is reduced).
     return getScrollEngine().subscribe((global) => {
-      el.style.opacity = (global * MAX_OPACITY).toFixed(3);
+      const ceiling = Number.parseFloat(
+        getComputedStyle(el).getPropertyValue("--dusk-max-opacity"),
+      );
+      const max = Number.isFinite(ceiling)
+        ? ceiling
+        : FALLBACK_MAX_OPACITY;
+      el.style.opacity = (global * max).toFixed(3);
     });
   }, []);
 

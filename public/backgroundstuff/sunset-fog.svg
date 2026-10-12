@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Sunset transparent valley fog">
-<title>Sunset transparent valley fog</title>
-<defs><linearGradient id="mist" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#b8cecb" stop-opacity="0"/><stop offset=".28" stop-color="#b8cecb" stop-opacity=".18"/><stop offset=".52" stop-color="#d0dbd3" stop-opacity=".28"/><stop offset=".78" stop-color="#9eb9ba" stop-opacity=".14"/><stop offset="1" stop-color="#b8cecb" stop-opacity="0"/></linearGradient></defs>
-<g fill="url(#mist)"><path d="M-30 540 Q130 512 280 540 T580 543 T870 534 T1170 542 T1460 529 T1640 539 L1640 588 Q1480 578 1320 590 T1000 585 T680 593 T360 584 T-30 598Z"/><path d="M-20 625 Q170 600 345 630 T670 629 T990 633 T1300 622 T1620 633 L1620 678 Q1440 669 1250 681 T880 674 T520 685 T150 675 L-20 686Z" opacity=".75"/></g>
-</svg>

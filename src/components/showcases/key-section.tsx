@@ -1,25 +1,30 @@
-import { cn } from "@/lib/utils";
-import { MonsterEyes } from "@/components/ui/monster-eyes";
-import { UnlockKey } from "@/components/ui/unlock-key";
 import { Reveal } from "@/components/ui/reveal";
+import { KeyVault } from "@/components/showcases/key-vault";
 
+/**
+ * The Vault Key section — the guardian's own band. The hero starts chained, and
+ * this is where the visitor takes the key: grab it, carry it past the guardian,
+ * and drop it on the cage up in the hero. Winning calls unlockHero(), which drops the site-wide
+ * containment (chains, vignette, badge) for the rest of the session.
+ *
+ * Deliberately copy-free: the title is the only text, and the scene itself is
+ * the explanation. A Server Component; only the game (KeyVault) is client-side.
+ */
 export function KeySection() {
   return (
-    <section id="key" className="relative isolate py-20 lg:py-28 overflow-hidden border-t border-border/40 bg-muted/20">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 text-center">
-        <Reveal className="mb-12 max-w-2xl mx-auto">
+    <section id="key" className="relative isolate border-t border-border/40">
+      {/*
+        Rendered at the section level rather than inside the heading's wrapper so
+        the guardian band can run edge to edge.
+      */}
+      <div className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 lg:px-8 lg:pt-20">
+        <Reveal className="max-w-2xl">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
             The Vault Key
           </h2>
-          <p className="mt-3 text-lg text-muted-foreground">
-            Watched over by the watcher in the murk. Drag or use the key to unlock the hero experience.
-          </p>
         </Reveal>
-        <div className="relative isolate py-8">
-          <MonsterEyes />
-          <UnlockKey />
-        </div>
       </div>
+      <KeyVault />
     </section>
   );
 }

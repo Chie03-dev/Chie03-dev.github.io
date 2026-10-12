@@ -30,7 +30,7 @@ const LIFE_DATA: LifeCardData = {
     { time: "22:00", activity: "Wind down, journal, sleep" },
   ],
   background: [
-    "Started coding at 12 with GameMaker → fell in love with systems",
+    "Started coding at 12 with GameMaker â†’ fell in love with systems",
     "CS degree + 8 years shipping products at startups & scale-ups",
     "Led mobile/platform teams; built offline-first sync engines",
     "Obsessed with developer experience, local-first software, and craft",
@@ -45,9 +45,9 @@ const LIFE_DATA: LifeCardData = {
     "Build for the 90% case, extend for the 10%",
   ],
   donts: [
-    "Don't optimize prematurely — measure first",
+    "Don't optimize prematurely â€” measure first",
     "Don't gatekeep knowledge; share context freely",
-    "Don't ship broken windows — fix it now or flag it",
+    "Don't ship broken windows â€” fix it now or flag it",
     "Don't conflate velocity with value",
     "Don't ignore friction in developer workflows",
     "Don't let perfect be the enemy of shipped",
@@ -189,26 +189,8 @@ export function LifeCard() {
   }, [currentIndex, goTo]);
 
   return (
-    <section
-      id="life"
-      className="relative isolate overflow-hidden border-b border-border/40 py-20 lg:py-28"
-      aria-labelledby="life-heading"
-    >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-10 sm:grid-cols-2 sm:gap-12">
-          {/* Section header */}
-          <div className="max-w-2xl">
-            <h2 id="life-heading" className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Life Card
-            </h2>
-            <p className="mt-3 text-lg text-muted-foreground">
-              A snapshot of how I work, what I enjoy, and the principles I try to live by. Click left/right sides or use arrow keys to flip.
-            </p>
-          </div>
-
-          {/* Card stack */}
-          <div className="relative flex min-h-[480px] items-center justify-center">
-            <div
+    <div className="relative flex min-h-[480px] items-center justify-center">
+      <div
               className="relative w-full max-w-md h-[400px] perspective-[1000px] cursor-pointer"
             role="region"
             aria-label="Life cards stack"
@@ -293,9 +275,6 @@ export function LifeCard() {
               ))}
             </div>
           </div>
-          </div>
         </div>
-      </div>
-    </section>
   );
 }

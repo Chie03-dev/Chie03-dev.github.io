@@ -1,8 +1,6 @@
 import { cn } from "@/lib/utils";
 import { getExperience, getSkillCategories } from "@/lib/experience";
-import { MonsterEyes } from "@/components/ui/monster-eyes";
 import { Reveal } from "@/components/ui/reveal";
-import { UnlockKey } from "@/components/ui/unlock-key";
 
 /**
  * Work experience timeline and technical skills matrix.
@@ -139,8 +137,6 @@ export function ExperienceSection() {
             </div>
           </div>
         </div>
-
-        {/* Master key, watched over by the monster looming behind it */}
       </div>
     </section>
   );

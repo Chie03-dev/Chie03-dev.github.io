@@ -1,7 +1,8 @@
 "use client";
 
-import { useHeroLock } from "@/context/hero-lock-context";
 import { cn } from "@/lib/utils";
+
+import { useHeroLock } from "@/context/hero-lock-context";
 
 /**
  * Lock status badge shown near the hero portrait. Renders muted red while the
@@ -9,19 +10,25 @@ import { cn } from "@/lib/utils";
  * announces the state change to assistive tech when unlocking runs.
  */
 export function HeroLockBadge() {
-  const { isLocked } = useHeroLock();
+  const { isLocked, isDropHot } = useHeroLock();
 
   return (
     <p
       aria-live="polite"
       className={cn(
         "font-mono text-xs font-medium tracking-widest",
-        isLocked ? "text-red-500/80" : "text-primary",
+        isDropHot
+          ? "text-primary"
+          : isLocked
+            ? "text-red-500/80"
+            : "text-primary",
       )}
     >
-      {isLocked
-        ? "RESTRICTED // CONTAINMENT ACTIVE"
-        : "UNBOUND // SYSTEM FULLY UNLOCKED"}
+      {isDropHot
+        ? "INSERT THE KEY // DROP TO BREAK CONTAINMENT"
+        : isLocked
+          ? "RESTRICTED // CONTAINMENT ACTIVE"
+          : "UNBOUND // SYSTEM FULLY UNLOCKED"}
     </p>
   );
 }
