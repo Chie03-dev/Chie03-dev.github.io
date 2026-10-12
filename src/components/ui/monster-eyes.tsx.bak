@@ -22,7 +22,7 @@ export function MonsterEyes() {
           <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-3.5 sm:w-3.5" />
         </span>
 
-        {/* Right eye — offset blink delay so the pair never blinks in unison */}
+        {/* Right eye -offset blink delay so the pair never blinks in unison */}
         <span
           className="animate-monster-blink motion-reduce:animate-none relative block h-14 w-24 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-70 dark:opacity-80 sm:h-20 sm:w-32"
           style={{ animationDelay: "-3.6s" }}
@@ -64,7 +64,7 @@ export function MonsterEyes() {
             <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--background)] shadow-[0_0_18px_var(--primary)] sm:h-3.5 sm:w-3.5" />
           </span>
           
-          {/* Right eye — offset blink delay so the pair never blinks in unison */}
+          {/* Right eye -offset blink delay so the pair never blinks in unison */}
           <span
             className="animate-monster-blink motion-reduce:animate-none relative block h-14 w-24 origin-center rounded-[50%] bg-[radial-gradient(circle_at_50%_50%,var(--primary)_0%,color-mix(in_oklab,var(--primary)_35%,transparent)_38%,transparent_70%)] blur-[1px] opacity-70 dark:opacity-80 sm:h-20 sm:w-32"
             style={{ animationDelay: "-3.6s" }}

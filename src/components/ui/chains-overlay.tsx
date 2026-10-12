@@ -173,7 +173,7 @@ export function ChainsOverlay({
       // The chain canvas is centered on its wrapper by construction
       // (absolute left-1/2 top-1/2 -translate-1/2 inside the relative
       // [data-cage-drift] box), so the canvas center IS the portrait
-      // center. No rect math needed — rects include live drift/translate
+      // center. No rect math needed -rects include live drift/translate
       // transforms and drift the cage off the photo.
       const hostEl = canvas.parentElement;
       const hostW = hostEl?.clientWidth ?? canvas.clientWidth;
@@ -214,7 +214,7 @@ export function ChainsOverlay({
       // A single centred padlock. Its S/B points are im:0 (fixed by the
       // solver) and re-pinned to the portrait's centre every step, so it
       // stays centred and sways with the box instead of drooping over the
-      // face. It clasps the middle vertical bar — no extra hang chains.
+      // face. It clasps the middle vertical bar -no extra hang chains.
       const S = pt(cx, cy - rest * 3, 0);
       const B = pt(cx, cy - rest * 3 + rest * 2.2, 0);
       lock = { S, B, sw: rest * 1.3, bh: rest * 4.2, bw: rest * 2.8 };
@@ -594,7 +594,7 @@ export function ChainsOverlay({
     }
 
     window.addEventListener("resize", build);
-    // Rebuild when the wrapper box changes size — the portrait image loads
+    // Rebuild when the wrapper box changes size -the portrait image loads
     // async, so the first build measures an empty box and the cage ends up
     // misaligned until something forces a rebuild.
     let ro: ResizeObserver | null = null;

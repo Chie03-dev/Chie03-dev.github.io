@@ -1,12 +1,12 @@
 /**
- * Floating Halloween flourishes scattered behind the hero — a carved pumpkin,
+ * Floating Halloween flourishes scattered behind the hero -a carved pumpkin,
  * candy, ghost, witch's wand, and skull. Purely decorative: a Server Component
  * with zero JS. Each glyph is an inline SVG using stroke="currentColor" so it
  * tints with the ambient ember theme and fades to the background. Rendered at
  * low opacity and aria-hidden so they add atmosphere without competing with the
  * content. Hidden on the smallest screens to keep the fold uncluttered.
  *
- * Icons: Tabler Icons (MIT). Verified paths — pumpkin-scary, candy, ghost, wand,
+ * Icons: Tabler Icons (MIT). Verified paths -pumpkin-scary, candy, ghost, wand,
  * skull. There is no Tabler "broom" glyph, so the witch motif uses the wand.
  */
 const ICON_PROPS = {
@@ -26,7 +26,7 @@ export function HalloweenFlourish() {
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 -z-10 hidden overflow-hidden text-primary/25 md:block dark:text-primary/30"
     >
-      {/* Carved pumpkin — upper left */}
+      {/* Carved pumpkin -upper left */}
       <svg {...ICON_PROPS} className="absolute left-[6%] top-[18%] h-16 w-16 lg:h-24 lg:w-24">
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <path d="M9 15l1.5 1l1.5 -1l1.5 1l1.5 -1" />
@@ -36,7 +36,7 @@ export function HalloweenFlourish() {
         <path d="M12 6c0 -1.226 .693 -2.346 1.789 -2.894l.211 -.106" />
       </svg>
 
-      {/* Candy — right of center, mid height */}
+      {/* Candy -right of center, mid height */}
       <svg {...ICON_PROPS} className="absolute right-[12%] top-[42%] h-10 w-10 lg:h-14 lg:w-14">
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828z" />
@@ -44,7 +44,7 @@ export function HalloweenFlourish() {
         <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" />
       </svg>
 
-      {/* Ghost — lower left */}
+      {/* Ghost -lower left */}
       <svg {...ICON_PROPS} className="absolute bottom-[16%] left-[16%] h-12 w-12 lg:h-16 lg:w-16">
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <path d="M5 11a7 7 0 0 1 14 0v7a1.78 1.78 0 0 1 -3.1 1.4a1.65 1.65 0 0 0 -2.6 0a1.65 1.65 0 0 1 -2.6 0a1.65 1.65 0 0 0 -2.6 0a1.78 1.78 0 0 1 -3.1 -1.4v-7" />
@@ -53,7 +53,7 @@ export function HalloweenFlourish() {
         <path d="M10 14a3.5 3.5 0 0 0 4 0" />
       </svg>
 
-      {/* Witch's wand — right side, lower */}
+      {/* Witch's wand -right side, lower */}
       <svg {...ICON_PROPS} className="absolute bottom-[24%] right-[8%] h-12 w-12 lg:h-16 lg:w-16">
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <path d="M6 21l15 -15l-3 -3l-15 15l3 3" />
@@ -62,7 +62,7 @@ export function HalloweenFlourish() {
         <path d="M19 13a2 2 0 0 0 2 2a2 2 0 0 0 -2 2a2 2 0 0 0 -2 -2a2 2 0 0 0 2 -2" />
       </svg>
 
-      {/* Skull — top right, half-faded into the fold */}
+      {/* Skull -top right, half-faded into the fold */}
       <svg {...ICON_PROPS} className="absolute right-[22%] top-[8%] h-10 w-10 opacity-60 lg:h-14 lg:w-14">
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <path d="M12 4c4.418 0 8 3.358 8 7.5c0 1.901 -.755 3.637 -2 4.96l0 2.54a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-2.54c-1.245 -1.322 -2 -3.058 -2 -4.96c0 -4.142 3.582 -7.5 8 -7.5z" />

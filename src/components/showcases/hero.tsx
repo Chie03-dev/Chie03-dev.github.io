@@ -6,7 +6,6 @@ import { useEffect, useRef } from "react";
 
 import { ChainsOverlay } from "@/components/ui/chains-overlay";
 
-import { HeroBanner } from "@/components/showcases/hero-banner";
 import { HeroTerminal } from "@/components/showcases/hero-terminal";
 
 import { MagneticButton } from "@/components/ui/magnetic-button";
@@ -52,7 +51,7 @@ const HIGHLIGHTS = [
   },
   {
     title: "Web",
-    desc: "Full-stack sites and dashboards — typed end to end, tuned for Core Web Vitals.",
+    desc: "Full-stack sites and dashboards -typed end to end, tuned for Core Web Vitals.",
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -163,12 +162,10 @@ export function Hero() {
 
           Deliberately a normal flow block rather than an absolutely-positioned
           backdrop: the art's sun/moon (upper sky) and ground (lower edge) both
-          need to stay unobstructed, and the copy is ~1076px tall — taller than
+          need to stay unobstructed, and the copy is ~1076px tall -taller than
           most viewports. As a backdrop the copy covered the sky; as a flow
           block the copy starts below the band, so sky and ground are clear at
           any content height. See hero-banner.tsx. */}
-      <HeroBanner />
-
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-12 px-4 pt-8 pb-20 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10 lg:px-8 lg:pb-28">
         {/* Copy column */}
         <div className="hero-exit flex flex-col items-start gap-6">
@@ -181,7 +178,7 @@ export function Hero() {
             Available for engineering opportunities
           </div>
 
-          {/* Hero headline — role eyebrow, then a name-led statement that says
+          {/* Hero headline -role eyebrow, then a name-led statement that says
               what I actually build, then a one-line positioning summary. */}
           <div>
             <h1 className="text-balance text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl lg:text-6xl">
@@ -196,7 +193,7 @@ export function Hero() {
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
               Android engineer by depth, full-stack by range. I ship
-              offline-first mobile apps and the APIs behind them — obsessed with
+              offline-first mobile apps and the APIs behind them -obsessed with
               performance, clean architecture, and developer experience.
             </p>
           </div>
@@ -223,7 +220,7 @@ export function Hero() {
             </MagneticButton>
           </div>
 
-          {/* What I do — three pillars as spotlight cards (icon + title + line) */}
+          {/* What I do -three pillars as spotlight cards (icon + title + line) */}
           <ul className="grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
             {HIGHLIGHTS.map((item) => (
               <li key={item.title}>
@@ -286,7 +283,7 @@ export function Hero() {
             />
 
             {/* Drop-zone outline. inset-0 so it traces the portrait's own box
-                exactly — the same rect the drop hit-test uses, with no extra
+                exactly -the same rect the drop hit-test uses, with no extra
                 tolerance, so what you see is precisely what you must hit. */}
             <div
               aria-hidden="true"

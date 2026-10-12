@@ -9,7 +9,7 @@ import Lenis from "lenis";
  *
  * Native wheel/trackpad scrolling is linear and steppy; premium portfolio
  * sites layer an inertial "glide" on top so the page eases into motion and
- * settles with momentum. Lenis is the small (~3kb) standard for this — it
+ * settles with momentum. Lenis is the small (~3kb) standard for this -it
  * intercepts wheel input and animates `window.scrollTo` on its own rAF, so
  * the existing ScrollEngine keeps working untouched (Lenis still fires real
  * scroll events every frame).

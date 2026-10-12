@@ -2,7 +2,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { KeyVault } from "@/components/showcases/key-vault";
 
 /**
- * The Vault Key section — the guardian's own band. The hero starts chained, and
+ * The Vault Key section -the guardian's own band. The hero starts chained, and
  * this is where the visitor takes the key: grab it, carry it past the guardian,
  * and drop it on the cage up in the hero. Winning calls unlockHero(), which drops the site-wide
  * containment (chains, vignette, badge) for the rest of the session.

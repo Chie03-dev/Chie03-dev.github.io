@@ -9,7 +9,7 @@ import { useHeroLock } from "@/context/hero-lock-context";
  * instant the cage unlocks: a hard black/red snap with the werewolf howling at
  * the full moon, then the whole thing fades off the screen. Runs for 2s.
  *
- * It is decorative by construction — aria-hidden and pointer-events-none, so it
+ * It is decorative by construction -aria-hidden and pointer-events-none, so it
  * can never eat a click or announce itself to assistive tech.
  *
  * Two costs stay near zero:
@@ -36,7 +36,7 @@ export function UnlockFlash() {
   // Play the sting once per unlock. Driven from an effect rather than the
   // `autoPlay` attribute so a later re-lock/unlock replays it instead of
   // staying silent the second time. `.play()` can still reject under autoplay
-  // policy, so the rejection is swallowed — the visual flash must never depend
+  // policy, so the rejection is swallowed -the visual flash must never depend
   // on sound actually starting.
   useEffect(() => {
     if (flashId === 0) return;

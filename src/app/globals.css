@@ -136,72 +136,7 @@
   }
 }
 
-/*
- * Layered hero banner. Two complete SVG stacks (the pack's `sunset/` and
- * `night/` variant folders) sit on top of each other and crossfade: sunset is
- * the resting mood while the hero is contained, and it turns to a full-moon
- * night once the cage breaks (.unbound-mode on <html>). Mirrors
- * --dusk-max-opacity below — same trigger, same idea.
- */
-.hero-banner-stack {
-  transition: opacity 900ms ease;
-}
 
-.hero-banner-stack--night {
-  opacity: 0;
-}
-
-.hero-banner-stack--sunset {
-  opacity: 1;
-}
-
-.unbound-mode .hero-banner-stack--night {
-  opacity: 1;
-}
-
-.unbound-mode .hero-banner-stack--sunset {
-  opacity: 0;
-}
-
-/*
- * One parallax plane. Each layer carries its own --p-y travel, set inline from
- * the pack's per-layer depth, and is grown by exactly that much at the bottom
- * (--p-overscan) so the upward drift never exposes a gap beneath it. Tree
- * layers also carry --p-base, a fixed resting drop that settles their
- * silhouette tops inside the seam fade at the band's bottom edge so they
- * blend into the border instead of standing above it.
- *
- * `width: 100%` is load-bearing, not redundant. As an absolutely-positioned
- * *replaced* element with `left`/`right` both set, an `auto` width would
- * resolve to the image's intrinsic size (these SVGs carry width="1920"
- * height="720") and the over-constrained `right` would be dropped — rendering
- * a fixed-width strip instead of spanning the band.
- *
- * `object-fit: fill` is deliberate, not lazy. The band is `aspect-video` but is
- * clamped by `max-h-[80vh]`, so its aspect drifts from 16:9 whenever the
- * viewport isn't itself ~16:9 — e.g. 1440x648 desktop (2.22:1) or 390x304
- * mobile (1.28:1). The art is 1920x720 (2.67:1), so an undistorted `cover`
- * inside those boxes scales by width and can only ever show a slice of the
- * scene's height — neither sky nor road survives at both extremes. Filling
- * shows the whole scene (sky -> ridges -> forest -> ground) at any
- * band size, full-bleed, which is also how the pack's own preview.html
- * stretches its layers. The accepted cost is a vertical stretch (~1.2x on
- * desktop, ~2.1x on mobile); the layers are stylized flat vectors, so it reads
- * as panoramic rather than broken.
- *
- * --p-overscan still grows the height past the band so the upward drift never
- * exposes a gap underneath; with `fill` that just stretches the art slightly
- * more, which is invisible on these shapes.
- */
-.hero-parallax-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: calc(100% + var(--p-overscan, 0px));
-  object-fit: fill;
-  transform: translate3d(0, calc(var(--p-base, 0px) + var(--hp, 0) * var(--p-y, 0px)), 0);
-}
 
 /*
  * Page-wide drifting scenery (<SceneryDrift />). Each element rests at its
@@ -247,7 +182,7 @@
 /*
  * Break-containment flash (see <UnlockFlash />). Fires once when the cage is
  * unlocked: a hard black/red snap carrying the werewolf artwork, then the whole
- * thing fades off the screen. Runs for 2s — long enough to actually read the
+ * thing fades off the screen. Runs for 2s -long enough to actually read the
  * artwork rather than just register a strobe.
  *
  * Everything animates opacity and transform only, so the sequence stays on the
@@ -303,7 +238,7 @@
 }
 
 /* Hard black strobe: a blackout on entry, a second stutter, then clear by 24%
-   (480ms) — deliberately front-loaded so it punches without eating into the
+   (480ms) -deliberately front-loaded so it punches without eating into the
    ~1.5s the artwork is meant to be visible for. */
 @keyframes unlock-flash-black {
   0% {
@@ -341,13 +276,13 @@
   /* `contain`, not `cover`. The source is portrait and the overlay is a
      landscape viewport, so `cover` scales by width and crops the frame down to
      the wolf's chest. `contain` keeps the whole figure in view, letterboxed on
-     the black backdrop — the bars read as part of the blackout rather than as
+     the black backdrop -the bars read as part of the blackout rather than as
      gaps. */
   background-image: url("/wolf.jpg");
   background-position: 50% 45%;
   background-size: contain;
   background-repeat: no-repeat;
-  /* Light touch so the figure stays legible under the red bloom — the bloom is
+  /* Light touch so the figure stays legible under the red bloom -the bloom is
      what should read as blood-tinted, not a globally crushed image. */
   filter: grayscale(0.25) contrast(1.2) brightness(0.9);
   animation-name: unlock-flash-out;
@@ -377,18 +312,7 @@
     transform: none;
   }
 
-  /* The engine snaps --hp to 0.5; flatten that so the planes sit still,
-     keeping each tree layer's resting base drop. */
-  .hero-parallax-layer {
-    transform: translateY(var(--p-base, 0px));
-  }
-
   /* The engine holds --sp at 0; pin the still composition. */
-
-
-  .hero-banner-stack {
-    transition: none;
-  }
 
   /* A full-screen strobing overlay is exactly the kind of motion this
      preference exists to remove: no flash, no scale, no bloom. */

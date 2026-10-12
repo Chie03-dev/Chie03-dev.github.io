@@ -5,13 +5,13 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 /*
- * The Vault Key — an interactive guardian mini-game rendered on a single
+ * The Vault Key -an interactive guardian mini-game rendered on a single
  * <canvas>, no libraries.
  *
  * A shadow guardian clutches a golden key. The visitor grabs the key and carries
  * it out of this band, up to the hero's containment cage, and drops it there to
  * break containment. The guardian swats to knock the key loose along the way, so
- * the carry has to be won — and the drop has to land squarely on the cage.
+ * the carry has to be won -and the drop has to land squarely on the cage.
  *
  * Two portability choices keep it cheap and responsive:
  *  - The simulation steps on a fixed 60Hz timestep decoupled from paint, so
@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  *  - Every dimension is a fraction of `S = min(width, height)`, so a single
  *    code path scales to any box with no breakpoints.
  *
- * It pauses entirely when scrolled out of view or the tab is hidden — except
+ * It pauses entirely when scrolled out of view or the tab is hidden -except
  * mid-carry, since the page scrolls the hero into view during a drag. It also
  * keeps working (minus ambient motion) under prefers-reduced-motion.
  *
@@ -106,7 +106,7 @@ interface Particle {
 }
 
 export interface KeyGuardianProps {
-  /** Fired when containment breaks — by dropping the key on the cage. */
+  /** Fired when containment breaks -by dropping the key on the cage. */
   onClaim: () => void;
   /** Fired only when the carried-key hover state over the cage changes. */
   onDropHot?: (hot: boolean) => void;
@@ -198,18 +198,18 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
     /**
      * Guardian body scale. The monster reads oversized next to the key game,
      * so the body, arms, and eyes draw at 70% while the key, grab radius, and
-     * alert distances keep full scale — the game stays exactly as playable.
+     * alert distances keep full scale -the game stays exactly as playable.
      */
     const MONSTER = 0.7;
     /**
      * Horizontal squeeze applied to the body silhouette, eyes, mouth, and arm
-     * anchors. Only widths slim — heights stay full so he reads thinner, not
+     * anchors. Only widths slim -heights stay full so he reads thinner, not
      * shorter.
      */
     const SLIM = 0.62;
     let cx = 0;
     let cy = 0;
-    /** Guardian body centre — sits just below the key's home position. */
+    /** Guardian body centre -sits just below the key's home position. */
     let mx = 0;
     let my = 0;
     /** Frame counter driving all ambient oscillation. */
@@ -242,7 +242,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
     /**
      * True once the pointer has carried the key outside the canvas band. The
      * DOM ghost is visible there, so the canvas key is hidden for the same
-     * span — otherwise a second key is visible sitting back on the pedestal.
+     * span -otherwise a second key is visible sitting back on the pedestal.
      */
     let keyEscaped = false;
     /** Ensures the hero is pulled into view only once per drag. */
@@ -378,7 +378,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       shake = reduced ? 0 : 0.02 * S;
       alertLevel = 1;
       // A swat ends a carry without going through onPointerUp, so the floating
-      // key has to be retracted here too — otherwise it stays stuck under the
+      // key has to be retracted here too -otherwise it stays stuck under the
       // cursor with nothing driving it.
       hideGhost();
       pointerClient = null;
@@ -479,7 +479,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
 
     /**
      * Advance the key. The only way to win is to carry it out of this band and
-     * drop it on the hero's cage, which is handled in onPointerUp — the sim just
+     * drop it on the hero's cage, which is handled in onPointerUp -the sim just
      * keeps the key physical while it is being fought over.
      */
     function keyUpdate() {
@@ -604,7 +604,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
 
     /**
      * Publish the hover state. Called from the loop, so it must be a no-op
-     * unless the value actually changed — this sits on React state, and the loop
+     * unless the value actually changed -this sits on React state, and the loop
      * runs every frame.
      */
     function setDropHot(hot: boolean) {
@@ -847,7 +847,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       // Fixed pixel size matching the drag ghost outside the section (56px
       // box, 20-unit viewBox): one unit = 2.8px. Same bow, shaft, and teeth
       // numbers as the ghost SVG, so the two read as one key. Physics and
-      // grab radius keep full S — only the drawing shrinks.
+      // grab radius keep full S -only the drawing shrinks.
       const u = 56 / 20;
       const L = 17 * u;
       const r = 3.4 * u;
@@ -949,8 +949,8 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
     }
 
     function draw() {
-      // Clear only. The monster sits directly on the page background — no haze
-      // wash — so the scene inherits the site's light/dark theme.
+      // Clear only. The monster sits directly on the page background -no haze
+      // wash -so the scene inherits the site's light/dark theme.
       c.clearRect(0, 0, W, H);
 
       monster();
@@ -981,7 +981,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
      */
     function frame(ts: number) {
       raf = requestAnimationFrame(frame);
-      // Idle when off-screen or the tab is hidden — but never mid-carry: the page
+      // Idle when off-screen or the tab is hidden -but never mid-carry: the page
       // auto-scrolls the hero into view during a drag, which can push this band
       // out of the viewport while the visitor is still holding the key.
       if ((!visible || document.hidden) && !isDragging()) {
@@ -1124,7 +1124,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
      * visitor steps into. The canvas itself is width-capped so the key stays
      * reachable on ultra-wide screens.
      *
-     * No background of its own — the monster is drawn straight onto the page
+     * No background of its own -the monster is drawn straight onto the page
      * background, so he inherits the site's light/dark theme instead of sitting
      * in a violet pool.
      */
@@ -1164,7 +1164,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       >
         {/*
           The carried key. This is the SAME design as the one drawn on the
-          canvas, redrawn as SVG so it can leave the canvas element — same bow
+          canvas, redrawn as SVG so it can leave the canvas element -same bow
           proportions, same two teeth, same gold gradient, same glow. Keeping a
           second, different key shape here made the portfolio read as two keys.
         */}
