@@ -567,10 +567,14 @@ export function ChainsOverlay({
       draw();
       if (portraitEl) {
         const { cx, cy, angle } = frameTransform();
-        const dx = cx - buildCx;
-        const dy = cy - buildCy;
-        if (Number.isFinite(dx) && Number.isFinite(dy) && Number.isFinite(angle)) {
-          portraitEl.style.transform = `translate(${dx * 2}px, ${dy * 2}px) rotate(${angle * 2.5}rad)`;
+        // Portrait rides the cage 1:1 but clamped: wild chain motion stays
+        // visible while the portrait itself can never leave its box and
+        // break the hero layout.
+        const dx = Math.max(-14, Math.min(14, cx - buildCx));
+        const dy = Math.max(-14, Math.min(14, cy - buildCy));
+        const rot = Math.max(-0.06, Math.min(0.06, angle));
+        if (Number.isFinite(dx) && Number.isFinite(dy) && Number.isFinite(rot)) {
+          portraitEl.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}rad)`;
         }
       }
       animationFrame = requestAnimationFrame(loop);
