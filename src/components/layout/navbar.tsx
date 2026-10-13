@@ -56,12 +56,16 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <CommandTrigger />
-          <Link
+          {/* A PDF is a static file, not an in-app route, so it is a plain
+              anchor: <Link> would prefetch an RSC payload for it, which only a
+              Node server can answer and which 404s once the site is exported
+              to static files. */}
+          <a
             href={site.resumeUrl}
             className="hidden items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"
           >
             Resume
-          </Link>
+          </a>
           <MobileNav items={NAV_ITEMS} />
         </div>
       </header>
