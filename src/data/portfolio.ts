@@ -79,6 +79,22 @@ export const portfolioData: PortfolioData = {
         "PostgreSQL",
       ],
     },
+    {
+      id: "4",
+      title: "School Systems Demo",
+      description:
+        "School administration platform demo with dashboards for enrolment, attendance tracking, grade records, and per-program reporting.",
+      image: "/projects/schoolsystems.svg",
+      link: "https://github.com/Chie03-dev",
+      period: "2026",
+      technologies: [
+        "Next.js",
+        "React",
+        "TypeScript",
+        "Tailwind CSS",
+        "PostgreSQL",
+      ],
+    },
   ],
 
   experience: [

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" width="1200" height="900" role="img" aria-label="School system administration dashboard">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#20365e"/>
+      <stop offset="1" stop-color="#101d36"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2c4d"/>
+      <stop offset="1" stop-color="#152442"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e79a3f"/>
+      <stop offset="1" stop-color="#d0762a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- backdrop -->
+  <rect width="1200" height="900" fill="url(#sky)"/>
+
+  <!-- app shell -->
+  <rect x="70" y="70" width="1060" height="760" rx="18" fill="url(#panel)" stroke="#2f4670" stroke-width="2"/>
+
+  <!-- title bar -->
+  <rect x="70" y="70" width="1060" height="58" rx="18" fill="#16273f"/>
+  <line x1="70" y1="128" x2="1130" y2="128" stroke="#2f4670" stroke-width="2"/>
+  <circle cx="106" cy="99" r="6" fill="#e05c5c"/>
+  <circle cx="130" cy="99" r="6" fill="#e0b45c"/>
+  <circle cx="154" cy="99" r="6" fill="#5ce08a"/>
+  <text x="196" y="106" font-family="system-ui, sans-serif" font-size="20" fill="#9fb3d4">School Systems &#8212; Administration</text>
+
+  <!-- sidebar -->
+  <rect x="70" y="128" width="230" height="702" fill="#13233c"/>
+  <line x1="300" y1="128" x2="300" y2="830" stroke="#2f4670" stroke-width="2"/>
+  <g font-family="system-ui, sans-serif" font-size="17" fill="#8fa6c9">
+    <rect x="94" y="168" width="182" height="40" rx="9" fill="#1d3358"/>
+    <text x="118" y="195" fill="#f2c88a">Dashboard</text>
+    <text x="118" y="248">Students</text>
+    <text x="118" y="296">Teachers</text>
+    <text x="118" y="344">Classes</text>
+    <text x="118" y="392">Attendance</text>
+    <text x="118" y="440">Grades</text>
+    <text x="118" y="488">Enrollment</text>
+    <text x="118" y="536">Announcements</text>
+    <text x="118" y="584">Reports</text>
+  </g>
+
+  <!-- header row -->
+  <text x="340" y="180" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#eaf0fa">Dashboard</text>
+  <rect x="900" y="152" width="210" height="38" rx="9" fill="#1b2c4d" stroke="#2f4670" stroke-width="1.5"/>
+  <text x="922" y="177" font-family="system-ui, sans-serif" font-size="15" fill="#8fa6c9">Search students&#8230;</text>
+
+  <!-- stat cards -->
+  <g font-family="system-ui, sans-serif">
+    <rect x="340" y="204" width="240" height="106" rx="12" fill="#1b2c4d" stroke="#2f4670" stroke-width="1.5"/>
+    <text x="366" y="240" font-size="14" fill="#8fa6c9">TOTAL STUDENTS</text>
+    <text x="366" y="286" font-size="34" font-weight="700" fill="#f2c88a">1,248</text>
+
+    <rect x="600" y="204" width="240" height="106" rx="12" fill="#1b2c4d" stroke="#2f4670" stroke-width="1.5"/>
+    <text x="626" y="240" font-size="14" fill="#8fa6c9">TEACHERS</text>
+    <text x="626" y="286" font-size="34" font-weight="700" fill="#eaf0fa">86</text>
+
+    <rect x="860" y="204" width="240" height="106" rx="12" fill="#1b2c4d" stroke="#2f4670" stroke-width="1.5"/>
+    <text x="886" y="240" font-size="14" fill="#8fa6c9">AVERAGE GRADE</text>
+    <text x="886" y="286" font-size="34" font-weight="700" fill="#7fd8a8">89.4%</text>
+  </g>
+
+  <!-- attendance chart -->
+  <rect x="340" y="336" width="500" height="240" rx="12" fill="#1b2c4d" stroke="#2f4670" stroke-width="1.5"/>
+  <text x="366" y="372" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#eaf0fa">Weekly attendance</text>
+  <g fill="url(#bar)">
+    <rect x="372" y="470" width="40" height="80" rx="5"/>
+    <rect x="428" y="440" width="40" height="110" rx="5"/>
+    <rect x="484" y="454" width="40" height="96" rx="5"/>
+    <rect x="540" y="410" width="40" height="140" rx="5"/>
+    <rect x="596" y="432" width="40" height="118" rx="5"/>
+    <rect x="652" y="396" width="40" height="154" rx="5"/>
+    <rect x="708" y="446" width="40" height="104" rx="5"/>
+  </g>
+  <g font-family="system-ui, sans-serif" font-size="12" fill="#7d93b5">
+    <text x="384" y="566">Mon</text>
+    <text x="440" y="566">Tue</text>
+    <text x="496" y="566">Wed</text>
+    <text x="552" y="566">Thu</text>
+    <text x="608" y="566">Fri</text>
+    <text x="660" y="566">Sat</text>
+    <text x="716" y="566">Sun</text>
+  </g>
+
+  <!-- student table -->
+  <rect x="860" y="336" width="240" height="240" rx="12" fill="#1b2c4d" stroke="#2f4670" stroke-width="1.5"/>
+  <text x="886" y="372" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#eaf0fa">Recent enrollees</text>
+  <g font-family="system-ui, sans-serif" font-size="14" fill="#9fb3d4">
+    <circle cx="896" cy="410" r="15" fill="#2c4269"/>
+    <text x="924" y="416">Maria Santos</text>
+    <circle cx="896" cy="466" r="15" fill="#2c4269"/>
+    <text x="924" y="472">Juan Cruz</text>
+    <circle cx="896" cy="522" r="15" fill="#2c4269"/>
+    <text x="924" y="528">Ana Reyes</text>
+    <rect x="886" y="548" width="52" height="20" rx="10" fill="#1f3a2c"/>
+    <text x="896" y="563" font-size="12" fill="#7fd8a8">Active</text>
+  </g>
+
+  <!-- bottom strip -->
+  <rect x="340" y="600" width="760" height="200" rx="12" fill="#1b2c4d" stroke="#2f4670" stroke-width="1.5"/>
+  <text x="366" y="636" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#eaf0fa">Enrollment by program</text>
+  <g font-family="system-ui, sans-serif" font-size="14" fill="#9fb3d4">
+    <text x="366" y="676">STEM</text>
+    <rect x="500" y="662" width="560" height="18" rx="9" fill="#22334f"/>
+    <rect x="500" y="662" width="452" height="18" rx="9" fill="url(#bar)"/>
+    <text x="366" y="722">ABM</text>
+    <rect x="500" y="708" width="560" height="18" rx="9" fill="#22334f"/>
+    <rect x="500" y="708" width="318" height="18" rx="9" fill="url(#bar)"/>
+    <text x="366" y="768">HUMSS</text>
+    <rect x="500" y="754" width="560" height="18" rx="9" fill="#22334f"/>
+    <rect x="500" y="754" width="224" height="18" rx="9" fill="url(#bar)"/>
+  </g>
+</svg>
