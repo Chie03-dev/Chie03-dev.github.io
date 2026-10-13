@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { KeyBand } from "@/components/home/key-band";
+import { SectionRail } from "@/components/ui/section-rail";
 import { portfolioData } from "@/data/portfolio";
 import { site } from "@/lib/site";
 
@@ -141,33 +142,39 @@ export default function Contact() {
 
   return (
     <section id="contact">
-      <h2 className="text-3xl font-bold tracking-tight uppercase mb-6">
-        CONTACT ME
-      </h2>
+      <SectionRail>
+        <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
+          CONTACT ME
+        </h2>
 
-      <p className="mb-8 text-lg leading-relaxed text-muted-foreground">
-        {contact.description}
-      </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {links.map((link) => (
-          <a
-            key={link.label}
-            href={link.href}
-            target={link.external ? "_blank" : undefined}
-            rel={link.external ? "noopener noreferrer" : undefined}
-            className="group flex items-center gap-4 rounded-xl border border-border/20 p-4 transition-all hover:-translate-y-1 hover:border-primary/20"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/40 text-primary transition-colors group-hover:bg-primary/10">
-              {link.icon}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm text-muted-foreground">{link.label}</span>
-              <span className="block truncate text-sm font-medium">{link.display}</span>
-            </span>
-            <ArrowIcon className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-          </a>
-        ))}
-      </div>
+        <p className="mb-8 text-lg leading-relaxed text-muted-foreground">
+          {contact.description}
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {links.map((link) => (
+            <a
+              key={link.label}
+              href={link.href}
+              target={link.external ? "_blank" : undefined}
+              rel={link.external ? "noopener noreferrer" : undefined}
+              className="group flex min-w-0 items-center gap-4 rounded-xl border border-border/20 p-4 transition-all hover:-translate-y-1 hover:border-primary/20"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/40 text-primary transition-colors group-hover:bg-primary/10">
+                {link.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm text-muted-foreground">
+                  {link.label}
+                </span>
+                <span className="block truncate text-sm font-medium">
+                  {link.display}
+                </span>
+              </span>
+              <ArrowIcon className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </a>
+          ))}
+        </div>
+      </SectionRail>
 
       {/* The Vault Key: the guardian clutches the key that breaks the hero's
           containment. Client-side game that clears itself once unbound. */}

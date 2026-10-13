@@ -2,6 +2,7 @@ import { LuCheck } from "react-icons/lu";
 
 import { CategoryIcon, RoleIcon, SkillIcon } from "@/components/icons";
 import { Timeline } from "@/components/ui/timeline";
+import { SectionRail } from "@/components/ui/section-rail";
 import { portfolioData } from "@/data/portfolio";
 import { Reveal } from "@/components/ui/reveal";
 
@@ -25,98 +26,104 @@ export default function SkillsExperience() {
 
   return (
     <section id="skills">
-      <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
-        SKILLS &amp; EXPERIENCE
-      </h2>
+      {/* One rail for the whole section: the skills cards and the experience
+          timeline hang off the same spine, so the rail runs unbroken from the
+          section heading down to the last role. */}
+      <SectionRail>
+        <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
+          SKILLS &amp; EXPERIENCE
+        </h2>
 
-      {/* ---- Skills ---- */}
-      <h3 className="mb-4 text-xl font-semibold">Skills</h3>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {skillGroups.map((group, i) => (
-          <Reveal key={group.category} delay={i * 50} className="h-full">
-            <article className="group h-full rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
-              <div className="mb-3 flex items-center gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
-                  <CategoryIcon category={group.category} className="size-4.5" />
-                </span>
-                <h4 className="text-sm font-semibold tracking-tight">
-                  {group.category}
-                </h4>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {group.items.length}
-                </span>
-              </div>
-              <ul className="flex flex-wrap gap-1.5">
-                {group.items.map((item) => (
-                  <li
-                    key={item}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                  >
-                    <SkillIcon
-                      name={item}
-                      group={group.category}
-                      className="size-3.5 shrink-0"
-                    />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </article>
-          </Reveal>
-        ))}
-      </div>
-
-      {/* ---- Experience ---- */}
-      <h3 className="mt-12 mb-6 text-xl font-semibold">Experience</h3>
-      <Timeline
-        data={experience.map((exp) => {
-          const isCurrent = exp.period.toLowerCase().includes("present");
-          return {
-            title: exp.period,
-            node: (
-              <span className="relative flex h-full w-full items-center justify-center">
-                <RoleIcon position={exp.position} className="size-4" />
-                {isCurrent && (
-                  <span className="absolute -right-1.5 -top-1.5 flex size-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
-                    <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
+        {/* ---- Skills ---- */}
+        <h3 className="mb-4 text-xl font-semibold">Skills</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {skillGroups.map((group, i) => (
+            <Reveal key={group.category} delay={i * 50} className="h-full">
+              <article className="group h-full rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                    <CategoryIcon category={group.category} className="size-4.5" />
                   </span>
-                )}
-              </span>
-            ),
-            content: (
-              <article className="rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
-                <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h4 className="text-lg font-semibold tracking-tight">
-                    {exp.position}
+                  <h4 className="text-sm font-semibold tracking-tight">
+                    {group.category}
                   </h4>
-                  <span className="text-sm">
-                    <span className="text-primary">{exp.company}</span>
-                    <span className="text-muted-foreground">
-                      {" "}
-                      &middot; {exp.location}
-                    </span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {group.items.length}
                   </span>
                 </div>
-                <ul className="mt-3 space-y-1.5">
-                  {exp.description.map((line, j) => (
+                <ul className="flex flex-wrap gap-1.5">
+                  {group.items.map((item) => (
                     <li
-                      key={j}
-                      className="flex gap-2 text-sm text-muted-foreground"
+                      key={item}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                     >
-                      <LuCheck
-                        className="mt-0.5 size-3.5 shrink-0 text-primary"
-                        aria-hidden="true"
+                      <SkillIcon
+                        name={item}
+                        group={group.category}
+                        className="size-3.5 shrink-0"
                       />
-                      <span>{line}</span>
+                      {item}
                     </li>
                   ))}
                 </ul>
               </article>
-            ),
-          };
-        })}
-      />
+            </Reveal>
+          ))}
+        </div>
+
+        {/* ---- Experience ---- */}
+        <h3 className="mt-12 mb-6 text-xl font-semibold">Experience</h3>
+        <Timeline
+          railless
+          data={experience.map((exp) => {
+            const isCurrent = exp.period.toLowerCase().includes("present");
+            return {
+              title: exp.period,
+              node: (
+                <span className="relative flex h-full w-full items-center justify-center">
+                  <RoleIcon position={exp.position} className="size-4" />
+                  {isCurrent && (
+                    <span className="absolute -right-1.5 -top-1.5 flex size-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
+                    </span>
+                  )}
+                </span>
+              ),
+              content: (
+                <article className="rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+                  <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h4 className="text-lg font-semibold tracking-tight">
+                      {exp.position}
+                    </h4>
+                    <span className="text-sm">
+                      <span className="text-primary">{exp.company}</span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        &middot; {exp.location}
+                      </span>
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-1.5">
+                    {exp.description.map((line, j) => (
+                      <li
+                        key={j}
+                        className="flex gap-2 text-sm text-muted-foreground"
+                      >
+                        <LuCheck
+                          className="mt-0.5 size-3.5 shrink-0 text-primary"
+                          aria-hidden="true"
+                        />
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ),
+            };
+          })}
+        />
+      </SectionRail>
     </section>
   );
 }

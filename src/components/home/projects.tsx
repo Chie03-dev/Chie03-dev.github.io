@@ -1,5 +1,6 @@
 import { portfolioData } from "@/data/portfolio";
 import { NotchedProjectCard } from "@/components/ui/notched-project-card";
+import { SectionRail } from "@/components/ui/section-rail";
 
 /**
  * Recent work, as notched project cards: the cover's bottom-right corner is cut
@@ -21,33 +22,35 @@ export default function Projects() {
 
   return (
     <section id="projects">
-      <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
-        RECENT PROJECTS
-      </h2>
+      <SectionRail>
+        <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
+          RECENT PROJECTS
+        </h2>
 
-      <ul
-        tabIndex={0}
-        aria-label="Recent projects, scrollable sideways"
-        className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
-      >
-        {projects.map((project) => (
-          <li
-            key={project.id}
-            className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%]"
-          >
-            <NotchedProjectCard
-              href={project.link}
-              title={project.title}
-              description={project.description}
-              image={project.image}
-              imageAlt={`${project.title} screenshot`}
-              badge={year(project.period)}
-              tags={project.technologies}
-              monochrome
-            />
-          </li>
-        ))}
-      </ul>
+        <ul
+          tabIndex={0}
+          aria-label="Recent projects, scrollable sideways"
+          className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
+        >
+          {projects.map((project) => (
+            <li
+              key={project.id}
+              className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%]"
+            >
+              <NotchedProjectCard
+                href={project.link}
+                title={project.title}
+                description={project.description}
+                image={project.image}
+                imageAlt={`${project.title} screenshot`}
+                badge={year(project.period)}
+                tags={project.technologies}
+                monochrome
+              />
+            </li>
+          ))}
+        </ul>
+      </SectionRail>
     </section>
   );
 }
