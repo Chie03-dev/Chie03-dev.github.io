@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { CommandPalette } from "@/components/showcases/command-palette";
+import { Navbar } from "@/components/layout/navbar";
 import { UnlockFlash } from "@/components/ui/unlock-flash";
 import { HeroLockProvider } from "@/context/hero-lock-context";
 import { ScrollDusk } from "@/components/ui/scroll-dusk";
@@ -21,16 +22,17 @@ export const metadata: Metadata = {
   },
   description: site.description,
   keywords: [
-    "Software Engineer",
-    "Mobile Engineer",
-    "Full-Stack Engineer",
-    "Kotlin",
+    "Computer Science",
+    "Software Developer",
     "Android",
+    "Kotlin",
     "Jetpack Compose",
+    "React",
     "Next.js",
     "TypeScript",
     "Electron",
-    "Systems Architecture",
+    "POS Systems",
+    "Technical Support",
   ],
   authors: [{ name: site.name, url: site.url }],
   creator: site.name,
@@ -59,9 +61,11 @@ export const metadata: Metadata = {
   },
 };
 
-// Applied before paint to avoid a flash of the wrong theme. Reads the stored
-// preference, falling back to the OS color scheme.
-const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
+// The palette's dark-theme command and the navbar toggle both read the hero's
+// containment state, so the lock provider wraps the whole app: the theme is a
+// site-wide state, not a per-page one. No theme-init script is needed - there
+// is nothing to persist or detect, since the default theme is the only one
+// available while the hero is caged (see src/lib/theme.ts).
 
 // JSON-LD Person structured data for rich search engine indexing.
 const personJsonLd = {
@@ -73,13 +77,14 @@ const personJsonLd = {
   email: `mailto:${site.email}`,
   sameAs: [site.github, site.linkedin],
   knowsAbout: [
-    "Mobile Engineering",
-    "Full-Stack Development",
+    "Android Development",
     "Kotlin",
-    "Android",
+    "React",
     "Next.js",
     "TypeScript",
-    "Systems Architecture",
+    "Electron",
+    "Database Systems",
+    "Technical Support",
   ],
 };
 
@@ -91,7 +96,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-pt-24" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <script
           type="application/ld+json"
@@ -110,13 +114,14 @@ export default function RootLayout({
             without dimming text or opaque cards. */}
         <ScrollDusk />
         <SmoothScroll />
-        <div className="relative z-10">
-          <HeroLockProvider>
-          {children}
-          <UnlockFlash />
+        <HeroLockProvider>
+          <div className="relative z-10">
+            <Navbar />
+            {children}
+            <UnlockFlash />
+          </div>
+          <CommandPalette />
         </HeroLockProvider>
-        </div>
-        <CommandPalette />
       </body>
     </html>
   );

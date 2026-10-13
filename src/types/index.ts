@@ -17,3 +17,10 @@ export interface NavItem {
   href: string;
 }
 
+/** Social media link for profile icons. */
+export interface SiteSocial {
+  name: string;
+  url: string;
+  icon: string; // Could be used to map to actual icon components
+}
+

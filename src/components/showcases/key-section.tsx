@@ -1,4 +1,3 @@
-import { Reveal } from "@/components/ui/reveal";
 import { KeyVault } from "@/components/showcases/key-vault";
 
 /**

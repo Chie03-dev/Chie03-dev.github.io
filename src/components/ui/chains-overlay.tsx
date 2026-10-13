@@ -13,6 +13,13 @@ interface SimPoint {
   tx?: number;
   ty?: number;
   k?: number;
+  /**
+   * True for the cage's own structure. Those points ignore gravity, so the
+   * frame does not sag a few pixels off its build pose (which would leave the
+   * cage sitting off-centre around the portrait); the hanging links still
+   * droop under it.
+   */
+  frame?: boolean;
 }
 interface Constraint {
   a: SimPoint;
@@ -33,6 +40,37 @@ interface Lock {
 interface ChainsOverlayProps {
   className?: string;
   isLocked: boolean;
+}
+
+// The cage paints from the site's own colour tokens rather than a hard-coded
+// steel, so its metal and its padlock belong to the same palette as the page.
+// CSS custom properties cannot be handed to canvas addColorStop directly, so
+// each one is resolved to rgb through a throwaway 1x1 canvas. Done once per
+// build (mount and resize), so it costs nothing per frame.
+let probe: HTMLCanvasElement | null = null;
+
+/** Resolves a CSS colour (oklch tokens included) into an `rgb()` triplet. */
+function resolveToken(value: string, fallback: [number, number, number]) {
+  if (!value) return fallback;
+  if (!probe) probe = document.createElement("canvas");
+  probe.width = 1;
+  probe.height = 1;
+  const p = probe.getContext("2d");
+  if (!p) return fallback;
+  p.clearRect(0, 0, 1, 1);
+  // Sentinel: an unparseable value leaves the previous fillStyle in place, so a
+  // magenta result means the token did not parse and we fall back.
+  p.fillStyle = "#ff00ff";
+  p.fillStyle = value;
+  p.fillRect(0, 0, 1, 1);
+  const d = p.getImageData(0, 0, 1, 1).data;
+  if (d[0] === 255 && d[1] === 0 && d[2] === 255) return fallback;
+  return [d[0], d[1], d[2]] as [number, number, number];
+}
+
+function rgba(value: string, alpha: number, fallback: [number, number, number]) {
+  const [r, g, b] = resolveToken(value, fallback);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 export function ChainsOverlay({
@@ -70,6 +108,16 @@ export function ChainsOverlay({
 
     const GRAVITY = 0.8;
     const SOLVER_ITERATIONS = 24;
+    // How much of the portrait's box the cage is inset by on each side. A share
+    // rather than a pixel count, so the cage wraps the photo with the same
+    // proportions whether the portrait is 240px on a phone or 320px on a
+    // desktop - 9% of the portrait per side is roughly a link and a half.
+    const CAGE_GAP = 0.09;
+    // How far a corner may wobble away from that perfect fit, as a share of the
+    // gap. The cage is placed by the portrait's clamped pose, so this bound is
+    // what remains of the caged-animal sway: enough to breathe, never enough to
+    // read as a mis-fit or let the cage wander off its portrait.
+    const CAGE_WOBBLE = 0.25;
     // Clamp per-frame velocity so the periodic "lunge" impulses below can never
     // blow the solver up.
     const MAX_V = 40;
@@ -79,6 +127,20 @@ export function ChainsOverlay({
     let rest = 10;
     let fw = 200;
     let fh = 250;
+    // The gap between the cage and the portrait, in px, set at build time from
+    // the portrait's own size (see CAGE_GAP).
+    let cageGap = 16;
+
+    // Backing-store scale, capped: the cage is chunky chain links and a
+    // padlock, not fine detail, so anything past ~1.5x buys nothing a viewer
+    // can see while quadrupling the pixels to rasterise on every repaint.
+    // On a 3x phone that alone drops the bitmap by ~4.5x.
+    let renderScale = Math.min(window.devicePixelRatio || 1, 1.5);
+    // Physics runs on every frame - that is what keeps the sway feeling
+    // alive - while the cage itself is rasterised at half rate. The draw is
+    // the expensive half of this loop by roughly 4:1, and half-rate paint of
+    // a slowly moving chain is indistinguishable at full rate.
+    const DRAW_MS = 1000 / 30;
 
     let points: SimPoint[] = [];
     let constraints: Constraint[] = [];
@@ -90,6 +152,31 @@ export function ChainsOverlay({
     let mouse = { x: 0, y: 0 };
     let animationFrame: number;
 
+    // Chain-link and padlock gradients. They are painted in each link's local
+    // space with a width derived from `rest`, so they are identical on every
+    // link and every frame - built once per resize instead of ~150 times per
+    // frame, which kept the garbage collector busy during scrolls.
+    let linkGradDark: CanvasGradient | null = null;
+    let linkGradLight: CanvasGradient | null = null;
+    let lockGrad: CanvasGradient | null = null;
+
+    // The cage is decorative: while the portrait is scrolled out of view or the
+    // tab is hidden there is nothing to see, so the loop parks itself instead of
+    // burning frames that scrolls could have had. A live drag is the one
+    // exception - carrying the cage drags the hero into view, so it must keep
+    // simulating while the visitor holds it.
+    let onScreen = true;
+    const observer =
+      typeof IntersectionObserver !== "undefined"
+        ? new IntersectionObserver(
+            (entries) => {
+              onScreen = entries[0]?.isIntersecting ?? true;
+            },
+            { threshold: 0 },
+          )
+        : null;
+    observer?.observe(portraitEl ?? canvas);
+
     const FRAME_K = 0.09;
     // Portrait and cage share ONE clamped rigid transform, so the cage
     // never outruns the photo during a lunge or drag.
@@ -98,8 +185,8 @@ export function ChainsOverlay({
     let buildCx = 0;
     let buildCy = 0;
 
-    function pt(x: number, y: number, im: number): SimPoint {
-      const p: SimPoint = { x, y, px: x, py: y, im, bx: x, by: y };
+    function pt(x: number, y: number, im: number, frame = false): SimPoint {
+      const p: SimPoint = { x, y, px: x, py: y, im, bx: x, by: y, frame };
       points.push(p);
       return p;
     }
@@ -161,9 +248,12 @@ export function ChainsOverlay({
         if (canvas.isConnected) animationFrame = requestAnimationFrame(build);
         return;
       }
-      W = canvas.width = cw * devicePixelRatio;
-      H = canvas.height = ch * devicePixelRatio;
-      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      // Backing-store scale is per-build because the device can change (zoom,
+      // monitor move), so re-read it rather than trusting the closure capture.
+      renderScale = Math.min(window.devicePixelRatio || 1, 1.5);
+      W = canvas.width = cw * renderScale;
+      H = canvas.height = ch * renderScale;
+      ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
 
       points = [];
       constraints = [];
@@ -181,8 +271,9 @@ export function ChainsOverlay({
       const cx = canvas.clientWidth / 2;
       const cy = canvas.clientHeight / 2;
       rest = Math.max(6, Math.min(10, hostW / 38));
-      fw = hostW + 56;
-      fh = hostH + 56;
+      cageGap = hostW * CAGE_GAP;
+      fw = hostW + cageGap * 2;
+      fh = hostH + cageGap * 2;
       buildCx = cx;
       buildCy = cy;
 
@@ -198,7 +289,7 @@ export function ChainsOverlay({
       ];
 
       framePts = loc.map(([a, b]) =>
-        pt(cx + (a * fw) / 2, cy + (b * fh) / 2, 0.5)
+        pt(cx + (a * fw) / 2, cy + (b * fh) / 2, 0.5, true)
       );
 
       // Perimeter edges + the two corner diagonals keep the frame rigid as a
@@ -219,6 +310,49 @@ export function ChainsOverlay({
       const B = pt(cx, cy - rest * 3 + rest * 2.2, 0);
       lock = { S, B, sw: rest * 1.3, bh: rest * 4.2, bw: rest * 2.8 };
       join(S, B, rest * 2.2);
+
+      // Rebuild the cached gradients for this size: every link is lit from the
+      // same local ramp, so two instances cover the whole cage, and the padlock
+      // keeps its own ramp. The chain ramp is the site's navy family -
+      // card through accent into the muted foreground - so the cage reads as
+      // part of the page instead of bright steel bolted onto it.
+      const linkH = rest * 0.52 / 2;
+      const token = (name: string, fallback: [number, number, number]) =>
+        rgba(
+          getComputedStyle(document.documentElement).getPropertyValue(name),
+          1,
+          fallback,
+        );
+      const chainShadow = token("--card", [32, 45, 70]);
+      const chainMid = token("--secondary", [58, 70, 96]);
+      const chainLit = token("--muted-foreground", [173, 190, 214]);
+      const ramp = (
+        first: string,
+        mid: string,
+        last: string,
+      ): CanvasGradient | null => {
+        const g = ctx?.createLinearGradient(0, -linkH, 0, linkH);
+        if (!g) return null;
+        g.addColorStop(0, first);
+        g.addColorStop(0.5, mid);
+        g.addColorStop(1, last);
+        return g;
+      };
+      linkGradDark = ramp(chainShadow, chainMid, chainLit);
+      linkGradLight = ramp(chainLit, chainMid, chainShadow);
+
+      // The padlock takes the primary amber, which is the one colour on the
+      // site that is meant to be looked at: it lifts the "the key goes here"
+      // cue off the background while the chains stay quiet.
+      if (ctx) {
+        const { bh, bw } = lock;
+        const y0 = lock.sw * 2.2 - 2;
+        const g = ctx.createLinearGradient(-bw / 2, y0, bw / 2, y0 + bh);
+        g.addColorStop(0, "oklch(0.87 0.13 80)");
+        g.addColorStop(0.5, token("--primary", [224, 152, 62]));
+        g.addColorStop(1, "oklch(0.5 0.1 50)");
+        lockGrad = g;
+      }
     }
 
     function step() {
@@ -245,7 +379,10 @@ export function ChainsOverlay({
         p.px = p.x;
         p.py = p.y;
         p.x += vx * 0.99;
-        p.y += vy * 0.99 + GRAVITY * p.im;
+        // Gravity is weight, so it belongs to the hanging links, not to the
+        // cage's own frame: the anchor below then pulls the frame exactly back
+        // onto its build pose around the portrait.
+        p.y += vy * 0.99 + (p.frame ? 0 : GRAVITY * p.im);
       }
 
       // Safety net: recover any point that went non-finite so a single
@@ -368,26 +505,19 @@ export function ChainsOverlay({
       ctx.translate(mx, my);
       ctx.rotate(ang);
 
-      const gr = ctx.createLinearGradient(0, -w / 2, 0, w / 2);
-      if (dark) {
-        gr.addColorStop(0, "#3b4045");
-        gr.addColorStop(0.5, "#8d9499");
-        gr.addColorStop(1, "#f4f1ea");
-      } else {
-        gr.addColorStop(0, "#f4f1ea");
-        gr.addColorStop(0.5, "#8d9499");
-        gr.addColorStop(1, "#3b4045");
-      }
-
-      // Contrast halo first, so each link stays fully readable on both
-      // light and dark backgrounds (the gradient alone loses its light half
-      // on light backgrounds and vice versa).
-      ctx.strokeStyle = "rgba(20, 24, 28, 0.35)";
+      // Contrast halo first, so each link stays readable against the navy
+      // background. It is the background colour itself, which cuts the link out
+      // of the page rather than smearing a dark ring over it.
+      const bg =
+        getComputedStyle(document.documentElement).getPropertyValue("--background");
+      ctx.strokeStyle = rgba(bg, 0.55, [10, 16, 32]);
       ctx.lineWidth = Math.max(3, rest * 0.4);
       ctx.beginPath();
       ctx.roundRect(-L / 2, -w / 2, L, w, w / 2);
       ctx.stroke();
 
+      const gr = dark ? linkGradDark : linkGradLight;
+      if (!gr) return;
       ctx.strokeStyle = gr;
       ctx.lineWidth = Math.max(2, rest * 0.26);
       ctx.beginPath();
@@ -414,7 +544,21 @@ export function ChainsOverlay({
       }
 
       ctx.lineCap = "round";
-      ctx.strokeStyle = "rgba(20, 24, 28, 0.35)";
+      // Shackle halo and body both come from the token set: the halo is the
+      // background colour, the body the same lit navy as the chain links, so
+      // the lock reads as one object with the cage.
+      const shackle = rgba(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--muted-foreground",
+        ),
+        1,
+        [173, 190, 214],
+      );
+      ctx.strokeStyle = rgba(
+        getComputedStyle(document.documentElement).getPropertyValue("--background"),
+        0.55,
+        [10, 16, 32],
+      );
       ctx.lineWidth = rest * 0.5;
       ctx.beginPath();
       ctx.moveTo(-sw, sw * 2.4);
@@ -423,7 +567,7 @@ export function ChainsOverlay({
       ctx.lineTo(sw, sw * 2.4);
       ctx.stroke();
 
-      ctx.strokeStyle = "#c9ced2";
+      ctx.strokeStyle = shackle;
       ctx.lineWidth = rest * 0.36;
       ctx.beginPath();
       ctx.moveTo(-sw, sw * 2.4);
@@ -434,17 +578,20 @@ export function ChainsOverlay({
       ctx.restore();
 
       const y0 = sw * 2.2 - 2;
-      const gd = ctx.createLinearGradient(-bw / 2, y0, bw / 2, y0 + bh);
-      gd.addColorStop(0, "#f3dc8c");
-      gd.addColorStop(0.5, "#c39a38");
-      gd.addColorStop(1, "#7d5c1a");
+      if (!lockGrad) return;
 
-      ctx.fillStyle = gd;
+      ctx.fillStyle = lockGrad;
       ctx.beginPath();
       ctx.roundRect(-bw / 2, y0, bw, bh, 5);
       ctx.fill();
 
-      ctx.fillStyle = "#2a1d0c";
+      // Keyhole: punched all the way through to the background colour so it
+      // reads as a hole rather than a dark brown dot.
+      ctx.fillStyle = rgba(
+        getComputedStyle(document.documentElement).getPropertyValue("--background"),
+        1,
+        [10, 16, 32],
+      );
       ctx.beginPath();
       ctx.arc(0, y0 + bh * 0.42, bw * 0.1, 0, Math.PI * 2);
       ctx.fill();
@@ -454,7 +601,7 @@ export function ChainsOverlay({
 
     function draw() {
       if (!ctx) return;
-      ctx.clearRect(0, 0, W / devicePixelRatio, H / devicePixelRatio);
+      ctx.clearRect(0, 0, W / renderScale, H / renderScale);
 
       // The cage is drawn through the SAME clamped rigid transform the
       // portrait uses, so the box and bars move in lockstep with the photo
@@ -472,22 +619,45 @@ export function ChainsOverlay({
         const fa = Math.cos(angle);
         const fs = Math.sin(angle);
 
-        // Simulated corner -> clamped rigid pose + its own deformation.
-        const rig = (p: SimPoint) => {
+        // The box itself is placed by the portrait's OWN clamped rigid pose, so
+        // the cage always fits the photo: same gap on all four sides, centred,
+        // at every size. What keeps on top is the corners' organic wobble,
+        // mean-removed and bounded to a fraction of the gap itself, so it
+        // breathes without ever reading as a mis-fit or letting the cage wander
+        // off its portrait during a lunge.
+        const wobble = cageGap * CAGE_WOBBLE;
+        const deform = framePts.map((p) => {
           const ox = p.bx - buildCx;
           const oy = p.by - buildCy;
-          const predX = buildCx + dx + fa * ox - fs * oy;
-          const predY = buildCy + dy + fs * ox + fa * oy;
           return {
-            x: buildCx + cdx + ca * ox - sa * oy + (p.x - predX),
-            y: buildCy + cdy + sa * ox + ca * oy + (p.y - predY),
+            dx: p.x - (buildCx + dx + fa * ox - fs * oy),
+            dy: p.y - (buildCy + dy + fs * ox + fa * oy),
+          };
+        });
+        let meanDx = 0;
+        let meanDy = 0;
+        for (const d of deform) {
+          meanDx += d.dx;
+          meanDy += d.dy;
+        }
+        meanDx /= deform.length;
+        meanDy /= deform.length;
+
+        const rig = (i: number) => {
+          const p = framePts[i];
+          const ox = p.bx - buildCx;
+          const oy = p.by - buildCy;
+          const bound = (v: number) => Math.max(-wobble, Math.min(wobble, v));
+          return {
+            x: buildCx + cdx + ca * ox - sa * oy + bound(deform[i].dx - meanDx),
+            y: buildCy + cdy + sa * ox + ca * oy + bound(deform[i].dy - meanDy),
           };
         };
 
-        const TL = rig(framePts[0]); // top-left
-        const TR = rig(framePts[2]); // top-right
-        const BR = rig(framePts[4]); // bottom-right
-        const BL = rig(framePts[6]); // bottom-left
+        const TL = rig(0); // top-left
+        const TR = rig(2); // top-right
+        const BR = rig(4); // bottom-right
+        const BL = rig(6); // bottom-left
 
         // Box: four chain edges around the portrait.
         drawChainBar(TL, TR);
@@ -511,9 +681,23 @@ export function ChainsOverlay({
       padlock();
     }
 
+    let lastDraw = 0;
+
     function loop() {
+      // Nothing to animate while the portrait is off-screen or the tab is in the
+      // background, and every parked frame is one the scroll can spend instead.
+      // A drag is the exception: carrying the cage can pull the hero into view,
+      // so it keeps simulating for as long as the pointer is down.
+      if ((!onScreen || document.hidden) && !drag) {
+        animationFrame = requestAnimationFrame(loop);
+        return;
+      }
       step();
-      draw();
+      const now = performance.now();
+      if (now - lastDraw >= DRAW_MS) {
+        lastDraw = now;
+        draw();
+      }
       if (portraitEl) {
         const { cx, cy, angle } = frameTransform();
         // Portrait rides the cage 1:1 but clamped: wild chain motion stays
@@ -616,6 +800,7 @@ export function ChainsOverlay({
     return () => {
       window.removeEventListener("resize", build);
       if (ro) ro.disconnect();
+      observer?.disconnect();
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);

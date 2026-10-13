@@ -1,9 +1,8 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+﻿/** @type {import('next').NextConfig} */
+const nextConfig = {
   reactStrictMode: true,
   // Emit a fully static site (pure HTML/CSS/JS) for GitHub Pages hosting.
-  output: "export",
+  // output: "export",
   // Static export cannot use the Next.js image optimization server, so images
   // are served as-is (unoptimized).
   images: {
@@ -14,4 +13,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-

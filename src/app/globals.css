@@ -4,31 +4,14 @@
 
 /*
  * Design tokens (Shadcn-style CSS variables).
- * Defined in oklch for perceptual consistency across light/dark themes.
+ * Defined in oklch for perceptual consistency across the two themes.
+ *
+ * There is no light theme: the deep navy below IS the default, and the only
+ * alternative is the pitch-black `.dark` variant, which stays locked until the
+ * hero portrait's containment is broken (see src/lib/theme.ts).
  */
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.97 0.02 90);
-  --foreground: oklch(0.3 0.05 230);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.3 0.05 230);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.3 0.05 230);
-  --primary: oklch(0.68 0.15 55);
-  --primary-foreground: oklch(0.98 0.02 95);
-  --secondary: oklch(0.92 0.03 95);
-  --secondary-foreground: oklch(0.3 0.05 230);
-  --muted: oklch(0.93 0.025 95);
-  --muted-foreground: oklch(0.5 0.05 225);
-  --accent: oklch(0.88 0.05 200);
-  --accent-foreground: oklch(0.3 0.05 230);
-  --destructive: oklch(0.55 0.2 25);
-  --border: oklch(0.4 0.05 230 / 20%);
-  --input: oklch(0.4 0.05 230 / 25%);
-  --ring: oklch(0.68 0.15 55);
-}
-
-.dark {
   --background: oklch(0.14 0.06 235);
   --foreground: oklch(0.94 0.01 90);
   --card: oklch(0.2 0.04 235);
@@ -47,6 +30,34 @@
   --border: oklch(0.9 0.02 200 / 10%);
   --input: oklch(0.9 0.02 200 / 18%);
   --ring: oklch(0.75 0.14 62);
+}
+
+/*
+ * Pitch black. Unlocked only: the portrait's cage holds it shut until the hero
+ * is freed. The navy keeps a blue cast in every surface, so this variant drops
+ * the chroma almost entirely and pushes the surfaces to black, which makes the
+ * amber primary read hotter against it. Borders and rings are lifted a notch
+ * because hairlines vanish on a black field.
+ */
+.dark {
+  --background: oklch(0.1 0.006 255);
+  --foreground: oklch(0.93 0.006 250);
+  --card: oklch(0.14 0.008 255);
+  --card-foreground: oklch(0.93 0.006 250);
+  --popover: oklch(0.14 0.008 255);
+  --popover-foreground: oklch(0.93 0.006 250);
+  --primary: oklch(0.78 0.15 62);
+  --primary-foreground: oklch(0.2 0.02 250);
+  --secondary: oklch(0.2 0.012 255);
+  --secondary-foreground: oklch(0.93 0.006 250);
+  --muted: oklch(0.17 0.01 255);
+  --muted-foreground: oklch(0.68 0.018 250);
+  --accent: oklch(0.26 0.018 255);
+  --accent-foreground: oklch(0.95 0.008 250);
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(0.95 0.01 250 / 13%);
+  --input: oklch(0.95 0.01 250 / 20%);
+  --ring: oklch(0.78 0.15 62);
 }
 
 /*
@@ -111,6 +122,20 @@
 
 /* Passing light beam: a soft band of light drifts down the hero grid and
    loops. Only the transform and opacity animate, so it stays cheap. */
+/* Containment vignette breathing while the hero is chained (see the portrait's
+   containment glow). Only opacity animates, so the pulse stays on the
+   compositor; the crossfade in and out on lock change is the element's own
+   transition-opacity, and `motion-reduce:animate-none` pins it still. */
+@keyframes hero-vignette-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @keyframes hero-light-beam {
   0% {
     transform: translateY(-100%);
@@ -339,6 +364,62 @@
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
+}
+
+/*
+ * Scroll reveal, driven by <Reveal /> (an IntersectionObserver client leaf used
+ * by the skills and experience sections). The observer flips data-revealed on
+ * the element; this is the matching transition. Under reduced motion the classes
+ * neutralise everything, and <Reveal /> marks its children revealed at once.
+ */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal[data-revealed="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal[data-revealed="true"] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/*
+ * Experience timeline rail. It stretches itself in as the timeline travels up
+ * the viewport, using the browser's native scroll-driven animation - no JS and
+ * no rAF, and it costs nothing outside Chromium/WebKit, where the @supports
+ * guard leaves the rail simply drawn. transform-only, so it stays on the
+ * compositor.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .timeline-rail {
+      transform-origin: top center;
+      animation: timeline-rail-draw linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 55%;
+    }
+  }
+}
+
+@keyframes timeline-rail-draw {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
 }
 
 @layer base {

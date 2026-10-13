@@ -11,8 +11,10 @@ export default function manifest(): MetadataRoute.Manifest {
     description: site.description,
     start_url: "/",
     display: "standalone",
-    background_color: "#0a0a0a",
-    theme_color: "#0a0a0a",
+    // Matches the default theme's --background (oklch(0.14 0.06 235)): the site
+    // always opens in the navy, since the pitch-black theme is unlock-gated.
+    background_color: "#000b1e",
+    theme_color: "#000b1e",
     icons: [
       {
         src: "/icon.svg",

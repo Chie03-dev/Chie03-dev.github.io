@@ -1160,7 +1160,13 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
         aria-hidden="true"
         data-ghost="key"
         data-hot="false"
-        className="pointer-events-none fixed left-0 top-0 z-[100] h-14 w-14 opacity-0 transition-opacity duration-150 data-[hot=true]:scale-110"
+        // `group` so the carried key's own hot-state scale can hang off the
+        // child SVG. Scaling the positioned wrapper itself would be wrong: this
+        // element is moved by an inline translate() every frame, and a scale on
+        // the same element resolves its transform-origin against the wrapper's
+        // layout box (pinned at the viewport's top-left), so the hot state
+        // shoved the key off the cursor by ~10% of the pointer's position.
+        className="pointer-events-none group fixed left-0 top-0 z-[100] h-14 w-14 opacity-0 transition-opacity duration-150"
       >
         {/*
           The carried key. This is the SAME design as the one drawn on the
@@ -1171,7 +1177,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="-10 -5 20 10"
-          className="h-14 w-14 drop-shadow-[0_0_10px_rgba(255,200,80,0.85)]"
+          className="h-14 w-14 drop-shadow-[0_0_10px_rgba(255,200,80,0.85)] transition-transform duration-150 group-data-[hot=true]:scale-110"
         >
           <defs>
             {/* Matches the canvas key's vertical three-stop gold ramp. */}

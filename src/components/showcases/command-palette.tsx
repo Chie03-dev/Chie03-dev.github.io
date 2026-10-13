@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { useHeroLock } from "@/context/hero-lock-context";
+import { toggleDarkTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { site } from "@/lib/site";
 
@@ -12,15 +14,6 @@ interface Command {
   keywords: string;
   icon: React.ReactNode;
   run: () => void;
-}
-
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle("dark");
-  try {
-    localStorage.setItem("theme", isDark ? "dark" : "light");
-  } catch {
-    // Ignore storage errors (for example, private browsing mode).
-  }
 }
 
 function scrollToSection(id: string) {
@@ -134,9 +127,18 @@ export function CommandPalette() {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const { isLocked } = useHeroLock();
 
   const commands: Command[] = useMemo(
     () => [
+      {
+        id: "about",
+        label: "Go to About",
+        group: "Navigation",
+        keywords: "about me bio intro hobbies stats",
+        icon: <NavIcon />,
+        run: () => navigate("#about"),
+      },
       {
         id: "projects",
         label: "Go to Projects",
@@ -146,20 +148,12 @@ export function CommandPalette() {
         run: () => navigate("#projects"),
       },
       {
-        id: "experience",
-        label: "Go to Experience",
+        id: "skills",
+        label: "Go to Skills & Experience",
         group: "Navigation",
-        keywords: "experience work history resume",
+        keywords: "skills experience tools stack work history",
         icon: <NavIcon />,
-        run: () => navigate("#experience"),
-      },
-      {
-        id: "life",
-        label: "Go to Cards",
-        group: "Navigation",
-        keywords: "life card cards hobbies background dos donts",
-        icon: <NavIcon />,
-        run: () => navigate("#life"),
+        run: () => navigate("#skills"),
       },
       {
         id: "contact",
@@ -189,16 +183,22 @@ export function CommandPalette() {
         icon: <DownloadIcon />,
         run: () => window.open(site.resumeUrl, "_blank"),
       },
-      {
-        id: "theme",
-        label: "Toggle Dark / Light Theme",
-        group: "Actions",
-        keywords: "theme dark light mode toggle appearance",
-        icon: <ThemeIcon />,
-        run: toggleTheme,
-      },
+      // The pitch-black theme is part of the containment reward: the command
+      // only exists once the portrait is out of its cage.
+      ...(isLocked
+        ? []
+        : [
+            {
+              id: "theme",
+              label: "Toggle Dark Theme",
+              group: "Actions",
+              keywords: "theme dark black mode toggle appearance",
+              icon: <ThemeIcon />,
+              run: () => toggleDarkTheme(),
+            },
+          ]),
     ],
-    [],
+    [isLocked],
   );
 
   const filtered = useMemo(() => {

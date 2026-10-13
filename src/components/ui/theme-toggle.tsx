@@ -1,5 +1,7 @@
 "use client";
 
+import { useHeroLock } from "@/context/hero-lock-context";
+import { toggleDarkTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
@@ -7,32 +9,38 @@ interface ThemeToggleProps {
 }
 
 /**
- * Lightweight theme toggle. Flips the `dark` class on the <html> element and
- * persists the choice to localStorage. Icons are swapped with the `dark:`
- * variant so there is no client state and no hydration mismatch. The initial
- * class is applied before paint by an inline script in the root layout.
+ * Theme toggle. Flips between the default navy and the pitch-black theme.
+ *
+ * Locked to the hero's containment: while the portrait is caged the button is
+ * disabled and says why, because the dark theme is something the visitor
+ * unlocks by breaking the cage rather than a preference they can simply set.
+ *
+ * Icons are swapped with the `dark:` variant so there is no client state and no
+ * hydration mismatch.
  */
 export function ThemeToggle({ className }: ThemeToggleProps) {
-  function toggleTheme() {
-    const isDark = document.documentElement.classList.toggle("dark");
-    try {
-      localStorage.setItem("theme", isDark ? "dark" : "light");
-    } catch {
-      // Ignore storage errors (for example, private browsing mode).
-    }
-  }
+  const { isLocked } = useHeroLock();
+  const locked = isLocked;
+  const label = locked
+    ? "Break the portrait's containment to unlock the dark theme"
+    : "Toggle dark theme";
 
   return (
     <button
       type="button"
-      onClick={toggleTheme}
-      aria-label="Toggle dark mode"
+      onClick={locked ? undefined : () => toggleDarkTheme()}
+      disabled={locked}
+      title={label}
+      aria-label={label}
       className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        locked
+          ? "cursor-not-allowed opacity-50"
+          : "hover:bg-accent hover:text-accent-foreground",
         className,
       )}
     >
-      {/* Sun: visible in dark mode, click to switch to light. */}
+      {/* Sun: visible in dark mode, click to switch back to the default. */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
@@ -54,7 +62,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         <path d="m6.34 17.66-1.41 1.41" />
         <path d="m19.07 4.93-1.41 1.41" />
       </svg>
-      {/* Moon: visible in light mode, click to switch to dark. */}
+      {/* Moon: visible in the default theme, click to unlock the dark theme. */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
