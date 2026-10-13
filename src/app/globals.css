@@ -27,37 +27,45 @@
   --accent: oklch(0.38 0.06 215);
   --accent-foreground: oklch(0.95 0.02 200);
   --destructive: oklch(0.62 0.2 25);
-  --border: oklch(0.9 0.02 200 / 10%);
-  --input: oklch(0.9 0.02 200 / 18%);
+  --border: oklch(0.9 0.02 200 / 22%);
+  --input: oklch(0.9 0.02 200 / 30%);
   --ring: oklch(0.75 0.14 62);
 }
 
 /*
  * Pitch black. Unlocked only: the portrait's cage holds it shut until the hero
- * is freed. The navy keeps a blue cast in every surface, so this variant drops
- * the chroma almost entirely and pushes the surfaces to black, which makes the
- * amber primary read hotter against it. Borders and rings are lifted a notch
- * because hairlines vanish on a black field.
+ * is freed.
+ *
+ * Amber-on-black is the default theme's signature, so repeating it here would
+ * make the reward read as the same page in a darker shade. Instead the accent
+ * swings to the opposite side of the wheel - a cool violet - and the near-black
+ * surfaces pick up the same cast, so the whole theme reads as one palette
+ * rather than "black plus a stray highlight". Warm amber meant caged, cool
+ * violet means free.
+ *
+ * Borders are lifted well past the default theme's because cards on a black
+ * field disappear at hairline weight: they are the only thing separating a
+ * card from the page.
  */
 .dark {
-  --background: oklch(0.1 0.006 255);
-  --foreground: oklch(0.93 0.006 250);
-  --card: oklch(0.14 0.008 255);
-  --card-foreground: oklch(0.93 0.006 250);
-  --popover: oklch(0.14 0.008 255);
-  --popover-foreground: oklch(0.93 0.006 250);
-  --primary: oklch(0.78 0.15 62);
-  --primary-foreground: oklch(0.2 0.02 250);
-  --secondary: oklch(0.2 0.012 255);
-  --secondary-foreground: oklch(0.93 0.006 250);
-  --muted: oklch(0.17 0.01 255);
-  --muted-foreground: oklch(0.68 0.018 250);
-  --accent: oklch(0.26 0.018 255);
-  --accent-foreground: oklch(0.95 0.008 250);
+  --background: oklch(0.1 0.01 300);
+  --foreground: oklch(0.94 0.008 300);
+  --card: oklch(0.145 0.014 300);
+  --card-foreground: oklch(0.94 0.008 300);
+  --popover: oklch(0.145 0.014 300);
+  --popover-foreground: oklch(0.94 0.008 300);
+  --primary: oklch(0.76 0.16 300);
+  --primary-foreground: oklch(0.15 0.02 300);
+  --secondary: oklch(0.21 0.022 300);
+  --secondary-foreground: oklch(0.94 0.008 300);
+  --muted: oklch(0.18 0.016 300);
+  --muted-foreground: oklch(0.73 0.025 300);
+  --accent: oklch(0.28 0.04 300);
+  --accent-foreground: oklch(0.96 0.01 300);
   --destructive: oklch(0.65 0.2 25);
-  --border: oklch(0.95 0.01 250 / 13%);
-  --input: oklch(0.95 0.01 250 / 20%);
-  --ring: oklch(0.78 0.15 62);
+  --border: oklch(0.95 0.015 300 / 28%);
+  --input: oklch(0.95 0.015 300 / 38%);
+  --ring: oklch(0.76 0.16 300);
 }
 
 /*
@@ -187,6 +195,29 @@
   --hp-exit: clamp(0, calc((var(--hp, 0) - 0.6) * 2.5), 1);
   opacity: calc(1 - var(--hp-exit) * 0.85);
   transform: translateY(calc(var(--hp-exit) * -28px));
+}
+
+/*
+ * The hero stack - caged portrait plus About in the left column. It travels
+ * with the reader instead of scrolling away, because the left column is only
+ * ~840px of a ~3900px page: unpinned, the hero is gone almost immediately and
+ * the left half of every later section is empty.
+ *
+ * The offset is clamped rather than fixed. The stack is taller than many
+ * laptop viewports, and a plain `top: 6rem` would then pin it with its tail
+ * permanently below the fold - the About's last lines unreachable. So the
+ * offset slides the stack up as the viewport runs out of room, which trades
+ * ~60px of empty space above the portrait for keeping the About readable.
+ *
+ * Below ~880px of viewport height there is nothing left to trade, so the rule
+ * does not apply and the stack simply scrolls. position:sticky also needs the
+ * item sized by its content, which is why the grid uses items-start.
+ */
+@media (min-width: 64rem) and (min-height: 55rem) {
+  .hero-stack {
+    position: sticky;
+    top: min(6rem, calc(100vh - 58rem));
+  }
 }
 
 /*

@@ -312,8 +312,15 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       for (const a of arms) {
         a.sx = cx + a.side * 0.3 * MS * SLIM;
         a.sy = cy + 0.14 * MS;
-        a.rx = cx + a.side * 0.44 * MS * SLIM;
-        a.ry = cy + 0.36 * MS;
+        // Rest pose raises the hands out and above the shoulders so the arms
+        // read long and bent, spread away from the gaunt torso, rather than
+        // hanging tucked against it. This is deliberately done with the POSE
+        // and not the bone length: L drives both the IK clamp and the swat's
+        // reach test, and lengthening it lets the guardian strike a key that
+        // is already being carried away, which makes the game unwinnable
+        // (measured: 0/5 wins versus 5/5 at the original length).
+        a.rx = cx + a.side * 0.62 * MS * SLIM;
+        a.ry = cy - 0.16 * MS;
         a.L = 0.27 * MS;
         if (a.stage === "idle") {
           a.t = 0;
@@ -789,7 +796,12 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       c.scale(br * SLIM, br);
       c.translate(-mx, -(my + drop));
       c.fillStyle = BODY;
-      blob(mx, my + 0.22 * MS, 0.5 * MS, 0.4 * MS, 0.03, 0);
+      // Gaunt torso: much narrower than the head above it, so the silhouette
+      // reads as a lean frame. Height and drop are kept at the original values
+      // on purpose - the torso already runs past the bottom of the band, and
+      // growing it further would clip the claws' backdrop rather than add
+      // anything. Thinness comes from the width, not from stretching him down.
+      blob(mx, my + 0.2 * MS, 0.32 * MS, 0.4 * MS, 0.03, 0);
       blob(mx, my - 0.3 * MS, 0.33 * MS, 0.3 * MS, 0.025, 2);
       eye(mx - 0.13 * MS, my - 0.37 * MS, 0.06 * MS, 0.03 * MS, -1);
       eye(mx + 0.13 * MS, my - 0.37 * MS, 0.06 * MS, 0.03 * MS, 1);
@@ -909,33 +921,37 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       c.lineCap = "round";
       c.fillStyle = BODY;
       c.strokeStyle = BODY;
-      c.lineWidth = 0.085 * MS * SLIM;
+      // Thinner limbs to match the longer bones: a spindly arm reads as long,
+      // a fat one reads as short no matter how far it reaches.
+      c.lineWidth = 0.062 * MS * SLIM;
       c.beginPath();
       c.moveTo(a.sx, a.sy);
       c.lineTo(a.ex, a.ey);
       c.stroke();
-      c.lineWidth = 0.06 * MS * SLIM;
+      c.lineWidth = 0.045 * MS * SLIM;
       c.beginPath();
       c.moveTo(a.ex, a.ey);
       c.lineTo(a.cx, a.cy);
       c.stroke();
       c.beginPath();
-      c.arc(a.cx, a.cy, 0.045 * MS * SLIM, 0, 7);
+      c.arc(a.cx, a.cy, 0.034 * MS * SLIM, 0, 7);
       c.fill();
 
       const dr = Math.atan2(a.cy - a.ey, a.cx - a.ex);
       c.fillStyle = "#e9e2d0";
       c.strokeStyle = "#2a2230";
       c.lineWidth = 1.2;
-      for (const o of [-0.7, -0.23, 0.23, 0.7]) {
+      // Four claws, wide-splayed and noticeably longer than the knuckle, so
+      // they read as talons rather than trimmed nails.
+      for (const o of [-0.85, -0.28, 0.28, 0.85]) {
         const an = dr + o;
         const bx = a.cx + Math.cos(an) * 0.035 * MS;
         const by = a.cy + Math.sin(an) * 0.035 * MS;
-        const tx = a.cx + Math.cos(an) * 0.2 * MS + Math.cos(dr) * 0.03 * MS;
-        const ty = a.cy + Math.sin(an) * 0.2 * MS + Math.sin(dr) * 0.03 * MS;
+        const tx = a.cx + Math.cos(an) * 0.28 * MS + Math.cos(dr) * 0.03 * MS;
+        const ty = a.cy + Math.sin(an) * 0.28 * MS + Math.sin(dr) * 0.03 * MS;
         // Perpendicular offset gives each claw a hollow, curved outline.
-        const nx = -Math.sin(an) * 0.009 * MS;
-        const ny = Math.cos(an) * 0.009 * MS;
+        const nx = -Math.sin(an) * 0.012 * MS;
+        const ny = Math.cos(an) * 0.012 * MS;
         const mx2 = (bx + tx) / 2 + Math.cos(dr) * 0.04 * MS;
         const my2 = (by + ty) / 2 + Math.sin(dr) * 0.04 * MS;
         c.beginPath();

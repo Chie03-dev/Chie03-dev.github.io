@@ -16,10 +16,12 @@ export default function Home() {
             than its own box. */}
         <div className="mx-auto grid w-full max-w-6xl items-start gap-8 lg:grid-cols-[2fr_3fr] lg:gap-12">
           {/* Left column - the caged portrait with the About stacked beneath it.
-              Deliberately not pinned: the whole stack scrolls away with the
-              page, so the hero is a moment at the top of the site rather than a
-              fixture beside the content. */}
-          <div>
+              Sticky so the pair travels with the reader down the page instead of
+              scrolling away and leaving the left half of a ~3900px page empty.
+              position:sticky degrades on its own: it pins whenever the stack
+              fits under the navbar and simply scrolls when it does not, so
+              short viewports need no special case. */}
+          <div className="hero-stack">
             <Hero />
             <About />
           </div>
