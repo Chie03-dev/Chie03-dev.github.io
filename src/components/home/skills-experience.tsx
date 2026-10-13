@@ -1,9 +1,9 @@
 import { LuCheck } from "react-icons/lu";
 
 import { CategoryIcon, RoleIcon, SkillIcon } from "@/components/icons";
+import { Timeline } from "@/components/ui/timeline";
 import { portfolioData } from "@/data/portfolio";
 import { Reveal } from "@/components/ui/reveal";
-import { cn } from "@/lib/utils";
 
 /**
  * Skills and experience in one section.
@@ -11,21 +11,21 @@ import { cn } from "@/lib/utils";
  * Skills: a card per group, each headed by its own mark, with the individual
  * technologies as icon chips (real brand marks - see components/icons.tsx).
  *
- * Experience: a vertical timeline. The rail draws itself in as the section
- * travels up the viewport (native CSS scroll-driven animation, no JS), each
- * role card staggers in on reveal, and the node carries the role's own mark so
- * the role type reads before the text does. The role that is still running gets
- * a live dot on its node.
+ * Experience: a scroll-driven timeline. The rail fills as the section travels
+ * up the viewport, each role's title is stuck beside its node while the role's
+ * content scrolls past, and the node carries the role's own mark so the role
+ * type reads before the text does. The role that is still running gets a live
+ * dot on its node.
  *
- * A Server Component: the only client leaf is <Reveal>, which is what performs
- * the staggered entry.
+ * A Server Component: the only client leaf is <Timeline>, which performs the
+ * scroll-linked fill.
  */
 export default function SkillsExperience() {
   const { skillGroups, experience } = portfolioData;
 
   return (
     <section id="skills">
-      <h2 className="text-3xl font-bold tracking-tight uppercase mb-6">
+      <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
         SKILLS &amp; EXPERIENCE
       </h2>
 
@@ -68,78 +68,55 @@ export default function SkillsExperience() {
 
       {/* ---- Experience ---- */}
       <h3 className="mt-12 mb-6 text-xl font-semibold">Experience</h3>
-      <div className="relative">
-        {/* Rail. Drawn as a gradient so it fades out rather than stopping on a
-            hard edge, and stretched in by the scroll-driven animation in
-            globals.css when the browser supports it. */}
-        <span
-          aria-hidden="true"
-          className="timeline-rail absolute left-5 top-2 bottom-2 w-px bg-gradient-to-b from-primary/60 via-border to-transparent"
-        />
-        <ol className="relative space-y-4">
-          {experience.map((exp, i) => {
-            const isCurrent = exp.period.toLowerCase().includes("present");
-            return (
-              <li key={exp.id}>
-                <Reveal
-                  delay={i * 90}
-                  className="relative pl-14 sm:pl-16"
-                >
-                  {/* Node on the rail, holding the role's own mark. */}
-                  <span
-                    className={cn(
-                      "absolute left-0 top-3 flex size-10 items-center justify-center rounded-xl border bg-card shadow-sm transition-colors",
-                      isCurrent
-                        ? "border-primary/50 text-primary"
-                        : "border-border/60 text-primary/80",
-                    )}
-                  >
-                    <RoleIcon position={exp.position} className="size-4" />
-                    {isCurrent && (
-                      <span className="absolute -right-0.5 -top-0.5 flex size-2.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
-                        <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
-                      </span>
-                    )}
+      <Timeline
+        data={experience.map((exp) => {
+          const isCurrent = exp.period.toLowerCase().includes("present");
+          return {
+            title: exp.period,
+            node: (
+              <span className="relative flex h-full w-full items-center justify-center">
+                <RoleIcon position={exp.position} className="size-4" />
+                {isCurrent && (
+                  <span className="absolute -right-1.5 -top-1.5 flex size-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                    <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
                   </span>
-
-                  <article className="rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
-                    <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                      <h4 className="font-semibold tracking-tight">
-                        {exp.position}
-                      </h4>
-                      <span className="rounded-full border border-border/60 bg-background/60 px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
-                        {exp.period}
-                      </span>
-                    </div>
-                    <p className="mb-3 text-sm">
-                      <span className="text-primary">{exp.company}</span>
-                      <span className="text-muted-foreground">
-                        {" "}
-                        &middot; {exp.location}
-                      </span>
-                    </p>
-                    <ul className="space-y-1.5">
-                      {exp.description.map((line, j) => (
-                        <li
-                          key={j}
-                          className="flex gap-2 text-sm text-muted-foreground"
-                        >
-                          <LuCheck
-                            className="mt-0.5 size-3.5 shrink-0 text-primary"
-                            aria-hidden="true"
-                          />
-                          <span>{line}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </article>
-                </Reveal>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
+                )}
+              </span>
+            ),
+            content: (
+              <article className="rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+                <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h4 className="text-lg font-semibold tracking-tight">
+                    {exp.position}
+                  </h4>
+                  <span className="text-sm">
+                    <span className="text-primary">{exp.company}</span>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      &middot; {exp.location}
+                    </span>
+                  </span>
+                </div>
+                <ul className="mt-3 space-y-1.5">
+                  {exp.description.map((line, j) => (
+                    <li
+                      key={j}
+                      className="flex gap-2 text-sm text-muted-foreground"
+                    >
+                      <LuCheck
+                        className="mt-0.5 size-3.5 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ),
+          };
+        })}
+      />
     </section>
   );
 }

@@ -426,33 +426,6 @@
   }
 }
 
-/*
- * Experience timeline rail. It stretches itself in as the timeline travels up
- * the viewport, using the browser's native scroll-driven animation - no JS and
- * no rAF, and it costs nothing outside Chromium/WebKit, where the @supports
- * guard leaves the rail simply drawn. transform-only, so it stays on the
- * compositor.
- */
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .timeline-rail {
-      transform-origin: top center;
-      animation: timeline-rail-draw linear both;
-      animation-timeline: view();
-      animation-range: entry 5% cover 55%;
-    }
-  }
-}
-
-@keyframes timeline-rail-draw {
-  from {
-    transform: scaleY(0);
-  }
-  to {
-    transform: scaleY(1);
-  }
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
