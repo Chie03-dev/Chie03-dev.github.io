@@ -14,6 +14,9 @@ interface MobileNavProps {
  * Client leaf for the mobile navigation. Owns only the open/close state so the
  * rest of the header can stay a Server Component. Closes on link click and on
  * the Escape key for accessibility.
+ *
+ * The trigger is text rather than an icon: the nav is text-only by design, and
+ * a word button keeps the tap target readable at small sizes.
  */
 export function MobileNav({ items }: MobileNavProps) {
   const [open, setOpen] = useState(false);
@@ -35,40 +38,9 @@ export function MobileNav({ items }: MobileNavProps) {
         aria-label="Toggle navigation menu"
         aria-expanded={open}
         aria-controls="mobile-menu"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex h-9 items-center justify-center rounded-full border border-border/60 bg-background/60 px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {open ? (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            className="h-5 w-5"
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            className="h-5 w-5"
-          >
-            <line x1="4" x2="20" y1="6" y2="6" />
-            <line x1="4" x2="20" y1="12" y2="12" />
-            <line x1="4" x2="20" y1="18" y2="18" />
-          </svg>
-        )}
+        {open ? "Close" : "Menu"}
       </button>
 
       {open ? (

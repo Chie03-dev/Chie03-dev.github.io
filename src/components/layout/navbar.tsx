@@ -3,12 +3,13 @@ import Link from "next/link";
 import { CommandTrigger } from "@/components/layout/command-trigger";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLinks } from "@/components/layout/nav-links";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { site } from "@/lib/site";
 import type { NavItem } from "@/types";
 
+// No "About": it lives under the hero portrait in the left column rather than
+// being a stop on the nav, and the left column is always on screen beside the
+// content.
 const NAV_ITEMS: NavItem[] = [
-  { label: "About", href: "/#about" },
   { label: "Projects", href: "/#projects" },
   { label: "Skills", href: "/#skills" },
   { label: "Contact", href: "/#contact" },
@@ -27,6 +28,11 @@ const INITIALS = site.name
  * Floating pill navigation. A Server Component that renders the centered,
  * glassmorphic island; all interactivity (active-section tracking, command
  * palette trigger, mobile menu) lives in client leaf components.
+ *
+ * The nav is deliberately text-only - no icon buttons - so the pill stays as
+ * quiet as possible against the hero. The theme toggle lived here until it was
+ * removed; unlocking containment now switches the theme on its own, and the
+ * command palette's "Toggle Dark Theme" action switches it back.
  */
 export function Navbar() {
   return (
@@ -54,7 +60,6 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <CommandTrigger />
           {/* A PDF is a static file, not an in-app route, so it is a plain
               anchor: <Link> would prefetch an RSC payload for it, which only a

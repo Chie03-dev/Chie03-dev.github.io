@@ -38,34 +38,38 @@
  *
  * Amber-on-black is the default theme's signature, so repeating it here would
  * make the reward read as the same page in a darker shade. Instead the accent
- * swings to the opposite side of the wheel - a cool violet - and the near-black
- * surfaces pick up the same cast, so the whole theme reads as one palette
- * rather than "black plus a stray highlight". Warm amber meant caged, cool
- * violet means free.
+ * goes to blood red - dark, saturated, and the only saturated colour in the
+ * palette - while the near-black surfaces pick up the same warm cast so the
+ * theme reads as one thing rather than "black plus a stray highlight". Cold
+ * navy meant caged, warm blood means free.
+ *
+ * primary-foreground inverts against the default theme on purpose: this accent
+ * is dark, so the text on it has to be light, where the default theme pairs a
+ * light amber with dark text.
  *
  * Borders are lifted well past the default theme's because cards on a black
  * field disappear at hairline weight: they are the only thing separating a
  * card from the page.
  */
 .dark {
-  --background: oklch(0.1 0.01 300);
-  --foreground: oklch(0.94 0.008 300);
-  --card: oklch(0.145 0.014 300);
-  --card-foreground: oklch(0.94 0.008 300);
-  --popover: oklch(0.145 0.014 300);
-  --popover-foreground: oklch(0.94 0.008 300);
-  --primary: oklch(0.76 0.16 300);
-  --primary-foreground: oklch(0.15 0.02 300);
-  --secondary: oklch(0.21 0.022 300);
-  --secondary-foreground: oklch(0.94 0.008 300);
-  --muted: oklch(0.18 0.016 300);
-  --muted-foreground: oklch(0.73 0.025 300);
-  --accent: oklch(0.28 0.04 300);
-  --accent-foreground: oklch(0.96 0.01 300);
+  --background: oklch(0.1 0.008 25);
+  --foreground: oklch(0.94 0.008 25);
+  --card: oklch(0.145 0.012 25);
+  --card-foreground: oklch(0.94 0.008 25);
+  --popover: oklch(0.145 0.012 25);
+  --popover-foreground: oklch(0.94 0.008 25);
+  --primary: oklch(0.6 0.2 26);
+  --primary-foreground: oklch(0.96 0.02 25);
+  --secondary: oklch(0.21 0.02 25);
+  --secondary-foreground: oklch(0.94 0.008 25);
+  --muted: oklch(0.18 0.014 25);
+  --muted-foreground: oklch(0.73 0.022 25);
+  --accent: oklch(0.3 0.07 25);
+  --accent-foreground: oklch(0.96 0.012 25);
   --destructive: oklch(0.65 0.2 25);
-  --border: oklch(0.95 0.015 300 / 28%);
-  --input: oklch(0.95 0.015 300 / 38%);
-  --ring: oklch(0.76 0.16 300);
+  --border: oklch(0.95 0.012 25 / 28%);
+  --input: oklch(0.95 0.012 25 / 38%);
+  --ring: oklch(0.6 0.2 26);
 }
 
 /*
