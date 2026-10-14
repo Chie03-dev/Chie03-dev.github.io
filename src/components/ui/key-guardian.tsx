@@ -177,7 +177,6 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
 
     const accent = readColor(c, "--primary", "#e0a13a");
 
-    const BODY = "#050308";
     const GOLD_HI = "#fff0a8";
     const GOLD_MID = "#d9a52b";
     const GOLD_LO = "#7a5410";
@@ -707,27 +706,6 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
 
     /* ---- drawing ---- */
 
-    /**
-     * Smoky silhouette. Two out-of-phase sine harmonics wobble the radius
-     * around the ellipse, so the body breathes without any sprite or asset.
-     */
-    function blob(x: number, y: number, rx: number, ry: number, amp: number, ph: number) {
-      c.beginPath();
-      for (let i = 0; i <= 48; i++) {
-        const an = (i / 48) * Math.PI * 2;
-        const w =
-          1 +
-          Math.sin(an * 6 + t * 0.05 + ph) * amp +
-          Math.sin(an * 11 - t * 0.07) * amp * 0.5;
-        const px = x + Math.cos(an) * rx * w;
-        const py = y + Math.sin(an) * ry * w;
-        if (i) c.lineTo(px, py);
-        else c.moveTo(px, py);
-      }
-      c.closePath();
-      c.fill();
-    }
-
     /** Glowing eye whose pupil tracks the pointer, blinks, and dilates on alert. */
     function eye(ex: number, ey: number, rx: number, ry: number, sg: number) {
       const lx = mouse ? mouse.x : cx;
@@ -791,18 +769,18 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       c.save();
       c.globalAlpha = fade;
       c.translate(mx + sx, my + sy + drop);
-      // Thin: squeeze x around the body centre. The blobs, eyes, and mouth
-      // all draw relative to mx, so one scale thins the whole silhouette.
+      // Thin: squeeze x around the body centre. The eyes and mouth all draw
+      // relative to mx, so one scale thins the whole silhouette.
       c.scale(br * SLIM, br);
       c.translate(-mx, -(my + drop));
-      c.fillStyle = BODY;
-      // Gaunt torso: much narrower than the head above it, so the silhouette
-      // reads as a lean frame. Height and drop are kept at the original values
-      // on purpose - the torso already runs past the bottom of the band, and
-      // growing it further would clip the claws' backdrop rather than add
-      // anything. Thinness comes from the width, not from stretching him down.
-      blob(mx, my + 0.2 * MS, 0.32 * MS, 0.4 * MS, 0.03, 0);
-      blob(mx, my - 0.3 * MS, 0.33 * MS, 0.3 * MS, 0.025, 2);
+
+      // The silhouette is deliberately absent. Painting the torso and head in
+      // --background would look right only until the dusk overlay darkens the
+      // page behind the canvas, at which point the body would read as a
+      // lighter shape cut out of the dark. Leaving them off the canvas means
+      // the guardian is whatever the page behind it is, in every theme and at
+      // every scroll position, and only what carries its own light - eyes,
+      // mouth, claws - is visible.
       eye(mx - 0.13 * MS, my - 0.37 * MS, 0.06 * MS, 0.03 * MS, -1);
       eye(mx + 0.13 * MS, my - 0.37 * MS, 0.06 * MS, 0.03 * MS, 1);
 
@@ -916,27 +894,13 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
     }
 
 
-    /** Upper arm + forearm + claw knuckle + four long curved wolf claws. */
+    /**
+     * Four long curved wolf claws. The limb bones are gone with the rest of the
+     * silhouette, so a hand reads as talons hanging in the dark - and during a
+     * swat, as claws shooting out of nothing toward the key.
+     */
     function drawArm(a: Arm) {
       c.lineCap = "round";
-      c.fillStyle = BODY;
-      c.strokeStyle = BODY;
-      // Thinner limbs to match the longer bones: a spindly arm reads as long,
-      // a fat one reads as short no matter how far it reaches.
-      c.lineWidth = 0.062 * MS * SLIM;
-      c.beginPath();
-      c.moveTo(a.sx, a.sy);
-      c.lineTo(a.ex, a.ey);
-      c.stroke();
-      c.lineWidth = 0.045 * MS * SLIM;
-      c.beginPath();
-      c.moveTo(a.ex, a.ey);
-      c.lineTo(a.cx, a.cy);
-      c.stroke();
-      c.beginPath();
-      c.arc(a.cx, a.cy, 0.034 * MS * SLIM, 0, 7);
-      c.fill();
-
       const dr = Math.atan2(a.cy - a.ey, a.cx - a.ex);
       c.fillStyle = "#e9e2d0";
       c.strokeStyle = "#2a2230";
