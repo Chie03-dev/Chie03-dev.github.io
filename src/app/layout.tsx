@@ -4,6 +4,7 @@ import { CommandPalette } from "@/components/showcases/command-palette";
 import { Navbar } from "@/components/layout/navbar";
 import { UnlockFlash } from "@/components/ui/unlock-flash";
 import { BackToTop } from "@/components/ui/back-to-top";
+import { BloodSpatter } from "@/components/ui/blood-spatter";
 import { HeroLockProvider } from "@/context/hero-lock-context";
 import { ScrollDusk } from "@/components/ui/scroll-dusk";
 import { SmoothScroll } from "@/components/ui/smooth-scroll";
@@ -131,6 +132,7 @@ export default function RootLayout({
             {children}
             <UnlockFlash />
             <BackToTop />
+            <BloodSpatter />
           </div>
           <CommandPalette />
         </HeroLockProvider>
