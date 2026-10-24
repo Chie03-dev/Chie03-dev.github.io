@@ -77,18 +77,12 @@ export default function SkillsExperience() {
         <Timeline
           railless
           data={experience.map((exp) => {
-            const isCurrent = exp.period.toLowerCase().includes("present");
-            return {
+                        return {
               title: exp.period,
               node: (
                 <span className="relative flex h-full w-full items-center justify-center">
                   <RoleIcon position={exp.position} className="size-4" />
-                  {isCurrent && (
-                    <span className="absolute -right-1.5 -top-1.5 flex size-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
-                      <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
-                    </span>
-                  )}
+                  
                 </span>
               ),
               content: (

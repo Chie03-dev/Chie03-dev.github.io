@@ -1,13 +1,13 @@
 import { portfolioData } from "@/data/portfolio";
 import { SectionRail } from "@/components/ui/section-rail";
-import { LuGraduationCap } from "react-icons/lu";
+import { LuSchool } from "react-icons/lu";
 
 export default function Education() {
   const { education } = portfolioData;
 
   return (
     <section id="education">
-      <SectionRail rail={false} icon={<LuGraduationCap className="size-4" />}>
+      <SectionRail rail={false} icon={<LuSchool className="size-4" />}>
         <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
           EDUCATION
         </h2>
