@@ -10,8 +10,18 @@ export function BloodSpatter() {
 
   useEffect(() => {
     if (isLocked) return;
-    const instance = createBloodSpatter({ darkMode: true, zIndex: 0 });
-    return () => instance.destroy();
+    const instance = createBloodSpatter({
+      darkMode: true,
+      zIndex: 0,
+      maxParticles: 20,
+      minMoveDistance: 24,
+      drips: false,
+    });
+    const timer = window.setInterval(() => instance.clear(), 5000);
+    return () => {
+      window.clearInterval(timer);
+      instance.destroy();
+    };
   }, [isLocked]);
 
   return null;

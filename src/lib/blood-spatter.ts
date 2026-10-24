@@ -181,6 +181,8 @@ export function createBloodSpatter(
   }
 
   function onMove(e: PointerEvent): void {
+    const t = e.target as Element | null;
+    if (t && t.closest && t.closest("main, section, article, a, button, input, textarea")) return;
     const x = e.clientX;
     const y = e.clientY;
     if (!last) {
@@ -198,6 +200,8 @@ export function createBloodSpatter(
   }
 
   function onDown(e: PointerEvent): void {
+    const t = e.target as Element | null;
+    if (t && t.closest && t.closest("main, section, article, a, button, input, textarea")) return;
     last = { x: e.clientX, y: e.clientY };
     spawn(e.clientX, e.clientY, 0, 90, 10, TAU);
   }
