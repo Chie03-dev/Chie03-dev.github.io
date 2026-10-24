@@ -843,7 +843,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       const jy = Math.round((Math.random() - 0.5) * jit) * p;
       const drop = snap(defeat * 0.3 * MS);
       const ox = snap(mx - (VW * p) / 2) + jx;
-      const oy = snap(cy - 0.07 * S) - 18 * p + bob + jy + drop;
+      const oy = snap(cy + 0.05 * S) - 18 * p + bob + jy + drop;
 
       c.save();
       c.globalAlpha = 1 - defeat * 0.75;
