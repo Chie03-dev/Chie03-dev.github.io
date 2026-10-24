@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "smoke": "node scripts/smoke.cjs"
+    "smoke": "node scripts/smoke.cjs",
+    "lhci": "npx @lhci/cli autorun"
   },
   "dependencies": {
     "clsx": "2.1.1",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.7",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.19.1",
     "@types/react": "19.3.0",

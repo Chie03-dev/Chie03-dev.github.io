@@ -1,3 +1,4 @@
+/* eslint-disable */
 const { spawn } = require("node:child_process");
 const { chromium } = require("D:/Developers/Projects/portfolio/node_modules/playwright-core");
 
@@ -92,3 +93,4 @@ main().catch((e) => {
   console.error(e);
   process.exitCode = 1;
 });
+
