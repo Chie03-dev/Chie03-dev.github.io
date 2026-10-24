@@ -2,6 +2,7 @@ import Hero from "@/components/home/hero";
 import About from "@/components/home/about";
 import Projects from "@/components/home/projects";
 import SkillsExperience from "@/components/home/skills-experience";
+import Education from "@/components/home/education";
 import Contact from "@/components/home/contact";
 import { PageRail } from "@/components/ui/page-rail";
 
@@ -31,6 +32,7 @@ export default function Home() {
           <PageRail className="min-w-0">
             <Projects />
             <SkillsExperience />
+            <Education />
             <Contact />
           </PageRail>
         </div>

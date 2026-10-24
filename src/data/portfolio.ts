@@ -8,6 +8,7 @@ export interface PortfolioData {
   intro: string;
   projects: Project[];
   experience: Experience[];
+  education: Education[];
   skillGroups: SkillGroup[];
   contact: ContactInfo;
 }
@@ -131,6 +132,18 @@ export const portfolioData: PortfolioData = {
       ],
     },
   ],
+  education: [
+    {
+      id: "1",
+      degree: "Bachelor of Science in Computer Science",
+      school: "Andres Bonifacio College",
+      location: "College Park, Miputak, Dipolog City, Philippines",
+      period: "2021 - 2025",
+      description: [
+        "Coursework in software development, databases, and systems.",
+      ],
+    },
+  ],
   skillGroups: [
     {
       category: "Languages",
@@ -189,6 +202,15 @@ export interface Experience {
   location: string;
   period: string;
   description: string[];
+}
+
+export interface Education {
+  id: string;
+  degree: string;
+  school: string;
+  location: string;
+  period: string;
+  description?: string[];
 }
 
 export interface SkillGroup {
