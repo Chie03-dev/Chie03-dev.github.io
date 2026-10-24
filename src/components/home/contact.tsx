@@ -160,7 +160,7 @@ export default function Contact() {
               href={link.href}
               target={link.external ? "_blank" : undefined}
               rel={link.external ? "noopener noreferrer" : undefined}
-              className="group flex min-w-0 items-center gap-4 rounded-xl border border-border/20 p-4 transition-all hover:-translate-y-1 hover:border-primary/20"
+              className="group flex min-w-0 items-center gap-4 rounded-xl border border-border/20 p-4 transition-all hover:-translate-y-1 hover:border-primary/20 dark:bg-card"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/40 text-primary transition-colors group-hover:bg-primary/10">
                 {link.icon}

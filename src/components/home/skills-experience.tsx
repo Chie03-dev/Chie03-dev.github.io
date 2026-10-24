@@ -40,7 +40,7 @@ export default function SkillsExperience() {
         <div className="grid gap-3 sm:grid-cols-2">
           {skillGroups.map((group, i) => (
             <Reveal key={group.category} delay={i * 50} className="h-full">
-              <article className="group h-full rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+              <article className="group h-full rounded-2xl border border-border/60 bg-card/40 dark:bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
                 <div className="mb-3 flex items-center gap-3">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
                     <CategoryIcon category={group.category} className="size-4.5" />
@@ -86,7 +86,7 @@ export default function SkillsExperience() {
                 </span>
               ),
               content: (
-                <article className="rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+                <article className="rounded-2xl border border-border/60 bg-card/40 dark:bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
                   <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <h4 className="text-lg font-semibold tracking-tight">
                       {exp.position}

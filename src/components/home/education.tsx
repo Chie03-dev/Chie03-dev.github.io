@@ -15,7 +15,7 @@ export default function Education() {
           {education.map((edu) => (
             <article
               key={edu.id}
-              className="rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
+              className="rounded-2xl border border-border/60 bg-card/40 dark:bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
             >
               <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <h3 className="text-lg font-semibold tracking-tight">
