@@ -187,7 +187,7 @@ const CROWD = [
   { x: 0.95, back: true, hood: false, torch: false, side: -1, ph: 1.9 },
 ];
 
-const SKY = ["#0b0810", "#0f0b14", "#140e17", "#1a1019", "#201219", "#2a1618"];
+
 
 /** Draw a character-map sprite. The last row repeats down to `bottom`. */
 function drawSprite(
@@ -954,24 +954,19 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
      * Pixel sleeve + fist. The right arm (side 1) also carries the pitchfork.
      */
     /** Night sky in hard colour bands, plus a pixel moon. */
-    function backdrop() {
-      const p = PX;
-      const bh = Math.ceil(H / SKY.length / p) * p;
-      SKY.forEach((col, i) => {
-        c.fillStyle = col;
-        c.fillRect(0, i * bh, W, bh + 1);
-      });
-      const mxp = Math.round((W * 0.82) / p) * p;
-      const myp = Math.round((H * 0.16) / p) * p;
-      for (let dy = -4; dy <= 4; dy++) {
-        for (let dx = -4; dx <= 4; dx++) {
-          if (Math.hypot(dx, dy) > 4.2) continue;
-          const crater = (dx === -1 && dy === -1) || (dx === 1 && dy === 1);
-          c.fillStyle = crater ? "#a8a28a" : "#cfc8ae";
-          c.fillRect(mxp + dx * p, myp + dy * p, p, p);
-        }
-      }
+function backdrop() {
+  const p = PX;
+  const mxp = Math.round((W * 0.82) / p) * p;
+  const myp = Math.round((H * 0.16) / p) * p;
+  for (let dy = -4; dy <= 4; dy++) {
+    for (let dx = -4; dx <= 4; dx++) {
+      if (Math.hypot(dx, dy) > 4.2) continue;
+      const crater = (dx === -1 && dy === -1) || (dx === 1 && dy === 1);
+      c.fillStyle = crater ? "#a8a28a" : "#cfc8ae";
+      c.fillRect(mxp + dx * p, myp + dy * p, p, p);
     }
+  }
+}
 
     /** Blocky torch light: three alpha bands on the pixel grid. */
     function glow(gx: number, gy: number) {
@@ -996,7 +991,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
           if (v.back !== pass) continue;
           const bob = Math.round(Math.sin(t * 0.05 + v.ph) * 1.2) * p;
           const bx = Math.round((v.x * W) / p) * p;
-          const top = Math.round((cy - (v.back ? 0.2 : 0.08) * S) / p) * p + bob;
+          const top = Math.round((cy - (v.back ? 0.05 : -0.07) * S) / p) * p + bob;
           const hx = bx + v.side * 5 * p;
           const ty = top - 4 * p;
 
