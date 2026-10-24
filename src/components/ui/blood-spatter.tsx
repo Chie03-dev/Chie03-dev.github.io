@@ -13,9 +13,11 @@ export function BloodSpatter() {
     const instance = createBloodSpatter({
       darkMode: true,
       zIndex: 0,
-      maxParticles: 12,
-      minMoveDistance: 24,
+      maxParticles: 8,
+      minMoveDistance: 30,
       drips: false,
+      spatterChance: 0.1,
+      clickBurst: false,
     });
     return () => instance.destroy();
   }, [isLocked]);
