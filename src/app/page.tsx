@@ -3,6 +3,7 @@ import About from "@/components/home/about";
 import Projects from "@/components/home/projects";
 import SkillsExperience from "@/components/home/skills-experience";
 import Contact from "@/components/home/contact";
+import { PageRail } from "@/components/ui/page-rail";
 
 export default function Home() {
   return (
@@ -27,11 +28,11 @@ export default function Home() {
 
           {/* Right column - scrolling content; space-y-16 gives every section
               the exact same vertical rhythm. */}
-          <div className="min-w-0 space-y-16">
+          <PageRail className="min-w-0">
             <Projects />
             <SkillsExperience />
             <Contact />
-          </div>
+          </PageRail>
         </div>
       </main>
     </>

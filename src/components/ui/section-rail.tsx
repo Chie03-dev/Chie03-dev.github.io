@@ -24,34 +24,41 @@ interface SectionRailProps {
   className?: string;
   /** Content wrapper width; sections usually want the full width minus the rail. */
   inset?: boolean;
+  /** Draw the rail. Disable for sections that sit beside a page-level rail. */
+  rail?: boolean;
 }
 
-export function SectionRail({ children, className, inset = true }: SectionRailProps) {
+export function SectionRail({ children, className, inset = true, rail = true }: SectionRailProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   // The shared engine writes 0..1 travel to --sr on this element; the fill
   // scales from it. One variable name is enough because each section writes
   // its own value to its own element and the fill reads it from a descendant.
   useEffect(() => {
+    if (!rail) return;
     const el = ref.current;
     if (!el) return;
     return getScrollEngine().track(el, "--sr");
-  }, []);
+  }, [rail]);
 
   return (
     <div ref={ref} className={cn("relative", className)}>
-      {/* The rail: transparent at both ends, masked the same way, so it never
-          stops on a hard edge. */}
-      <span
-        aria-hidden="true"
-        className="absolute top-0 bottom-0 left-[19px] w-[2px] overflow-hidden bg-gradient-to-b from-transparent via-muted-foreground/25 to-transparent [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]"
-      />
-      {/* The fill: scaled from the top by the section's own progress. */}
-      <span
-        aria-hidden="true"
-        className="absolute top-0 bottom-0 left-[19px] w-[2px] origin-top rounded-full bg-gradient-to-t from-primary/10 via-primary to-primary"
-        style={{ transform: "scaleY(var(--sr, 0))" }}
-      />
+      {rail && (
+        <>
+          {/* The rail: transparent at both ends, masked the same way, so it never
+              stops on a hard edge. */}
+          <span
+            aria-hidden="true"
+            className="absolute top-0 bottom-0 left-[19px] w-[2px] overflow-hidden bg-gradient-to-b from-transparent via-muted-foreground/25 to-transparent [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]"
+          />
+          {/* The fill: scaled from the top by the section's own progress. */}
+          <span
+            aria-hidden="true"
+            className="absolute top-0 bottom-0 left-[19px] w-[2px] origin-top rounded-full bg-gradient-to-t from-primary/10 via-primary to-primary"
+            style={{ transform: "scaleY(var(--sr, 0))" }}
+          />
+        </>
+      )}
       {inset ? <div className="pl-14 md:pl-16">{children}</div> : children}
     </div>
   );

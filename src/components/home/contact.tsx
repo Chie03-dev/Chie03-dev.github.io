@@ -143,7 +143,7 @@ export default function Contact() {
 
   return (
     <section id="contact">
-      <SectionRail>
+      <SectionRail rail={false}>
         <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
           CONTACT ME
         </h2>
@@ -176,11 +176,10 @@ export default function Contact() {
             </a>
           ))}
         </div>
+        {/* The Vault Key: the guardian clutches the key that breaks the hero's
+            containment. Client-side game that clears itself once unbound. */}
+        <KeyBand />
       </SectionRail>
-
-      {/* The Vault Key: the guardian clutches the key that breaks the hero's
-          containment. Client-side game that clears itself once unbound. */}
-      <KeyBand />
     </section>
   );
 }

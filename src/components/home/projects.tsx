@@ -33,7 +33,7 @@ export default function Projects() {
 
   return (
     <section id="projects">
-      <SectionRail>
+      <SectionRail rail={false}>
         <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
           RECENT PROJECTS
         </h2>

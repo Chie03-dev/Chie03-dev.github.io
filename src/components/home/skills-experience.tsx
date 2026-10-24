@@ -29,7 +29,7 @@ export default function SkillsExperience() {
       {/* One rail for the whole section: the skills cards and the experience
           timeline hang off the same spine, so the rail runs unbroken from the
           section heading down to the last role. */}
-      <SectionRail>
+      <SectionRail rail={false}>
         <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
           SKILLS &amp; EXPERIENCE
         </h2>
