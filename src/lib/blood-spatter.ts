@@ -201,6 +201,7 @@ export function createBloodSpatter(
   function onMove(e: PointerEvent): void {
     const t = e.target as Element | null;
     if (t && t.closest && t.closest("article, a, button, input, textarea, .group")) return;
+    if (Math.random() > 0.2) return;
     const x = e.clientX;
     const y = e.clientY;
     if (!last) {
