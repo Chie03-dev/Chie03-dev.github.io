@@ -26,9 +26,11 @@ interface SectionRailProps {
   inset?: boolean;
   /** Draw the rail. Disable for sections that sit beside a page-level rail. */
   rail?: boolean;
+  /** Optional marker rendered on the rail beside this section. */
+  icon?: ReactNode;
 }
 
-export function SectionRail({ children, className, inset = true, rail = true }: SectionRailProps) {
+export function SectionRail({ children, className, inset = true, rail = true, icon }: SectionRailProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   // The shared engine writes 0..1 travel to --sr on this element; the fill
@@ -58,6 +60,14 @@ export function SectionRail({ children, className, inset = true, rail = true }: 
             style={{ transform: "scaleY(var(--sr, 0))" }}
           />
         </>
+      )}
+      {icon && (
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-1 flex size-10 items-center justify-center rounded-full border border-border/60 bg-card text-primary shadow-sm"
+        >
+          {icon}
+        </span>
       )}
       {inset ? <div className="pl-14 md:pl-16">{children}</div> : children}
     </div>

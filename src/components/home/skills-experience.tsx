@@ -5,6 +5,7 @@ import { Timeline } from "@/components/ui/timeline";
 import { SectionRail } from "@/components/ui/section-rail";
 import { portfolioData } from "@/data/portfolio";
 import { Reveal } from "@/components/ui/reveal";
+import { LuCode } from "react-icons/lu";
 
 /**
  * Skills and experience in one section.
@@ -29,7 +30,7 @@ export default function SkillsExperience() {
       {/* One rail for the whole section: the skills cards and the experience
           timeline hang off the same spine, so the rail runs unbroken from the
           section heading down to the last role. */}
-      <SectionRail rail={false}>
+      <SectionRail rail={false} icon={<LuCode className="size-4" />}>
         <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
           SKILLS &amp; EXPERIENCE
         </h2>

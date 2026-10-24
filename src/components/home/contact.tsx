@@ -5,6 +5,7 @@ import { ContactForm } from "@/components/home/contact-form";
 import { SectionRail } from "@/components/ui/section-rail";
 import { portfolioData } from "@/data/portfolio";
 import { site } from "@/lib/site";
+import { LuMail } from "react-icons/lu";
 
 function MailIcon() {
   return (
@@ -143,7 +144,7 @@ export default function Contact() {
 
   return (
     <section id="contact">
-      <SectionRail rail={false}>
+      <SectionRail rail={false} icon={<LuMail className="size-4" />}>
         <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
           CONTACT ME
         </h2>

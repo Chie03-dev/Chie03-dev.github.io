@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { LuFolder } from "react-icons/lu";
 
 import { portfolioData } from "@/data/portfolio";
 import { NotchedProjectCard } from "@/components/ui/notched-project-card";
@@ -33,7 +34,7 @@ export default function Projects() {
 
   return (
     <section id="projects">
-      <SectionRail rail={false}>
+      <SectionRail rail={false} icon={<LuFolder className="size-4" />}>
         <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
           RECENT PROJECTS
         </h2>
