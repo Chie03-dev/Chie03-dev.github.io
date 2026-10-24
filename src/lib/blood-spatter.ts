@@ -184,7 +184,7 @@ export function createBloodSpatter(
   ): void {
     for (let i = 0; i < count && parts.length < maxParticles; i++) {
       const a = ang + (rand() - 0.5) * spread;
-      const v = speed * 0.14 * (0.3 + rand()) + rand() * 3;
+      const v = speed * 0.08 * (0.3 + rand()) + rand() * 2;
       parts.push({
         x,
         y,
@@ -211,10 +211,33 @@ export function createBloodSpatter(
     const dy = y - last.y;
     const sp = Math.hypot(dx, dy);
     if (sp > minMove) {
-      const count = Math.min(3, 1 + Math.floor(sp * 0.04));
+      const count = Math.min(2, 1 + Math.floor(sp * 0.03));
       spawn(x, y, Math.atan2(dy, dx), sp, count, 1.7);
       last = { x, y };
+      if (sp > 60) spawnClaw(x, y, Math.atan2(dy, dx));
     }
+  }
+
+  function spawnClaw(x: number, y: number, ang: number): void {
+    const size = 48;
+    const stamp = document.createElement("canvas");
+    stamp.width = size * dpr;
+    stamp.height = size * dpr;
+    const ctx = stamp.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(size / 2, size / 2);
+    ctx.rotate(ang);
+    ctx.strokeStyle = dark ? "#a01010" : "#7d0b0b";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * 5, -12);
+      ctx.lineTo(i * 5 + 18, 12);
+      ctx.stroke();
+    }
+    splats.push({ canvas: stamp, x, y, size, createdAt: performance.now() });
   }
 
   function onDown(e: PointerEvent): void {

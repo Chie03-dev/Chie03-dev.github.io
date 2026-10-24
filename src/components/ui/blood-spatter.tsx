@@ -13,7 +13,7 @@ export function BloodSpatter() {
     const instance = createBloodSpatter({
       darkMode: true,
       zIndex: 0,
-      maxParticles: 20,
+      maxParticles: 12,
       minMoveDistance: 24,
       drips: false,
     });
