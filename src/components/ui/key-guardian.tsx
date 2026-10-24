@@ -180,7 +180,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
     const GOLD_HI = "#fff0a8";
     const GOLD_MID = "#d9a52b";
     const GOLD_LO = "#7a5410";
-    const EYE = "#e4140f";
+    const OUTLINE = "#2b1d14";
 
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let reduced = motionQuery.matches;
@@ -706,34 +706,34 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
 
     /* ---- drawing ---- */
 
-    /** Glowing eye whose pupil tracks the pointer, blinks, and dilates on alert. */
-    function eye(ex: number, ey: number, rx: number, ry: number, sg: number) {
+    /** Cartoon eye: white ball, pupil that tracks the pointer, blinks, shrinks when alert. */
+    function eye(ex: number, ey: number, rx: number, ry: number) {
       const lx = mouse ? mouse.x : cx;
       const ly = mouse ? mouse.y : cy;
       const dx = lx - ex;
       const dy = ly - ey;
       const d = Math.hypot(dx, dy) || 1;
-      const off = Math.min(rx * 0.35, d * 0.08);
+      const off = Math.min(rx * 0.4, d * 0.08);
       const bl = 1 - blink * 0.92;
-      const r = 1 + alertLevel * 0.25;
-      const rot = -sg * 0.35;
 
       c.save();
-      c.shadowColor = "#ff1a1a";
-      c.shadowBlur = 0.05 * S * (0.6 + alertLevel);
-      c.fillStyle = EYE;
+      c.fillStyle = "#ffffff";
+      c.strokeStyle = OUTLINE;
+      c.lineWidth = Math.max(1.5, rx * 0.15);
       c.beginPath();
-      c.ellipse(ex, ey, rx * r, ry * bl * r, rot, 0, 7);
+      c.ellipse(ex, ey, rx, ry * bl, 0, 0, 7);
       c.fill();
-      c.shadowColor = "transparent";
-      c.fillStyle = "#ffb09a";
+      c.stroke();
+
+      const pr = rx * 0.5 * (1 - alertLevel * 0.25);
+      c.fillStyle = "#1b1410";
       c.beginPath();
       c.ellipse(
         ex + (dx / d) * off,
-        ey + (dy / d) * off,
-        rx * 0.4,
-        ry * 0.5 * bl,
-        rot,
+        ey + (dy / d) * off * bl,
+        pr,
+        pr * bl,
+        0,
         0,
         7,
       );
@@ -741,90 +741,180 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       c.restore();
     }
 
-    /** Quadratic Bézier sampler used to place fangs along the mouth curves. */
-    function quad(
-      a: { x: number; y: number },
-      c: { x: number; y: number },
-      b: { x: number; y: number },
-      u: number,
-    ): { x: number; y: number } {
-      const v = 1 - u;
-      return {
-        x: v * v * a.x + 2 * v * u * c.x + u * u * b.x,
-        y: v * v * a.y + 2 * v * u * c.y + u * u * b.y,
-      };
-    }
+
 
 
     function monster() {
+      const M = MS;
       const br = 1 + Math.sin(t * 0.03) * 0.01;
-      // Shake jitters the whole body; alert adds a constant tremble.
       const jitter = shake + alertLevel * 2;
       const sx = (Math.random() - 0.5) * jitter;
       const sy = (Math.random() - 0.5) * jitter;
-      // Post-win the guardian sinks and fades out.
-      const drop = defeat * 0.3 * MS;
+      const drop = defeat * 0.3 * M;
       const fade = 1 - defeat * 0.75;
 
       c.save();
       c.globalAlpha = fade;
       c.translate(mx + sx, my + sy + drop);
-      // Thin: squeeze x around the body centre. The eyes and mouth all draw
-      // relative to mx, so one scale thins the whole silhouette.
-      c.scale(br * SLIM, br);
+      c.scale(br, br);
       c.translate(-mx, -(my + drop));
+      c.lineJoin = "round";
+      c.lineCap = "round";
+      c.strokeStyle = OUTLINE;
+      c.lineWidth = Math.max(2, 0.014 * M);
 
-      // The silhouette is deliberately absent. Painting the torso and head in
-      // --background would look right only until the dusk overlay darkens the
-      // page behind the canvas, at which point the body would read as a
-      // lighter shape cut out of the dark. Leaving them off the canvas means
-      // the guardian is whatever the page behind it is, in every theme and at
-      // every scroll position, and only what carries its own light - eyes,
-      // mouth, claws - is visible.
-      eye(mx - 0.13 * MS, my - 0.37 * MS, 0.06 * MS, 0.03 * MS, -1);
-      eye(mx + 0.13 * MS, my - 0.37 * MS, 0.06 * MS, 0.03 * MS, 1);
-
-      // Mouth: dark red interior between two opposing curves, fanged.
-      const x0 = mx - 0.21 * MS;
-      const x1 = mx + 0.21 * MS;
-      const y0 = my - 0.21 * MS;
-      const open =
-        0.035 * MS + alertLevel * 0.07 * MS + Math.sin(t * 0.03) * 0.004 * MS;
-      const up = { x: mx, y: y0 + 0.04 * MS };
-      const lo = { x: mx, y: y0 + 0.04 * MS + 2 * open };
-
-      c.fillStyle = "#4a0008";
+      // Shirt
+      c.fillStyle = "#c0563b";
       c.beginPath();
-      c.moveTo(x0, y0);
-      c.quadraticCurveTo(up.x, up.y, x1, y0);
-      c.quadraticCurveTo(lo.x, lo.y, x0, y0);
+      c.moveTo(mx - 0.2 * M, my - 0.16 * M);
+      c.quadraticCurveTo(mx, my - 0.24 * M, mx + 0.2 * M, my - 0.16 * M);
+      c.lineTo(mx + 0.27 * M, my + 0.9 * M);
+      c.lineTo(mx - 0.27 * M, my + 0.9 * M);
+      c.closePath();
       c.fill();
+      c.stroke();
 
-      c.fillStyle = "#eee7d6";
-      const P0 = { x: x0, y: y0 };
-      const P1 = { x: x1, y: y0 };
-      // Upper fangs point down; the middle pair is drawn longer, like canines.
-      for (let i = 0; i < 9; i++) {
-        const p = quad(P0, up, P1, (i + 0.5) / 9);
-        const w = 0.016 * MS;
-        const h = i === 1 || i === 7 ? 0.06 * MS : 0.032 * MS;
+      // Overalls (bib + trousers)
+      c.fillStyle = "#3f6fa8";
+      c.beginPath();
+      c.moveTo(mx - 0.1 * M, my - 0.1 * M);
+      c.lineTo(mx + 0.1 * M, my - 0.1 * M);
+      c.lineTo(mx + 0.1 * M, my + 0.2 * M);
+      c.lineTo(mx + 0.225 * M, my + 0.2 * M);
+      c.lineTo(mx + 0.27 * M, my + 0.9 * M);
+      c.lineTo(mx - 0.27 * M, my + 0.9 * M);
+      c.lineTo(mx - 0.225 * M, my + 0.2 * M);
+      c.lineTo(mx - 0.1 * M, my + 0.2 * M);
+      c.closePath();
+      c.fill();
+      c.stroke();
+
+      // Straps + buttons
+      c.save();
+      c.strokeStyle = "#3f6fa8";
+      c.lineWidth = 0.04 * M;
+      for (const s of [-1, 1]) {
         c.beginPath();
-        c.moveTo(p.x - w, p.y);
-        c.lineTo(p.x + w, p.y);
-        c.lineTo(p.x, p.y + h);
+        c.moveTo(mx + s * 0.1 * M, my - 0.1 * M);
+        c.lineTo(mx + s * 0.13 * M, my - 0.19 * M);
+        c.stroke();
+      }
+      c.restore();
+      c.fillStyle = "#f0d060";
+      for (const s of [-1, 1]) {
+        c.beginPath();
+        c.arc(mx + s * 0.08 * M, my - 0.08 * M, 0.016 * M, 0, 7);
         c.fill();
       }
-      // Lower fangs point up.
-      for (let i = 0; i < 8; i++) {
-        const p = quad(P0, lo, P1, (i + 0.5) / 8);
-        const w = 0.015 * MS;
-        const h = i === 2 || i === 5 ? 0.05 * MS : 0.026 * MS;
+
+      // Hair tufts + ears
+      c.fillStyle = "#8a5a2b";
+      for (const s of [-1, 1]) {
         c.beginPath();
-        c.moveTo(p.x - w, p.y);
-        c.lineTo(p.x + w, p.y);
-        c.lineTo(p.x, p.y - h);
+        c.arc(mx + s * 0.16 * M, my - 0.43 * M, 0.035 * M, 0, 7);
         c.fill();
       }
+      c.fillStyle = "#f2c29b";
+      for (const s of [-1, 1]) {
+        c.beginPath();
+        c.arc(mx + s * 0.175 * M, my - 0.33 * M, 0.04 * M, 0, 7);
+        c.fill();
+        c.stroke();
+      }
+
+      // Head
+      c.fillStyle = "#f2c29b";
+      c.beginPath();
+      c.arc(mx, my - 0.34 * M, 0.17 * M, 0, 7);
+      c.fill();
+      c.stroke();
+
+      // Cheeks + nose
+      c.fillStyle = "rgba(230,110,100,.35)";
+      for (const s of [-1, 1]) {
+        c.beginPath();
+        c.arc(mx + s * 0.11 * M, my - 0.28 * M, 0.03 * M, 0, 7);
+        c.fill();
+      }
+      c.fillStyle = "#e8a07c";
+      c.beginPath();
+      c.arc(mx, my - 0.31 * M, 0.035 * M, 0, 7);
+      c.fill();
+      c.stroke();
+
+      // Eyes + eyebrows
+      eye(mx - 0.07 * M, my - 0.36 * M, 0.04 * M, 0.05 * M);
+      eye(mx + 0.07 * M, my - 0.36 * M, 0.04 * M, 0.05 * M);
+      c.save();
+      c.strokeStyle = "#5a3a22";
+      c.lineWidth = Math.max(2, 0.02 * M);
+      for (const s of [-1, 1]) {
+        const ex = mx + s * 0.07 * M;
+        const by = my - 0.435 * M;
+        c.beginPath();
+        c.moveTo(ex - s * 0.04 * M, by + alertLevel * 0.03 * M);
+        c.lineTo(ex + s * 0.045 * M, by - alertLevel * 0.01 * M);
+        c.stroke();
+      }
+      c.restore();
+
+      // Mouth
+      const mx0 = mx - 0.06 * M;
+      const mx1 = mx + 0.06 * M;
+      const my0 = my - 0.24 * M;
+      const open = 0.012 * M + alertLevel * 0.05 * M;
+      c.fillStyle = "#6b1f1f";
+      c.beginPath();
+      c.moveTo(mx0, my0);
+      c.quadraticCurveTo(mx, my0 + 0.02 * M, mx1, my0);
+      c.quadraticCurveTo(mx, my0 + 0.02 * M + 2 * open, mx0, my0);
+      c.fill();
+      c.stroke();
+
+      // Straw hat
+      c.fillStyle = "#e6c35c";
+      c.beginPath();
+      c.ellipse(mx, my - 0.5 * M, 0.3 * M, 0.05 * M, 0, 0, 7);
+      c.fill();
+      c.stroke();
+
+      c.beginPath();
+      c.moveTo(mx - 0.155 * M, my - 0.5 * M);
+      c.bezierCurveTo(
+        mx - 0.155 * M,
+        my - 0.74 * M,
+        mx + 0.155 * M,
+        my - 0.74 * M,
+        mx + 0.155 * M,
+        my - 0.5 * M,
+      );
+      c.closePath();
+      c.fill();
+      c.stroke();
+
+      c.fillStyle = "#b83a2e";
+      c.beginPath();
+      c.moveTo(mx - 0.152 * M, my - 0.56 * M);
+      c.quadraticCurveTo(mx, my - 0.53 * M, mx + 0.152 * M, my - 0.56 * M);
+      c.lineTo(mx + 0.155 * M, my - 0.5 * M);
+      c.quadraticCurveTo(mx, my - 0.47 * M, mx - 0.155 * M, my - 0.5 * M);
+      c.closePath();
+      c.fill();
+      c.stroke();
+
+      c.save();
+      c.strokeStyle = "#b8923a";
+      c.lineWidth = Math.max(1.5, 0.01 * M);
+      for (const s of [-1, 1]) {
+        c.beginPath();
+        c.moveTo(mx + s * 0.3 * M, my - 0.5 * M);
+        c.lineTo(mx + s * 0.35 * M, my - 0.525 * M);
+        c.moveTo(mx + s * 0.29 * M, my - 0.48 * M);
+        c.lineTo(mx + s * 0.34 * M, my - 0.47 * M);
+        c.stroke();
+      }
+      c.restore();
+
       c.restore();
     }
 
@@ -895,37 +985,66 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
 
 
     /**
-     * Four long curved wolf claws. The limb bones are gone with the rest of the
-     * silhouette, so a hand reads as talons hanging in the dark - and during a
-     * swat, as claws shooting out of nothing toward the key.
+     * Sleeved arm holding a pitchfork.
      */
     function drawArm(a: Arm) {
+      const M = MS;
       c.lineCap = "round";
-      const dr = Math.atan2(a.cy - a.ey, a.cx - a.ex);
-      c.fillStyle = "#e9e2d0";
-      c.strokeStyle = "#2a2230";
-      c.lineWidth = 1.2;
-      // Four claws, wide-splayed and noticeably longer than the knuckle, so
-      // they read as talons rather than trimmed nails.
-      for (const o of [-0.85, -0.28, 0.28, 0.85]) {
-        const an = dr + o;
-        const bx = a.cx + Math.cos(an) * 0.035 * MS;
-        const by = a.cy + Math.sin(an) * 0.035 * MS;
-        const tx = a.cx + Math.cos(an) * 0.28 * MS + Math.cos(dr) * 0.03 * MS;
-        const ty = a.cy + Math.sin(an) * 0.28 * MS + Math.sin(dr) * 0.03 * MS;
-        // Perpendicular offset gives each claw a hollow, curved outline.
-        const nx = -Math.sin(an) * 0.012 * MS;
-        const ny = Math.cos(an) * 0.012 * MS;
-        const mx2 = (bx + tx) / 2 + Math.cos(dr) * 0.04 * MS;
-        const my2 = (by + ty) / 2 + Math.sin(dr) * 0.04 * MS;
-        c.beginPath();
-        c.moveTo(bx + nx, by + ny);
-        c.quadraticCurveTo(mx2 + nx * 0.3, my2 + ny * 0.3, tx, ty);
-        c.quadraticCurveTo(mx2 - nx * 0.3, my2 - ny * 0.3, bx - nx, by - ny);
-        c.closePath();
-        c.fill();
-        c.stroke();
+      c.lineJoin = "round";
+
+      const sw = Math.max(6, 0.06 * M);
+      c.beginPath();
+      c.moveTo(a.sx, a.sy);
+      c.lineTo(a.ex, a.ey);
+      c.lineTo(a.cx, a.cy);
+      c.strokeStyle = OUTLINE;
+      c.lineWidth = sw + 3;
+      c.stroke();
+      c.strokeStyle = "#c0563b";
+      c.lineWidth = sw;
+      c.stroke();
+
+      const ang = Math.atan2(a.cy - a.sy, a.cx - a.sx);
+      const ux = Math.cos(ang);
+      const uy = Math.sin(ang);
+      const nx = -uy;
+      const ny = ux;
+
+      const bx = a.cx + ux * 0.04 * M;
+      const by = a.cy + uy * 0.04 * M;
+      c.beginPath();
+      c.moveTo(a.cx - ux * 0.3 * M, a.cy - uy * 0.3 * M);
+      c.lineTo(bx, by);
+      c.strokeStyle = OUTLINE;
+      c.lineWidth = Math.max(5, 0.028 * M) + 2;
+      c.stroke();
+      c.strokeStyle = "#8a5a2b";
+      c.lineWidth = Math.max(5, 0.028 * M);
+      c.stroke();
+
+      c.fillStyle = "#f2c29b";
+      c.strokeStyle = OUTLINE;
+      c.lineWidth = Math.max(1.5, 0.012 * M);
+      c.beginPath();
+      c.arc(a.cx, a.cy, 0.035 * M, 0, 7);
+      c.fill();
+      c.stroke();
+
+      const tw = 0.05 * M;
+      c.beginPath();
+      c.moveTo(bx - nx * tw, by - ny * tw);
+      c.lineTo(bx + nx * tw, by + ny * tw);
+      for (const o of [-1, 0, 1]) {
+        const len = o === 0 ? 0.1 * M : 0.085 * M;
+        c.moveTo(bx + nx * tw * o, by + ny * tw * o);
+        c.lineTo(bx + nx * tw * o + ux * len, by + ny * tw * o + uy * len);
       }
+      c.strokeStyle = OUTLINE;
+      c.lineWidth = Math.max(4, 0.02 * M) + 2;
+      c.stroke();
+      c.strokeStyle = "#b9c2cc";
+      c.lineWidth = Math.max(4, 0.02 * M);
+      c.stroke();
     }
 
     function draw() {
@@ -1121,7 +1240,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
         <canvas
           ref={canvasRef}
           role="img"
-          aria-label="A shadow guardian clutching a golden key. Grab the key and drag it out of this section, up to the portrait cage, to break containment."
+          aria-label="A cartoon villager in a straw hat with a pitchfork, guarding a golden key. Grab the key and drag it out of this section, up to the portrait cage, to break containment."
           className="block h-full w-full touch-none"
         />
 
