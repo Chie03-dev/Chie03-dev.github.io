@@ -33,6 +33,14 @@ interface Drip {
   color: string;
 }
 
+interface SplatStamp {
+  canvas: HTMLCanvasElement;
+  x: number;
+  y: number;
+  size: number;
+  createdAt: number;
+}
+
 interface Point {
   x: number;
   y: number;
@@ -86,6 +94,8 @@ export function createBloodSpatter(
   let raf = 0;
   const parts: Particle[] = [];
   const drips: Drip[] = [];
+  const splats: SplatStamp[] = [];
+  const SPLAT_LIFE = 4000;
 
   const rand = Math.random;
 
@@ -112,23 +122,29 @@ export function createBloodSpatter(
   }
 
   function splat(x: number, y: number, r: number, ang: number, speed: number): void {
-    sc.save();
-    sc.translate(x, y);
-    sc.rotate(ang);
-    sc.fillStyle = blood();
+    const size = Math.max(8, Math.ceil(r * 14));
+    const stamp = document.createElement("canvas");
+    stamp.width = size * dpr;
+    stamp.height = size * dpr;
+    const ctx = stamp.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(size / 2, size / 2);
+    ctx.rotate(ang);
+    ctx.fillStyle = blood();
 
-    sc.beginPath();
-    sc.ellipse(0, 0, r * (1 + Math.min(speed, 20) * 0.04), r, 0, 0, TAU);
-    sc.fill();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * (1 + Math.min(speed, 20) * 0.04), r, 0, 0, TAU);
+    ctx.fill();
 
     const lobes = 4 + Math.floor(rand() * 5);
     for (let i = 0; i < lobes; i++) {
       const a = rand() * TAU;
       const d = r * (0.5 + rand() * 0.7);
       const lr = r * (0.25 + rand() * 0.45);
-      sc.beginPath();
-      sc.arc(Math.cos(a) * d, Math.sin(a) * d, lr, 0, TAU);
-      sc.fill();
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * d, Math.sin(a) * d, lr, 0, TAU);
+      ctx.fill();
     }
 
     const sats = 1 + Math.floor(rand() * 3);
@@ -136,24 +152,26 @@ export function createBloodSpatter(
       const sa = (rand() - 0.5) * 1.1;
       const sd = r * (1.8 + rand() * 4.5);
       const sr = 0.4 + rand() * r * 0.28;
-      sc.beginPath();
-      sc.arc(Math.cos(sa) * sd, Math.sin(sa) * sd, sr, 0, TAU);
-      sc.fill();
+      ctx.beginPath();
+      ctx.arc(Math.cos(sa) * sd, Math.sin(sa) * sd, sr, 0, TAU);
+      ctx.fill();
     }
 
-    sc.fillStyle = blood(-7);
-    sc.globalAlpha = 0.55;
-    sc.beginPath();
-    sc.arc(0, 0, r * 0.55, 0, TAU);
-    sc.fill();
+    ctx.fillStyle = blood(-7);
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.55, 0, TAU);
+    ctx.fill();
 
-    sc.globalAlpha = 0.35;
-    sc.fillStyle = "#ff5a4a";
-    sc.beginPath();
-    sc.ellipse(-r * 0.25, -r * 0.3, r * 0.22, r * 0.12, -0.5, 0, TAU);
-    sc.fill();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "#ff5a4a";
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.25, -r * 0.3, r * 0.22, r * 0.12, -0.5, 0, TAU);
+    ctx.fill();
 
-    sc.restore();
+    ctx.restore();
+
+    splats.push({ canvas: stamp, x, y, size, createdAt: performance.now() });
   }
 
   function spawn(
@@ -271,6 +289,19 @@ export function createBloodSpatter(
       }
     }
 
+    // Fade splats out in FIFO order.
+    const now = performance.now();
+    for (let i = splats.length - 1; i >= 0; i--) {
+      if (now - splats[i].createdAt > SPLAT_LIFE) splats.splice(i, 1);
+    }
+    sc.clearRect(0, 0, W, H);
+    for (const sp of splats) {
+      const age = (now - sp.createdAt) / SPLAT_LIFE;
+      sc.globalAlpha = Math.max(0, 1 - age);
+      sc.drawImage(sp.canvas, sp.x - sp.size / 2, sp.y - sp.size / 2, sp.size, sp.size);
+    }
+    sc.globalAlpha = 1;
+
     raf = requestAnimationFrame(frame);
   }
 
@@ -286,6 +317,7 @@ export function createBloodSpatter(
       sc.clearRect(0, 0, W, H);
       drips.length = 0;
       parts.length = 0;
+      splats.length = 0;
     },
     destroy(): void {
       cancelAnimationFrame(raf);

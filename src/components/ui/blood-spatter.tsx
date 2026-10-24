@@ -17,11 +17,7 @@ export function BloodSpatter() {
       minMoveDistance: 24,
       drips: false,
     });
-    const timer = window.setInterval(() => instance.clear(), 5000);
-    return () => {
-      window.clearInterval(timer);
-      instance.destroy();
-    };
+    return () => instance.destroy();
   }, [isLocked]);
 
   return null;
