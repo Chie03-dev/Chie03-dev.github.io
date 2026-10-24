@@ -105,6 +105,122 @@ interface Particle {
   l: number;
 }
 
+/* ---- pixel art assets ---- */
+
+const VW = 22; // main sprite width, in pixels
+
+const PAL: Record<string, string> = {
+  O: "#120d0a", // outline
+  h: "#a8873f", H: "#c9a85a", d: "#5f4a24", // straw
+  r: "#5c1616", // hat band (dried blood red)
+  s: "#c8977a", S: "#9a6b52", // skin
+  b: "#3b281b", // hair / beard
+  t: "#463629", T: "#5a4634", p: "#7d6034", // tunic, highlight, strap
+};
+
+/** Rows are centred, so only the content is written (no padding). */
+const VILLAGER: string[] = [
+  "O".repeat(8),
+  "O" + "hhHHhhhh" + "O",
+  "O" + "hhHHHhhhhh" + "O",
+  "O" + "hhhhhhhhhd" + "O",
+  "O" + "r".repeat(10) + "O",
+  "O" + "r".repeat(10) + "O",
+  "O" + "hhhhhhhhHHhhhhhhhhdd" + "O", // brim
+  "O" + "d".repeat(20) + "O", // brim shadow
+  "O" + "b" + "S".repeat(10) + "b" + "O", // 8  forehead shadow
+  "O" + "b" + "s".repeat(10) + "b" + "O", // 9  brows
+  "O" + "b" + "s".repeat(10) + "b" + "O", // 10 eyes
+  "O" + "b" + "s".repeat(10) + "b" + "O", // 11 eyes
+  "O" + "b" + "ssss" + "SS" + "ssss" + "b" + "O", // 12 nose
+  "O" + "b".repeat(12) + "O", // 13 moustache
+  "O" + "b".repeat(12) + "O", // 14 beard + mouth
+  "O" + "b".repeat(10) + "O", // 15
+  "O" + "b".repeat(8) + "O", // 16
+  "O".repeat(8), // 17
+  "O" + "TT" + "t".repeat(16) + "TT" + "O", // shoulders
+  "O" + "ttpp" + "t".repeat(16) + "O",
+  "O" + "tttt" + "pp" + "t".repeat(14) + "O", // repeats down to the floor
+];
+
+/* Background crowd: smaller, darker, eerie pale eyes (E). */
+const BG_PAL: Record<string, string> = {
+  O: "#0a0707",
+  h: "#6e5a2e", r: "#3d0f0f",
+  s: "#8a6652", b: "#241810",
+  k: "#1d1915", // hood
+  t: "#2b2119", T: "#362a20",
+  E: "#f3e6b0",
+};
+
+const CROWD_BODY = ["O" + "T" + "t".repeat(8) + "T" + "O", "O" + "t".repeat(10) + "O"];
+const CROWD_STRAW = [
+  "O".repeat(6),
+  "O" + "hhhhhh" + "O",
+  "O" + "r".repeat(6) + "O",
+  "O" + "h".repeat(10) + "O",
+  "O" + "bsEssEsb" + "O",
+  "O" + "b" + "s".repeat(6) + "b" + "O",
+  "O" + "b".repeat(8) + "O",
+  "O" + "b".repeat(6) + "O",
+  ...CROWD_BODY,
+];
+const CROWD_HOOD = [
+  "O".repeat(6),
+  "O" + "k".repeat(6) + "O",
+  "O" + "k".repeat(8) + "O",
+  "O" + "kk" + "s".repeat(6) + "kk" + "O",
+  "O" + "ksEssEsk" + "O",
+  "O" + "k" + "s".repeat(6) + "k" + "O",
+  "O" + "k".repeat(8) + "O",
+  "O" + "k".repeat(6) + "O",
+  ...CROWD_BODY,
+];
+
+/** x is a fraction of the canvas width. They only bob; nothing else moves. */
+const CROWD = [
+  { x: 0.05, back: true, hood: true, torch: false, side: 1, ph: 0.0 },
+  { x: 0.15, back: false, hood: false, torch: true, side: -1, ph: 1.3 },
+  { x: 0.27, back: true, hood: false, torch: false, side: 1, ph: 2.1 },
+  { x: 0.73, back: true, hood: false, torch: true, side: -1, ph: 0.7 },
+  { x: 0.85, back: false, hood: true, torch: false, side: 1, ph: 2.8 },
+  { x: 0.95, back: true, hood: false, torch: false, side: -1, ph: 1.9 },
+];
+
+const SKY = ["#0b0810", "#0f0b14", "#140e17", "#1a1019", "#201219", "#2a1618"];
+
+/** Draw a character-map sprite. The last row repeats down to `bottom`. */
+function drawSprite(
+  c: CanvasRenderingContext2D,
+  rows: string[],
+  pal: Record<string, string>,
+  ox: number,
+  oy: number,
+  width: number,
+  p: number,
+  bottom: number,
+) {
+  rows.forEach((row, r) => {
+    const off = (width - row.length) / 2;
+    for (let i = 0; i < row.length; i++) {
+      const col = pal[row[i]];
+      if (!col) continue;
+      c.fillStyle = col;
+      c.fillRect(Math.round(ox + (off + i) * p), oy + r * p, p, p);
+    }
+  });
+  const last = rows[rows.length - 1];
+  const off = (width - last.length) / 2;
+  const y = oy + rows.length * p;
+  if (bottom <= y) return;
+  for (let i = 0; i < last.length; i++) {
+    const col = pal[last[i]];
+    if (!col) continue;
+    c.fillStyle = col;
+    c.fillRect(Math.round(ox + (off + i) * p), y, p, bottom - y);
+  }
+}
+
 export interface KeyGuardianProps {
   /** Fired when containment breaks -by dropping the key on the cage. */
   onClaim: () => void;
@@ -180,7 +296,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
     const GOLD_HI = "#fff0a8";
     const GOLD_MID = "#d9a52b";
     const GOLD_LO = "#7a5410";
-    const OUTLINE = "#2b1d14";
+
 
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let reduced = motionQuery.matches;
@@ -194,6 +310,10 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
      * draw from this; the key, grab radius, physics, and strike targets keep
      * full S so the game plays identically. */
     let MS = 0;
+    /** Pixel size. One grid for every sprite, derived from the monster scale. */
+    let PX = 4;
+    /** Night backdrop behind the scene. Set false to inherit the page background. */
+    const BACKDROP = true;
     /**
      * Guardian body scale. The monster reads oversized next to the key game,
      * so the body, arms, and eyes draw at 70% while the key, grab radius, and
@@ -303,6 +423,7 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       S = Math.min(W, H);
       MS = S * MONSTER;
+      PX = Math.max(3, Math.round(MS * 0.02));
       cx = W / 2;
       cy = H / 2;
       mx = cx;
@@ -363,7 +484,9 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
       if (claimed) return;
       const reach = (a: Arm) =>
         Math.hypot(key.x - a.sx, key.y - a.sy) < 2 * a.L * 0.96;
-      let a = mouse && mouse.x < key.x ? arms[0] : arms[1];
+      // The pitchfork arm (right) always takes the swing if it can reach;
+      // the bare fist only helps when the key is out of its range.
+      let a = arms[1];
       if (!reach(a)) a = a === arms[0] ? arms[1] : arms[0];
       if (!reach(a) || a.stage !== "idle") return;
       setDir();
@@ -706,215 +829,58 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
 
     /* ---- drawing ---- */
 
-    /** Cartoon eye: white ball, pupil that tracks the pointer, blinks, shrinks when alert. */
-    function eye(ex: number, ey: number, rx: number, ry: number) {
-      const lx = mouse ? mouse.x : cx;
-      const ly = mouse ? mouse.y : cy;
-      const dx = lx - ex;
-      const dy = ly - ey;
-      const d = Math.hypot(dx, dy) || 1;
-      const off = Math.min(rx * 0.4, d * 0.08);
-      const bl = 1 - blink * 0.92;
 
-      c.save();
-      c.fillStyle = "#ffffff";
-      c.strokeStyle = OUTLINE;
-      c.lineWidth = Math.max(1.5, rx * 0.15);
-      c.beginPath();
-      c.ellipse(ex, ey, rx, ry * bl, 0, 0, 7);
-      c.fill();
-      c.stroke();
-
-      const pr = rx * 0.5 * (1 - alertLevel * 0.25);
-      c.fillStyle = "#1b1410";
-      c.beginPath();
-      c.ellipse(
-        ex + (dx / d) * off,
-        ey + (dy / d) * off * bl,
-        pr,
-        pr * bl,
-        0,
-        0,
-        7,
-      );
-      c.fill();
-      c.restore();
-    }
 
 
 
 
     function monster() {
-      const M = MS;
-      const br = 1 + Math.sin(t * 0.03) * 0.01;
-      const jitter = shake + alertLevel * 2;
-      const sx = (Math.random() - 0.5) * jitter;
-      const sy = (Math.random() - 0.5) * jitter;
-      const drop = defeat * 0.3 * M;
-      const fade = 1 - defeat * 0.75;
+      const p = PX;
+      const snap = (v: number) => Math.round(v / p) * p;
+      const bob = Math.round(Math.sin(t * 0.035) * 0.6) * p;
+      const jit = alertLevel * 1.2 + shake / p;
+      const jx = Math.round((Math.random() - 0.5) * jit) * p;
+      const jy = Math.round((Math.random() - 0.5) * jit) * p;
+      const drop = snap(defeat * 0.3 * MS);
+      const ox = snap(mx - (VW * p) / 2) + jx;
+      const oy = snap(cy - 0.07 * S) - 18 * p + bob + jy + drop;
 
       c.save();
-      c.globalAlpha = fade;
-      c.translate(mx + sx, my + sy + drop);
-      c.scale(br, br);
-      c.translate(-mx, -(my + drop));
-      c.lineJoin = "round";
-      c.lineCap = "round";
-      c.strokeStyle = OUTLINE;
-      c.lineWidth = Math.max(2, 0.014 * M);
+      c.globalAlpha = 1 - defeat * 0.75;
+      drawSprite(c, VILLAGER, PAL, ox, oy, VW, p, H);
 
-      // Shirt
-      c.fillStyle = "#c0563b";
-      c.beginPath();
-      c.moveTo(mx - 0.2 * M, my - 0.16 * M);
-      c.quadraticCurveTo(mx, my - 0.24 * M, mx + 0.2 * M, my - 0.16 * M);
-      c.lineTo(mx + 0.27 * M, my + 0.9 * M);
-      c.lineTo(mx - 0.27 * M, my + 0.9 * M);
-      c.closePath();
-      c.fill();
-      c.stroke();
+      const R = (col: number, row: number, w: number, h: number, color: string) => {
+        c.fillStyle = color;
+        c.fillRect(ox + col * p, oy + row * p, w * p, h * p);
+      };
 
-      // Overalls (bib + trousers)
-      c.fillStyle = "#3f6fa8";
-      c.beginPath();
-      c.moveTo(mx - 0.1 * M, my - 0.1 * M);
-      c.lineTo(mx + 0.1 * M, my - 0.1 * M);
-      c.lineTo(mx + 0.1 * M, my + 0.2 * M);
-      c.lineTo(mx + 0.225 * M, my + 0.2 * M);
-      c.lineTo(mx + 0.27 * M, my + 0.9 * M);
-      c.lineTo(mx - 0.27 * M, my + 0.9 * M);
-      c.lineTo(mx - 0.225 * M, my + 0.2 * M);
-      c.lineTo(mx - 0.1 * M, my + 0.2 * M);
-      c.closePath();
-      c.fill();
-      c.stroke();
+      const ex = ox + 11 * p;
+      const ey = oy + 10.5 * p;
+      const gx = mouse ? (mouse.x < ex - 0.03 * S ? -1 : mouse.x > ex + 0.03 * S ? 1 : 0) : 0;
+      const gy = mouse && mouse.y < ey - 0.02 * S ? 0 : 1;
+      const pupil = alertLevel > 0.5 ? "#b3130f" : "#120d0a";
 
-      // Straps + buttons
-      c.save();
-      c.strokeStyle = "#3f6fa8";
-      c.lineWidth = 0.04 * M;
-      for (const s of [-1, 1]) {
-        c.beginPath();
-        c.moveTo(mx + s * 0.1 * M, my - 0.1 * M);
-        c.lineTo(mx + s * 0.13 * M, my - 0.19 * M);
-        c.stroke();
-      }
-      c.restore();
-      c.fillStyle = "#f0d060";
-      for (const s of [-1, 1]) {
-        c.beginPath();
-        c.arc(mx + s * 0.08 * M, my - 0.08 * M, 0.016 * M, 0, 7);
-        c.fill();
+      for (const col of [7, 12]) {
+        if (blink > 0.5) {
+          R(col, 11, 3, 1, "#120d0a");
+        } else {
+          R(col, 10, 3, 2, "#e9e2cf");
+          R(col + 1 + gx, 10 + gy, 1, 1, pupil);
+        }
       }
 
-      // Hair tufts + ears
-      c.fillStyle = "#8a5a2b";
-      for (const s of [-1, 1]) {
-        c.beginPath();
-        c.arc(mx + s * 0.16 * M, my - 0.43 * M, 0.035 * M, 0, 7);
-        c.fill();
+      const angry = alertLevel > 0.4;
+      R(7, 9, 2, 1, "#241810");
+      R(9, angry ? 10 : 9, 1, 1, "#241810");
+      R(12, angry ? 10 : 9, 1, 1, "#241810");
+      R(13, 9, 2, 1, "#241810");
+
+      if (alertLevel > 0.4) {
+        R(9, 14, 4, 1, "#d9d2bd");
+        R(9, 15, 4, 1, "#2a0a0a");
+      } else {
+        R(10, 14, 2, 1, "#2a0a0a");
       }
-      c.fillStyle = "#f2c29b";
-      for (const s of [-1, 1]) {
-        c.beginPath();
-        c.arc(mx + s * 0.175 * M, my - 0.33 * M, 0.04 * M, 0, 7);
-        c.fill();
-        c.stroke();
-      }
-
-      // Head
-      c.fillStyle = "#f2c29b";
-      c.beginPath();
-      c.arc(mx, my - 0.34 * M, 0.17 * M, 0, 7);
-      c.fill();
-      c.stroke();
-
-      // Cheeks + nose
-      c.fillStyle = "rgba(230,110,100,.35)";
-      for (const s of [-1, 1]) {
-        c.beginPath();
-        c.arc(mx + s * 0.11 * M, my - 0.28 * M, 0.03 * M, 0, 7);
-        c.fill();
-      }
-      c.fillStyle = "#e8a07c";
-      c.beginPath();
-      c.arc(mx, my - 0.31 * M, 0.035 * M, 0, 7);
-      c.fill();
-      c.stroke();
-
-      // Eyes + eyebrows
-      eye(mx - 0.07 * M, my - 0.36 * M, 0.04 * M, 0.05 * M);
-      eye(mx + 0.07 * M, my - 0.36 * M, 0.04 * M, 0.05 * M);
-      c.save();
-      c.strokeStyle = "#5a3a22";
-      c.lineWidth = Math.max(2, 0.02 * M);
-      for (const s of [-1, 1]) {
-        const ex = mx + s * 0.07 * M;
-        const by = my - 0.435 * M;
-        c.beginPath();
-        c.moveTo(ex - s * 0.04 * M, by + alertLevel * 0.03 * M);
-        c.lineTo(ex + s * 0.045 * M, by - alertLevel * 0.01 * M);
-        c.stroke();
-      }
-      c.restore();
-
-      // Mouth
-      const mx0 = mx - 0.06 * M;
-      const mx1 = mx + 0.06 * M;
-      const my0 = my - 0.24 * M;
-      const open = 0.012 * M + alertLevel * 0.05 * M;
-      c.fillStyle = "#6b1f1f";
-      c.beginPath();
-      c.moveTo(mx0, my0);
-      c.quadraticCurveTo(mx, my0 + 0.02 * M, mx1, my0);
-      c.quadraticCurveTo(mx, my0 + 0.02 * M + 2 * open, mx0, my0);
-      c.fill();
-      c.stroke();
-
-      // Straw hat
-      c.fillStyle = "#e6c35c";
-      c.beginPath();
-      c.ellipse(mx, my - 0.5 * M, 0.3 * M, 0.05 * M, 0, 0, 7);
-      c.fill();
-      c.stroke();
-
-      c.beginPath();
-      c.moveTo(mx - 0.155 * M, my - 0.5 * M);
-      c.bezierCurveTo(
-        mx - 0.155 * M,
-        my - 0.74 * M,
-        mx + 0.155 * M,
-        my - 0.74 * M,
-        mx + 0.155 * M,
-        my - 0.5 * M,
-      );
-      c.closePath();
-      c.fill();
-      c.stroke();
-
-      c.fillStyle = "#b83a2e";
-      c.beginPath();
-      c.moveTo(mx - 0.152 * M, my - 0.56 * M);
-      c.quadraticCurveTo(mx, my - 0.53 * M, mx + 0.152 * M, my - 0.56 * M);
-      c.lineTo(mx + 0.155 * M, my - 0.5 * M);
-      c.quadraticCurveTo(mx, my - 0.47 * M, mx - 0.155 * M, my - 0.5 * M);
-      c.closePath();
-      c.fill();
-      c.stroke();
-
-      c.save();
-      c.strokeStyle = "#b8923a";
-      c.lineWidth = Math.max(1.5, 0.01 * M);
-      for (const s of [-1, 1]) {
-        c.beginPath();
-        c.moveTo(mx + s * 0.3 * M, my - 0.5 * M);
-        c.lineTo(mx + s * 0.35 * M, my - 0.525 * M);
-        c.moveTo(mx + s * 0.29 * M, my - 0.48 * M);
-        c.lineTo(mx + s * 0.34 * M, my - 0.47 * M);
-        c.stroke();
-      }
-      c.restore();
-
       c.restore();
     }
 
@@ -985,86 +951,159 @@ export function KeyGuardian({ onClaim, onDropHot, className }: KeyGuardianProps)
 
 
     /**
-     * Sleeved arm holding a pitchfork.
+     * Pixel sleeve + fist. The right arm (side 1) also carries the pitchfork.
      */
-    function drawArm(a: Arm) {
-      const M = MS;
-      c.lineCap = "round";
-      c.lineJoin = "round";
+    /** Night sky in hard colour bands, plus a pixel moon. */
+    function backdrop() {
+      const p = PX;
+      const bh = Math.ceil(H / SKY.length / p) * p;
+      SKY.forEach((col, i) => {
+        c.fillStyle = col;
+        c.fillRect(0, i * bh, W, bh + 1);
+      });
+      const mxp = Math.round((W * 0.82) / p) * p;
+      const myp = Math.round((H * 0.16) / p) * p;
+      for (let dy = -4; dy <= 4; dy++) {
+        for (let dx = -4; dx <= 4; dx++) {
+          if (Math.hypot(dx, dy) > 4.2) continue;
+          const crater = (dx === -1 && dy === -1) || (dx === 1 && dy === 1);
+          c.fillStyle = crater ? "#a8a28a" : "#cfc8ae";
+          c.fillRect(mxp + dx * p, myp + dy * p, p, p);
+        }
+      }
+    }
 
-      const sw = Math.max(6, 0.06 * M);
-      c.beginPath();
-      c.moveTo(a.sx, a.sy);
-      c.lineTo(a.ex, a.ey);
-      c.lineTo(a.cx, a.cy);
-      c.strokeStyle = OUTLINE;
-      c.lineWidth = sw + 3;
-      c.stroke();
-      c.strokeStyle = "#c0563b";
-      c.lineWidth = sw;
-      c.stroke();
+    /** Blocky torch light: three alpha bands on the pixel grid. */
+    function glow(gx: number, gy: number) {
+      const p = PX;
+      c.fillStyle = "#ff9a3c";
+      for (let dy = -6; dy <= 6; dy++) {
+        for (let dx = -6; dx <= 6; dx++) {
+          const d = Math.hypot(dx, dy);
+          if (d > 6) continue;
+          c.globalAlpha = d <= 3 ? 0.14 : d <= 5 ? 0.07 : 0.035;
+          c.fillRect(gx + dx * p, gy + dy * p, p, p);
+        }
+      }
+      c.globalAlpha = 1;
+    }
+
+    /** The mob behind him. They only bob up and down; torches flicker. */
+    function crowd() {
+      const p = PX;
+      for (const pass of [true, false]) {
+        for (const v of CROWD) {
+          if (v.back !== pass) continue;
+          const bob = Math.round(Math.sin(t * 0.05 + v.ph) * 1.2) * p;
+          const bx = Math.round((v.x * W) / p) * p;
+          const top = Math.round((cy - (v.back ? 0.2 : 0.08) * S) / p) * p + bob;
+          const hx = bx + v.side * 5 * p;
+          const ty = top - 4 * p;
+
+          if (v.torch) glow(hx, ty - p);
+
+          drawSprite(c, v.hood ? CROWD_HOOD : CROWD_STRAW, BG_PAL, bx - 6 * p, top, 12, p, H);
+
+          c.fillStyle = "#5b4126";
+          if (v.torch) {
+            c.fillRect(hx, ty, p, H - ty);
+            c.fillStyle = "#2a1d12";
+            c.fillRect(hx - p, ty, 3 * p, 2 * p);
+            const fl = 2 + Math.round(Math.sin(t * 0.3 + v.ph * 3) + 1); // 2..4
+            c.fillStyle = "#c2410c";
+            c.fillRect(hx - p, ty - fl * p, 3 * p, fl * p);
+            c.fillStyle = "#ffd25a";
+            c.fillRect(hx, ty - (fl - 1) * p, p, (fl - 1) * p);
+          } else {
+            const fy = top - 5 * p;
+            c.fillRect(hx, fy + 4 * p, p, H - (fy + 4 * p));
+            c.fillStyle = "#8c9296";
+            c.fillRect(hx - 2 * p, fy, p, 3 * p);
+            c.fillRect(hx, fy - p, p, 4 * p);
+            c.fillRect(hx + 2 * p, fy, p, 3 * p);
+            c.fillRect(hx - 2 * p, fy + 3 * p, 5 * p, p);
+          }
+          c.fillStyle = BG_PAL.s;
+          c.fillRect(hx - p, top + 8 * p, 3 * p, 2 * p);
+        }
+      }
+    }
+
+    function drawArm(a: Arm) {
+      const p = PX;
+      const M = MS;
+      const EDGE = "#120d0a";
+      const SLEEVE = "#5a4634";
+      const SKIN = "#c8977a";
+      const fork = a.side === 1;
 
       const ang = Math.atan2(a.cy - a.sy, a.cx - a.sx);
       const ux = Math.cos(ang);
       const uy = Math.sin(ang);
       const nx = -uy;
       const ny = ux;
-
+      const tw = 2 * p;
       const bx = a.cx + ux * 0.04 * M;
       const by = a.cy + uy * 0.04 * M;
-      c.beginPath();
-      c.moveTo(a.cx - ux * 0.3 * M, a.cy - uy * 0.3 * M);
-      c.lineTo(bx, by);
-      c.strokeStyle = OUTLINE;
-      c.lineWidth = Math.max(5, 0.028 * M) + 2;
-      c.stroke();
-      c.strokeStyle = "#8a5a2b";
-      c.lineWidth = Math.max(5, 0.028 * M);
-      c.stroke();
+      const bax = a.cx - ux * 0.3 * M;
+      const bay = a.cy - uy * 0.3 * M;
+      const tines = [-1, 0, 1].map((o) => ({
+        x: bx + nx * tw * o,
+        y: by + ny * tw * o,
+        len: (o === 0 ? 0.11 : 0.095) * M,
+      }));
 
-      c.fillStyle = "#f2c29b";
-      c.strokeStyle = OUTLINE;
-      c.lineWidth = Math.max(1.5, 0.012 * M);
-      c.beginPath();
-      c.arc(a.cx, a.cy, 0.035 * M, 0, 7);
-      c.fill();
-      c.stroke();
+      c.save();
+      c.globalAlpha = 1 - defeat * 0.75;
 
-      const tw = 0.05 * M;
-      c.beginPath();
-      c.moveTo(bx - nx * tw, by - ny * tw);
-      c.lineTo(bx + nx * tw, by + ny * tw);
-      for (const o of [-1, 0, 1]) {
-        const len = o === 0 ? 0.1 * M : 0.085 * M;
-        c.moveTo(bx + nx * tw * o, by + ny * tw * o);
-        c.lineTo(bx + nx * tw * o + ux * len, by + ny * tw * o + uy * len);
+      function pixLine(x0: number, y0: number, x1: number, y1: number, w: number, color: string) {
+        const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / p));
+        const h = Math.floor(w / 2) * p;
+        c.fillStyle = color;
+        for (let i = 0; i <= n; i++) {
+          const x = Math.round((x0 + ((x1 - x0) * i) / n) / p) * p - h;
+          const y = Math.round((y0 + ((y1 - y0) * i) / n) / p) * p - h;
+          c.fillRect(x, y, w * p, w * p);
+        }
       }
-      c.strokeStyle = OUTLINE;
-      c.lineWidth = Math.max(4, 0.02 * M) + 2;
-      c.stroke();
-      c.strokeStyle = "#b9c2cc";
-      c.lineWidth = Math.max(4, 0.02 * M);
-      c.stroke();
+
+      pixLine(a.sx, a.sy, a.ex, a.ey, 5, EDGE);
+      pixLine(a.ex, a.ey, a.cx, a.cy, 5, EDGE);
+      if (fork) {
+        pixLine(bax, bay, bx, by, 3, EDGE);
+        pixLine(bx - nx * tw, by - ny * tw, bx + nx * tw, by + ny * tw, 3, EDGE);
+        for (const tn of tines) {
+          pixLine(tn.x, tn.y, tn.x + ux * tn.len, tn.y + uy * tn.len, 3, EDGE);
+        }
+      }
+
+      pixLine(a.sx, a.sy, a.ex, a.ey, 3, SLEEVE);
+      pixLine(a.ex, a.ey, a.cx, a.cy, 3, SLEEVE);
+      if (fork) {
+        pixLine(bax, bay, bx, by, 1, "#6b4a2a");
+        pixLine(bx - nx * tw, by - ny * tw, bx + nx * tw, by + ny * tw, 1, "#8c9296");
+        for (const tn of tines) {
+          pixLine(tn.x, tn.y, tn.x + ux * tn.len, tn.y + uy * tn.len, 1, "#8c9296");
+        }
+      }
+
+      pixLine(a.cx, a.cy, a.cx, a.cy, 5, EDGE);
+      pixLine(a.cx, a.cy, a.cx, a.cy, 3, SKIN);
+      c.restore();
     }
 
     function draw() {
-      // Clear only. The monster sits directly on the page background -no haze
-      // wash -so the scene inherits the site's light/dark theme.
       c.clearRect(0, 0, W, H);
-
+      if (BACKDROP) backdrop();
+      crowd();
       monster();
-      // The DOM ghost carries the key once it leaves the band; drawing the
-      // canvas copy too would show two keys at once. Once claimed, the key
-      // belongs to the cage, so it is gone from here for good.
       if (!keyEscaped && !claimed) drawKey();
       arms.forEach(drawArm);
 
       c.fillStyle = accent;
-      for (const p of parts) {
-        c.globalAlpha = p.l / 30;
-        c.beginPath();
-        c.arc(p.x, p.y, 3, 0, 7);
-        c.fill();
+      for (const q of parts) {
+        c.globalAlpha = q.l / 30;
+        c.fillRect(Math.round(q.x / PX) * PX, Math.round(q.y / PX) * PX, PX, PX);
       }
       c.globalAlpha = 1;
     }
