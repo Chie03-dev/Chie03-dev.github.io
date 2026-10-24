@@ -1,7 +1,15 @@
 "use client";
 
-import { KeyVault } from "@/components/showcases/key-vault";
+import dynamic from "next/dynamic";
 import { useHeroLock } from "@/context/hero-lock-context";
+
+const KeyVault = dynamic(
+  () => import("@/components/showcases/key-vault").then((m) => m.KeyVault),
+  {
+    ssr: false,
+    loading: () => <div className="h-40" aria-hidden="true" />,
+  },
+);
 
 /**
  * The vault key band at the foot of the contact section. The guardian clutches

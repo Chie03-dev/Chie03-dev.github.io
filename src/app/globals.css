@@ -430,6 +430,14 @@
   }
 }
 
+@view-transition {
+  navigation: auto;
+}
+
+.page-transition {
+  view-transition-name: page;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -438,4 +446,13 @@
     @apply bg-background text-foreground;
     margin: 0;
   }
+}
+
+@view-transition { navigation: auto; }
+
+.page-transition { view-transition-name: page; }
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  .page-transition { view-transition-name: none; }
 }

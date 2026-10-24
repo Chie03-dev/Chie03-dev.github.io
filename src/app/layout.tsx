@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { CommandPalette } from "@/components/showcases/command-palette";
 import { Navbar } from "@/components/layout/navbar";
 import { UnlockFlash } from "@/components/ui/unlock-flash";
+import { BackToTop } from "@/components/ui/back-to-top";
 import { HeroLockProvider } from "@/context/hero-lock-context";
 import { ScrollDusk } from "@/components/ui/scroll-dusk";
 import { SmoothScroll } from "@/components/ui/smooth-scroll";
@@ -53,11 +54,20 @@ export const metadata: Metadata = {
     siteName: site.name,
     title: `${TITLE_NAME} - ${site.role}`,
     description: site.description,
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: `${site.name} - ${site.role}`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: `${TITLE_NAME} - ${site.role}`,
     description: site.description,
+    images: ["/og.png"],
   },
 };
 
@@ -97,6 +107,7 @@ export default function RootLayout({
     <html lang="en" className="scroll-pt-24" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
@@ -115,10 +126,11 @@ export default function RootLayout({
         <ScrollDusk />
         <SmoothScroll />
         <HeroLockProvider>
-          <div className="relative z-10">
+          <div className="relative z-10 page-transition">
             <Navbar />
             {children}
             <UnlockFlash />
+            <BackToTop />
           </div>
           <CommandPalette />
         </HeroLockProvider>

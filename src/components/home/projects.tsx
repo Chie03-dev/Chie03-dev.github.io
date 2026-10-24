@@ -1,3 +1,7 @@
+"use client";
+
+import type React from "react";
+
 import { portfolioData } from "@/data/portfolio";
 import { NotchedProjectCard } from "@/components/ui/notched-project-card";
 import { SectionRail } from "@/components/ui/section-rail";
@@ -20,6 +24,13 @@ export default function Projects() {
   const { projects } = portfolioData;
   const year = (period: string) => period.match(/\d{4}/)?.[0] ?? period;
 
+  function scrollByCard(e: React.KeyboardEvent<HTMLUListElement>, dir: number) {
+    const ul = e.currentTarget;
+    const card = ul.querySelector("li");
+    const step = card ? card.clientWidth + 16 : ul.clientWidth * 0.8;
+    ul.scrollBy({ left: dir * step, behavior: "smooth" });
+  }
+
   return (
     <section id="projects">
       <SectionRail>
@@ -29,13 +40,24 @@ export default function Projects() {
 
         <ul
           tabIndex={0}
+          role="region"
+          aria-roledescription="carousel"
           aria-label="Recent projects, scrollable sideways"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight") {
+              e.preventDefault();
+              scrollByCard(e, 1);
+            } else if (e.key === "ArrowLeft") {
+              e.preventDefault();
+              scrollByCard(e, -1);
+            }
+          }}
           className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
         >
           {projects.map((project) => (
             <li
               key={project.id}
-              className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%]"
+              className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0"
             >
               <NotchedProjectCard
                 href={project.link}
@@ -46,6 +68,7 @@ export default function Projects() {
                 badge={year(project.period)}
                 tags={project.technologies}
                 monochrome
+                ariaLabel={`Open ${project.title}`}
               />
             </li>
           ))}

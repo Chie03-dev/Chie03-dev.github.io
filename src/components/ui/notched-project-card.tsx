@@ -45,6 +45,7 @@ export interface NotchedProjectCardProps {
   /** the arrow's colour on that fill; pick one that contrasts with `accent` */
   accentForeground?: string;
   className?: string;
+  ariaLabel?: string;
 }
 
 const DISC = 64; // the arrow disc, px
@@ -63,6 +64,7 @@ export function NotchedProjectCard({
   accent,
   accentForeground = "#0a0a0a",
   className,
+  ariaLabel,
 }: NotchedProjectCardProps) {
   // The covers are plain <img> on purpose. The site is a static export
   // (output: "export") with images.unoptimised, which is exactly the case where
@@ -75,6 +77,7 @@ export function NotchedProjectCard({
   return (
     <a
       href={href}
+      aria-label={ariaLabel}
       className={cn(
         "group flex flex-col rounded-[28px] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background",
         className,
@@ -104,6 +107,7 @@ export function NotchedProjectCard({
           <img
             src={image}
             alt={screen ? "" : imageAlt}
+            loading="lazy"
             className={cn(
               "absolute inset-0 h-full w-full object-cover",
               tone,

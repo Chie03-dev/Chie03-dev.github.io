@@ -6,7 +6,6 @@ export interface PortfolioData {
   bio: string;
   headline: string;
   intro: string;
-  stats: Stat[];
   projects: Project[];
   experience: Experience[];
   skillGroups: SkillGroup[];
@@ -19,11 +18,6 @@ export const portfolioData: PortfolioData = {
   headline: "SOFTWARE DEVELOPER",
   intro:
     "Computer Science graduate with experience in application development, technical support, hardware/software troubleshooting, and database systems. Proficient in Python, Java, Kotlin, JavaScript, PHP, MySQL, SQLite, RESTful APIs, and Windows/Linux systems. Built a POS inventory management application and administrative systems.",
-  stats: [
-    { label: "Years freelancing", value: "3", suffix: "+" },
-    { label: "Client systems rebuilt", value: "3" },
-    { label: "Portal JS payload", value: "55", suffix: " KB" },
-  ],
   projects: [
     {
       id: "1",
@@ -48,7 +42,7 @@ export const portfolioData: PortfolioData = {
       id: "2",
       title: "Barangay Demo Portal",
       description:
-        "Resident-facing portal for barangay services — document requests, incident reporting, request tracking, and an officials directory — with route protection, dark mode, and a 55 KB JS payload on Cloudflare Workers.",
+        "Resident-facing portal for barangay services — document requests, incident reporting, request tracking, and an officials directory — with route protection, dark mode, and deployment on Cloudflare Workers.",
       image: "/projects/barangay.webp",
       link: "https://github.com/Chie03-dev/Barangay",
       period: "07/2023 - Present",
@@ -148,7 +142,7 @@ export const portfolioData: PortfolioData = {
     },
     {
       category: "Web and Desktop",
-      items: ["React", "Next.js", "Tailwind CSS", "Framer Motion", "Node.js", "Electron", "Django", "REST APIs", "WebSockets / SSE"],
+      items: ["React", "Next.js", "Tailwind CSS", "Node.js", "Electron", "Django", "REST APIs", "WebSockets / SSE"],
     },
     {
       category: "Databases",
@@ -177,12 +171,6 @@ export const portfolioData: PortfolioData = {
     phone: "602-793-5042",
   },
 };
-
-export interface Stat {
-  label: string;
-  value: string;
-  suffix?: string;
-}
 
 export interface Project {
   id: string;

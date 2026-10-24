@@ -55,7 +55,7 @@ function resolveToken(value: string, fallback: [number, number, number]) {
   if (!probe) probe = document.createElement("canvas");
   probe.width = 1;
   probe.height = 1;
-  const p = probe.getContext("2d");
+  const p = probe.getContext("2d", { willReadFrequently: true });
   if (!p) return fallback;
   p.clearRect(0, 0, 1, 1);
   // Sentinel: an unparseable value leaves the previous fillStyle in place, so a

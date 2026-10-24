@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "generate:og": "node scripts/generate-og.mjs",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/smoke.cjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

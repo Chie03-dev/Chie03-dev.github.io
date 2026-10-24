@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { KeyBand } from "@/components/home/key-band";
+import { ContactForm } from "@/components/home/contact-form";
 import { SectionRail } from "@/components/ui/section-rail";
 import { portfolioData } from "@/data/portfolio";
 import { site } from "@/lib/site";
@@ -150,6 +151,7 @@ export default function Contact() {
         <p className="mb-8 text-lg leading-relaxed text-muted-foreground">
           {contact.description}
         </p>
+        <ContactForm />
         <div className="grid gap-4 sm:grid-cols-2">
           {links.map((link) => (
             <a
