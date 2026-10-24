@@ -43,3 +43,7 @@ Desktop.ini
 
 # vercel
 .vercel
+
+# playwright
+/test-results/
+/playwright-report/
