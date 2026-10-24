@@ -137,10 +137,10 @@ export const portfolioData: PortfolioData = {
       id: "1",
       degree: "Bachelor of Science in Computer Science",
       school: "Andres Bonifacio College",
-      location: "College Park, Miputak, Dipolog City, Philippines",
-      period: "2021 - 2025",
+      location: "College Park, Dipolog City, Philippines",
+      period: "08/2022 - 05/2026",
       description: [
-        "Coursework in software development, databases, and systems.",
+        "Relevant Coursework: Software Engineering, Object-Oriented Programming, Data Structures & Algorithms, Database Systems, Computer Networks, Web Engineering, Artificial Intelligence, Information Security.",
       ],
     },
   ],
