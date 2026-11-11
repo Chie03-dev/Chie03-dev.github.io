@@ -14,7 +14,7 @@ export const site = {
   linkedin: "https://www.linkedin.com/in/alchieandilab",
   // Formspree endpoint for the contact form. Empty string disables the form
   // and falls back to the mailto link below.
-  contactFormEndpoint: "",
+  contactFormEndpoint: "https://formspree.io/f/mqpqzbll",
   // Exact case matters on the GitHub Pages host (case-sensitive filesystem).
   resumeUrl: "/Resume.pdf",
 } as const;

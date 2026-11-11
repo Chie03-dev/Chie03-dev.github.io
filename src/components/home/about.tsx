@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { Reveal } from "@/components/ui/reveal";
 import { portfolioData } from "@/data/portfolio";
+import { site } from "@/lib/site";
 
 /**
  * Every skill name in the stack, longest first so "JavaScript" claims a run of
@@ -85,6 +87,16 @@ export default function About() {
           </p>
         </Reveal>
       )}
+
+      <Reveal delay={180} className="mt-8 flex items-center gap-2">
+        <Link
+          href={site.resumeUrl}
+          download
+          className="inline-flex items-center gap-2 rounded-md border border-border/40 bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
+        >
+          Download Resume
+        </Link>
+      </Reveal>
     </section>
   );
 }

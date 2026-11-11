@@ -47,7 +47,12 @@ export function ContactForm() {
 
   return (
     <div className="mb-8">
-      <form onSubmit={handleSubmit} className="grid gap-4">
+      <form
+        action={endpoint}
+        method="POST"
+        onSubmit={handleSubmit}
+        className="grid gap-4"
+      >
         <input
           type="text"
           name="_gotcha"

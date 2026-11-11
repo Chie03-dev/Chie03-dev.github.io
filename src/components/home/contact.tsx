@@ -6,6 +6,7 @@ import { SectionRail } from "@/components/ui/section-rail";
 import { portfolioData } from "@/data/portfolio";
 import { site } from "@/lib/site";
 import { LuMail } from "react-icons/lu";
+import { LuFileText } from "react-icons/lu";
 
 function MailIcon() {
   return (
@@ -112,6 +113,13 @@ export default function Contact() {
   const { contact } = portfolioData;
 
   const links: ContactLink[] = [
+    {
+      label: "Resume",
+      display: "Download CV",
+      href: site.resumeUrl,
+      icon: <LuFileText className="h-4 w-4" />,
+      external: false,
+    },
     {
       label: "Email",
       display: site.email,
