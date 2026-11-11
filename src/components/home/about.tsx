@@ -74,6 +74,11 @@ export default function About() {
         {headline}
       </h3>
 
+      <div className="mt-6 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-medium text-primary uppercase tracking-wider">
+        <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+        Open to entry-level software development roles &middot; Frontend, full-stack, or Android &middot; Glendale, AZ &middot; Remote or on-site
+      </div>
+
       <Reveal className="mt-6 border-l-2 border-primary/60 pl-4">
         <p className="text-xl font-medium leading-snug text-foreground">
           <StackHighlight text={lead} />
