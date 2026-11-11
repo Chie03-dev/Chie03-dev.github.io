@@ -61,7 +61,7 @@ export default function Projects() {
               className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0"
             >
               <NotchedProjectCard
-                href={project.link}
+                href={`/projects/${project.slug}`}
                 title={project.title}
                 description={project.description}
                 image={project.image}
@@ -69,7 +69,7 @@ export default function Projects() {
                 badge={year(project.period)}
                 tags={project.technologies}
                 monochrome
-                ariaLabel={`Open ${project.title}`}
+                ariaLabel={`Read ${project.title} case study`}
               />
             </li>
           ))}
