@@ -29,6 +29,7 @@ export interface NotchedProjectCardProps {
   href: string;
   title: string;
   description?: string;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
   /** cover photograph */
   image: string;
   imageAlt?: string;
@@ -65,6 +66,7 @@ export function NotchedProjectCard({
   accentForeground = "#0a0a0a",
   className,
   ariaLabel,
+  onClick,
 }: NotchedProjectCardProps) {
   // The covers are plain <img> on purpose. The site is a static export
   // (output: "export") with images.unoptimised, which is exactly the case where
@@ -78,6 +80,7 @@ export function NotchedProjectCard({
     <a
       href={href}
       aria-label={ariaLabel}
+      onClick={onClick}
       className={cn(
         "group flex flex-col rounded-[28px] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background dark:bg-card",
         className,
