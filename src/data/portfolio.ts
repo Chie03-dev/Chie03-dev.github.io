@@ -72,6 +72,15 @@ export const portfolioData: PortfolioData = {
           "Add product photo support so staff can visually confirm items.",
         ],
         screenshots: ["/projects/mobilepos.webp"],
+        highlights: {
+          headline: "Offline-first POS for small retailers",
+          subtitle: "Thesis project — barcode checkout, sales analytics, and PDF receipts on low-end Android.",
+          metrics: [
+            { label: "Barcode scan time", value: "< 1s" },
+            { label: "Receipt generation", value: "< 2s" },
+            { label: "App install size", value: "< 25 MB" },
+          ],
+        },
       },
     },
     {
@@ -121,6 +130,15 @@ export const portfolioData: PortfolioData = {
           "Add a staff dashboard with analytics on request volume.",
         ],
         screenshots: ["/projects/barangay.webp"],
+        highlights: {
+          headline: "Barangay services digitized",
+          subtitle: "Resident-facing portal for document requests, incident reporting, and officials directory on Cloudflare Workers.",
+          metrics: [
+            { label: "Page load time", value: "< 800ms" },
+            { label: "Request flow", value: "< 3 clicks" },
+            { label: "Deployment", value: "Cloudflare Edge" },
+          ],
+        },
       },
     },
     {
@@ -174,6 +192,15 @@ export const portfolioData: PortfolioData = {
           "Add randomised question ordering per student to further reduce collusion.",
         ],
         screenshots: ["/projects/Quiz.webp"],
+        highlights: {
+          headline: "LAN Quiz System — Android + Desktop",
+          subtitle: "Offline classroom quiz system where an Electron instructor app hosts a local WebSocket server and students join via QR code or PIN.",
+          metrics: [
+            { label: "Question types", value: "8" },
+            { label: "Results", value: "Real-time" },
+            { label: "Student join", value: "QR or PIN" },
+          ],
+        },
       },
     },
     {
@@ -222,6 +249,15 @@ export const portfolioData: PortfolioData = {
           "Add automated report card generation as PDF.",
         ],
         screenshots: ["/projects/schoolsystems.svg"],
+        highlights: {
+          headline: "School administration platform demo",
+          subtitle: "Dashboards for enrolment, attendance tracking, grade records, and per-program reporting.",
+          metrics: [
+            { label: "Dashboard load", value: "< 1s" },
+            { label: "Reports", value: "On-demand" },
+            { label: "User roles", value: "4" },
+          ],
+        },
       },
     },
     {
@@ -270,6 +306,15 @@ export const portfolioData: PortfolioData = {
           "Add role-based staff logins for audit trails.",
         ],
         screenshots: ["/projects/inventory.svg"],
+        highlights: {
+          headline: "Inventory Management Dashboard",
+          subtitle: "Desktop inventory management system for small warehouses with stock tracking, low-stock alerts, and CSV export — plus observability dashboards for metrics, logs, and traces.",
+          metrics: [
+            { label: "Stock lookup", value: "< 500ms" },
+            { label: "CSV export", value: "Non-blocking" },
+            { label: "Monitoring stack", value: "Prometheus + Grafana" },
+          ],
+        },
       },
     },
   ],
@@ -367,6 +412,17 @@ export const portfolioData: PortfolioData = {
   },
 };
 
+export interface HighlightMetric {
+  label: string;
+  value: string;
+}
+
+export interface Highlights {
+  headline: string;
+  subtitle: string;
+  metrics: HighlightMetric[];
+}
+
 export interface ProjectDetail {
   problem: string;
   constraints: string[];
@@ -377,6 +433,7 @@ export interface ProjectDetail {
   outcome: string;
   whatIdoDifferently: string[];
   screenshots: string[];
+  highlights: Highlights;
 }
 
 export interface Project {
