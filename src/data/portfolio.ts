@@ -224,6 +224,54 @@ export const portfolioData: PortfolioData = {
         screenshots: ["/projects/schoolsystems.svg"],
       },
     },
+    {
+      id: "5",
+      slug: "inventory-management-system",
+      title: "Inventory Management System",
+      description:
+        "Desktop inventory management system for small warehouses with stock tracking, low-stock alerts, and CSV export, built with Electron and SQLite.",
+      image: "/projects/inventory.svg",
+      link: "https://github.com/Chie03-dev/InventorySystem",
+      period: "03/2024 - 12/2024",
+      technologies: [
+        "Electron",
+        "Node.js",
+        "TypeScript",
+        "SQLite",
+        "Tailwind CSS",
+      ],
+      detail: {
+        problem:
+          "Small warehouses track stock on paper or spreadsheets, which leads to miscounts, overstocking, and hard-to-detect shrinkage.",
+        constraints: [
+          "Runs offline on a single desktop machine.",
+          "Low-stock alerts must surface before items run out.",
+          "Stock counts must export to CSV for accounting.",
+        ],
+        decisions: [
+          "Electron for a cross-platform desktop app that works offline.",
+          "SQLite for local relational storage with no server setup.",
+          "Tailwind CSS for a clean, dense data-entry UI.",
+        ],
+        tradeoffs: [
+          "Single-machine storage means no multi-user sync; acceptable for a solo warehouse clerk.",
+          "CSV export is a manual step rather than a live accounting integration.",
+        ],
+        metrics: [
+          "Stock lookup and update completes in under 500 ms.",
+          "CSV export handles thousands of rows without blocking the UI.",
+        ],
+        role: "Sole developer — UI, local database, stock logic, CSV export, and desktop packaging.",
+        outcome:
+          "A desktop inventory app that lets small warehouses track stock, receive low-stock alerts, and export counts to CSV.",
+        whatIdoDifferently: [
+          "Add multi-location stock transfers between warehouses.",
+          "Add barcode scanning with a USB scanner for faster receiving.",
+          "Add role-based staff logins for audit trails.",
+        ],
+        screenshots: ["/projects/inventory.svg"],
+      },
+    },
   ],
 
   experience: [

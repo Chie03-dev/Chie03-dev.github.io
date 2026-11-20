@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+  <rect width="800" height="450" fill="#0f172a"/>
+  <rect x="60" y="120" width="120" height="120" rx="12" fill="#3b82f6"/>
+  <rect x="210" y="120" width="120" height="120" rx="12" fill="#3b82f6"/>
+  <rect x="360" y="120" width="120" height="120" rx="12" fill="#3b82f6"/>
+  <text x="400" y="240" font-family="sans-serif" font-size="24" fill="#94a3b8" text-anchor="middle">Inventory Management System</text>
+</svg>

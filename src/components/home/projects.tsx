@@ -1,11 +1,14 @@
 "use client";
 
-import type React from "react";
-import { LuFolder } from "react-icons/lu";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LuChevronLeft, LuChevronRight, LuFolder } from "react-icons/lu";
 
 import { portfolioData } from "@/data/portfolio";
 import { NotchedProjectCard } from "@/components/ui/notched-project-card";
 import { SectionRail } from "@/components/ui/section-rail";
+
+const BTN =
+  "inline-flex items-center justify-center size-9 rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * Recent work, as notched project cards: the cover's bottom-right corner is cut
@@ -18,28 +21,71 @@ import { SectionRail } from "@/components/ui/section-rail";
  * The cards run as a horizontal rail rather than a grid: a fourth card in a
  * three-column grid wraps to a second row on its own, which reads as a layout
  * mistake. One scrollable row keeps them together, swipeable on touch and
- * arrow-scrollable for the keyboard. The row is focusable so a keyboard visitor
- * can pan it without a pointer.
+ * arrow-scrollable for the keyboard. Prev/Next buttons give pointer users the
+ * same slide behaviour, and the row stays focusable so keyboard visitors can
+ * pan it without a pointer.
  */
 export default function Projects() {
   const { projects } = portfolioData;
   const year = (period: string) => period.match(/\d{4}/)?.[0] ?? period;
+  const listRef = useRef<HTMLUListElement>(null);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(true);
 
-  function scrollByCard(e: React.KeyboardEvent<HTMLUListElement>, dir: number) {
-    const ul = e.currentTarget;
-    const card = ul.querySelector("li");
-    const step = card ? card.clientWidth + 16 : ul.clientWidth * 0.8;
-    ul.scrollBy({ left: dir * step, behavior: "smooth" });
-  }
+  const updateScrollState = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    setCanScrollPrev(list.scrollLeft > 8);
+    setCanScrollNext(list.scrollLeft < list.scrollWidth - list.clientWidth - 8);
+  }, []);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    list.addEventListener("scroll", updateScrollState, { passive: true });
+    updateScrollState();
+    return () => list.removeEventListener("scroll", updateScrollState);
+  }, [updateScrollState]);
+
+  const scrollByCard = useCallback((dir: number) => {
+    const list = listRef.current;
+    if (!list) return;
+    const card = list.querySelector("li");
+    const step = card ? card.clientWidth + 16 : list.clientWidth * 0.8;
+    list.scrollBy({ left: dir * step, behavior: "smooth" });
+  }, []);
 
   return (
     <section id="projects">
       <SectionRail rail={false} icon={<LuFolder className="size-4" />}>
-        <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
-          RECENT PROJECTS
-        </h2>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          <h2 className="text-3xl font-bold tracking-tight uppercase">
+            RECENT PROJECTS
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollByCard(-1)}
+              disabled={!canScrollPrev}
+              aria-label="Scroll projects left"
+              className={BTN}
+            >
+              <LuChevronLeft className="size-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollByCard(1)}
+              disabled={!canScrollNext}
+              aria-label="Scroll projects right"
+              className={BTN}
+            >
+              <LuChevronRight className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
 
         <ul
+          ref={listRef}
           tabIndex={0}
           role="region"
           aria-roledescription="carousel"
@@ -47,10 +93,10 @@ export default function Projects() {
           onKeyDown={(e) => {
             if (e.key === "ArrowRight") {
               e.preventDefault();
-              scrollByCard(e, 1);
+              scrollByCard(1);
             } else if (e.key === "ArrowLeft") {
               e.preventDefault();
-              scrollByCard(e, -1);
+              scrollByCard(-1);
             }
           }}
           className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
