@@ -79,7 +79,7 @@ export function NotchedProjectCard({
       href={href}
       aria-label={ariaLabel}
       className={cn(
-        "group flex flex-col rounded-[28px] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background dark:bg-card transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 border border-transparent hover:border-border",
+        "group flex flex-col rounded-[28px] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background dark:bg-card",
         className,
       )}
     >
@@ -134,7 +134,7 @@ export function NotchedProjectCard({
           )}
           {badge && (
             <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center pt-4">
-              <span className="rounded-full border border-white/40 bg-black/30 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md shadow-sm">
+              <span className="rounded-full border border-white/40 bg-black/30 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md">
                 {badge}
               </span>
             </div>
@@ -149,7 +149,7 @@ export function NotchedProjectCard({
         <span
           aria-hidden
           className={cn(
-            "absolute right-0 bottom-0 flex items-center justify-center rounded-full bg-secondary/80 text-secondary-foreground backdrop-blur-md border border-white/20 transition-[background-color,color,scale] duration-300 group-hover:scale-110",
+            "absolute right-0 bottom-0 flex items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-[background-color,color,scale] duration-300 group-hover:scale-105",
             accent
               ? "group-hover:bg-[var(--card-accent)] group-hover:text-[var(--card-accent-fg)]"
               : "group-hover:bg-primary group-hover:text-primary-foreground",
@@ -163,32 +163,30 @@ export function NotchedProjectCard({
             } as React.CSSProperties
           }
         >
-          <ArrowUpRight className="size-5 transition-transform duration-300 group-hover:-translate-y-1 group-hover:translate-x-1" />
+          <ArrowUpRight className="size-5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </span>
       </div>
 
-      <div className="mt-5">
-        <h3 className="mb-1 text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
-          {title}
-        </h3>
-        {description && (
-          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-2">
-            {description}
-          </p>
-        )}
-        {tags.length > 0 && (
-          <ul className="mt-4 flex flex-wrap gap-2">
-            {tags.slice(0, 4).map((t, i) => (
-              <li
-                key={`${t}-${i}`}
-                className="rounded-md border border-border/40 bg-secondary/50 px-2.5 py-1 text-[10px] font-semibold tracking-wider text-secondary-foreground uppercase"
-              >
-                {t}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <h3 className="mt-5 text-2xl font-medium tracking-tight text-foreground">
+        {title}
+      </h3>
+      {description && (
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+      )}
+      {tags.length > 0 && (
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {tags.map((t, i) => (
+            <li
+              key={`${t}-${i}`}
+              className="rounded-md bg-secondary px-2 py-1 text-[10px] font-semibold tracking-wider text-secondary-foreground uppercase"
+            >
+              {t}
+            </li>
+          ))}
+        </ul>
+      )}
     </a>
   );
 }
