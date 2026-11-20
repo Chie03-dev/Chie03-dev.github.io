@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuChevronLeft, LuChevronRight, LuFolder } from "react-icons/lu";
+import { LuChevronLeft, LuChevronRight, LuFolder, LuLink } from "react-icons/lu";
 
 import { portfolioData } from "@/data/portfolio";
 import { NotchedProjectCard } from "@/components/ui/notched-project-card";
 import { SectionRail } from "@/components/ui/section-rail";
 
 const BTN =
-  "inline-flex items-center justify-center size-9 rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex items-center justify-center size-10 rounded-xl border border-border bg-background text-muted-foreground transition-all hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shadow-sm hover:shadow-md";
+
+const CARD_W = "w-[74%] shrink-0 snap-start sm:w-[56%] lg:w-[34%] min-w-0";
 
 /**
  * Recent work, as notched project cards: the cover's bottom-right corner is cut
@@ -56,12 +58,17 @@ export default function Projects() {
   }, []);
 
   return (
-    <section id="projects">
+    <section id="projects" className="relative">
       <SectionRail rail={false} icon={<LuFolder className="size-4" />}>
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-          <h2 className="text-3xl font-bold tracking-tight uppercase">
-            RECENT PROJECTS
-          </h2>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight uppercase text-foreground">
+              Recent Projects
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              A selection of work across Android, web, desktop, and systems.
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -81,6 +88,12 @@ export default function Projects() {
             >
               <LuChevronRight className="size-4" aria-hidden="true" />
             </button>
+            <a
+              href="/projects"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              View all <LuLink className="size-4" aria-hidden="true" />
+            </a>
           </div>
         </div>
 
@@ -99,12 +112,12 @@ export default function Projects() {
               scrollByCard(-1);
             }
           }}
-          className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
+          className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-4 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
         >
           {projects.map((project) => (
             <li
               key={project.id}
-              className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0"
+              className={CARD_W}
             >
               <NotchedProjectCard
                 href={`/projects/${project.slug}`}
@@ -120,6 +133,7 @@ export default function Projects() {
             </li>
           ))}
         </ul>
+        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 h-[2px] w-[10%] bg-gradient-to-r from-transparent via-primary/50 to-transparent pointer-events-none" aria-hidden="true" />
       </SectionRail>
     </section>
   );
