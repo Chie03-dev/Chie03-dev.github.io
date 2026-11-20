@@ -36,6 +36,15 @@ export default function Projects() {
   const [canScrollNext, setCanScrollNext] = useState(true);
   const [selected, setSelected] = useState<Project | null>(null);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (!selected) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [selected]);
+
   const updateScrollState = useCallback(() => {
     const list = listRef.current;
     if (!list) return;
@@ -164,9 +173,16 @@ function ProjectModal({
 }) {
   const { detail } = project;
   const badgeYear = year(project.period);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const firstFocusable = modalRef.current?.querySelector('a[href], button');
+    if (firstFocusable) (firstFocusable as HTMLElement).focus();
+  }, []);
 
   return (
     <div
+      ref={modalRef}
       role="dialog"
       aria-modal="true"
       aria-label={`Case study: ${project.title}`}
@@ -180,10 +196,10 @@ function ProjectModal({
         className={cn(
           "relative z-10 w-full max-w-3xl mx-4 md:mx-6 rounded-2xl border border-border/60 bg-card shadow-2xl shadow-black/40",
           "transition-all duration-300 ease-out",
-          "translate-y-4 opacity-0 sm:translate-y-0 sm:opacity-100",
+          "max-h-[90vh] overflow-y-auto sm:translate-y-0 sm:opacity-100",
         )}
       >
-        <div className="flex items-center justify-between p-6 border-b border-border/40">
+        <div className="flex items-center justify-between p-6 border-b border-border/40 shrink-0">
           <button
             type="button"
             onClick={onClose}
