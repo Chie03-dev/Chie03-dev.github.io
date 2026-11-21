@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { portfolioData } from "@/data/portfolio";
 import { NotchedProjectCard } from "@/components/ui/notched-project-card";
 import { SectionRail } from "@/components/ui/section-rail";
+import { Reveal } from "@/components/ui/reveal";
 
 type Project = (typeof portfolioData)["projects"][number];
 
@@ -122,47 +123,49 @@ export default function Projects() {
           </div>
         </div>
 
-        <ul
-          ref={listRef}
-          tabIndex={0}
-          role="region"
-          aria-roledescription="carousel"
-          aria-label="Recent projects, scrollable sideways"
-          onKeyDown={(e) => {
-            if (e.key === "ArrowRight") {
-              e.preventDefault();
-              scrollByCard(1);
-            } else if (e.key === "ArrowLeft") {
-              e.preventDefault();
-              scrollByCard(-1);
-            }
-          }}
-          className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
-        >
-          {projects.map((project) => (
-            <li
-              key={project.id}
-              className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0"
-            >
-              <NotchedProjectCard
-                href="#"
-                title={project.title}
-                description={project.description}
-                image={project.image}
-                imageAlt={`${project.title} screenshot`}
-                badge={year(project.period)}
-                tags={project.technologies}
-                monochrome
-                ariaLabel={`View ${project.title} case study`}
-                onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                  if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
-                  e.preventDefault();
-                  setSelected(project);
-                }}
-              />
-            </li>
-          ))}
-        </ul>
+        <Reveal className="mb-6">
+          <ul
+            ref={listRef}
+            tabIndex={0}
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="Recent projects, scrollable sideways"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") {
+                e.preventDefault();
+                scrollByCard(1);
+              } else if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                scrollByCard(-1);
+              }
+            }}
+            className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
+          >
+            {projects.map((project) => (
+              <li
+                key={project.id}
+                className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0"
+              >
+                <NotchedProjectCard
+                  href="#"
+                  title={project.title}
+                  description={project.description}
+                  image={project.image}
+                  imageAlt={`${project.title} screenshot`}
+                  badge={year(project.period)}
+                  tags={project.technologies}
+                  monochrome
+                  ariaLabel={`View ${project.title} case study`}
+                  onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                    if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
+                    e.preventDefault();
+                    setSelected(project);
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+        </Reveal>
 
         {selected && (
           <ProjectModal project={selected} onClose={closeModal} />
@@ -188,6 +191,33 @@ function ProjectModal({
     if (firstFocusable) (firstFocusable as HTMLElement).focus();
   }, []);
 
+  // Trap focus inside the modal while open
+  useEffect(() => {
+    const modal = modalRef.current;
+    if (!modal) return;
+    const focusable = modal.querySelectorAll<HTMLElement>(
+      'a[href], button, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    modal.addEventListener("keydown", onKey);
+    return () => modal.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div
       ref={modalRef}
@@ -203,7 +233,8 @@ function ProjectModal({
       <div
         className={cn(
           "relative z-10 w-full max-w-[960px] max-h-[92vh] flex flex-col rounded-3xl border border-border/70 bg-card shadow-2xl shadow-black/40 overflow-hidden",
-          "transition-all duration-300 ease-out sm:translate-y-0 sm:opacity-100",
+          "transition-all duration-400 ease-out",
+          "translate-y-4 opacity-0 sm:translate-y-0 sm:opacity-100",
         )}
       >
         <button
@@ -260,14 +291,18 @@ function ProjectModal({
           <p className="text-lg leading-relaxed text-muted-foreground mb-8">
             {project.description}
           </p>
+          <p className="text-sm text-muted-foreground mb-10">
+            <span className="font-semibold text-foreground uppercase text-[10px] tracking-wider mr-2">
+              Role
+            </span>
+            {detail.role}
+          </p>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase tracking-wider mb-10">
             <span className="flex items-center gap-1.5">
               <LuGlobe className="h-3.5 w-3.5" aria-hidden="true" />
               {project.period}
             </span>
-            <span className="w-px h-4 bg-border" />
-            <span>{project.id}</span>
           </div>
 
           {detail.highlights && (
