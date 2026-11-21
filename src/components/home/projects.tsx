@@ -180,8 +180,7 @@ export default function Projects() {
             onClose={closeModal}
             onNavigate={(dir) => {
               const i = projects.findIndex((p) => p.id === selected.id);
-              const next = (i + dir + projects.length) % projects.length;
-              setSelected(projects[next]);
+              setSelected(projects[i + dir]);
             }}
           />
         )}
