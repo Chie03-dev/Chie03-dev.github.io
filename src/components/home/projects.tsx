@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuChevronLeft, LuChevronRight, LuFolder, LuX } from "react-icons/lu";
+import {
+  LuArrowUpRight,
+  LuChevronLeft,
+  LuChevronRight,
+  LuFolder,
+  LuGlobe,
+  LuLayers,
+  LuShieldAlert,
+  LuTarget,
+  LuX,
+} from "react-icons/lu";
 
 import { cn } from "@/lib/utils";
 import { portfolioData } from "@/data/portfolio";
@@ -11,7 +21,7 @@ import { SectionRail } from "@/components/ui/section-rail";
 type Project = (typeof portfolioData)["projects"][number];
 
 const BTN =
-  "inline-flex items-center justify-center size-9 rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex items-center justify-center size-9 rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background";
 
 /**
  * Recent work, as notched project cards: the cover's bottom-right corner is cut
@@ -27,6 +37,10 @@ const BTN =
  * arrow-scrollable for the keyboard. Prev/Next buttons give pointer users the
  * same slide behaviour, and the row stays focusable so keyboard visitors can
  * pan it without a pointer.
+ *
+ * Clicking a card opens the project case study in a modal instead of a
+ * separate page, so the full story - problem, constraints, decisions,
+ * trade-offs, metrics and outcome - stays in one place.
  */
 export default function Projects() {
   const { projects } = portfolioData;
@@ -131,7 +145,7 @@ export default function Projects() {
               className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0"
             >
               <NotchedProjectCard
-                href={`/projects/${project.slug}`}
+                href="#"
                 title={project.title}
                 description={project.description}
                 image={project.image}
@@ -139,7 +153,7 @@ export default function Projects() {
                 badge={year(project.period)}
                 tags={project.technologies}
                 monochrome
-                ariaLabel={`Read ${project.title} case study`}
+                ariaLabel={`View ${project.title} case study`}
                 onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
                   if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
                   e.preventDefault();
@@ -151,11 +165,7 @@ export default function Projects() {
         </ul>
 
         {selected && (
-          <ProjectModal
-            project={selected}
-            onClose={closeModal}
-            year={year}
-          />
+          <ProjectModal project={selected} onClose={closeModal} />
         )}
       </SectionRail>
     </section>
@@ -165,15 +175,13 @@ export default function Projects() {
 function ProjectModal({
   project,
   onClose,
-  year,
 }: {
   project: Project;
   onClose: () => void;
-  year: (period: string) => string;
 }) {
   const { detail } = project;
-  const badgeYear = year(project.period);
   const modalRef = useRef<HTMLDivElement>(null);
+  const badgeYear = project.period.match(/\d{4}/)?.[0] ?? project.period;
 
   useEffect(() => {
     const firstFocusable = modalRef.current?.querySelector('a[href], button');
@@ -185,136 +193,197 @@ function ProjectModal({
       ref={modalRef}
       role="dialog"
       aria-modal="true"
-      aria-label={`Case study: ${project.title}`}
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      aria-label={project.title}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6"
     >
       <div
-        className="absolute inset-0 bg-black/45 backdrop-blur-sm transition-opacity duration-300"
+        className="absolute inset-0 bg-black/55 backdrop-blur-md transition-opacity duration-300"
         onClick={onClose}
       />
       <div
         className={cn(
-          "relative z-10 w-full max-w-3xl mx-4 md:mx-6 rounded-2xl border border-border/60 bg-card shadow-2xl shadow-black/40",
-          "transition-all duration-300 ease-out",
-          "max-h-[90vh] overflow-y-auto sm:translate-y-0 sm:opacity-100",
+          "relative z-10 w-full max-w-[960px] max-h-[92vh] flex flex-col rounded-3xl border border-border/70 bg-card shadow-2xl shadow-black/40 overflow-hidden",
+          "transition-all duration-300 ease-out sm:translate-y-0 sm:opacity-100",
         )}
       >
-        <div className="flex items-center justify-between p-6 border-b border-border/40 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close case study"
-            className="rounded-full bg-background p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <LuX className="size-5" aria-hidden="true" />
-          </button>
-          <a
-            href={`/projects/${project.slug}`}
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            Open full case study →
-          </a>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close case study"
+          className="absolute top-4 right-4 z-30 rounded-full bg-black/30 p-2 text-white hover:bg-black/50 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          <LuX className="size-5" aria-hidden="true" />
+        </button>
+
+        {/* Hero cover with faded detail screenshots behind it */}
+        <div className="relative h-64 lg:h-80 w-full overflow-hidden bg-muted">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={project.image}
+            alt={`${project.title} screenshot`}
+            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+          />
+          {detail.screenshots.slice(1).map((src, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={i}
+              src={src}
+              alt={`${project.title} screenshot ${i + 2}`}
+              className="absolute -bottom-10 -left-8 w-[32%] h-auto object-cover rounded-2xl shadow-2xl shadow-black/40 border border-white/10 bg-background object-cover"
+              loading="lazy"
+            />
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+          <div className="absolute bottom-6 left-6 z-10 flex items-center gap-2">
+            <span className="rounded-full border border-white/40 bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
+              {badgeYear}
+            </span>
+          </div>
         </div>
 
-        <div className="p-8 md:p-12">
-          <div className="flex flex-col lg:flex-row gap-8">
-            <div className="lg:w-1/2">
-              <div className="aspect-[4/3] overflow-hidden rounded-xl bg-muted relative">
-                <img
-                  src={project.image}
-                  alt={`${project.title} screenshot`}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  loading="lazy"
-                />
-                {detail.screenshots.slice(1).map((src, i) => (
-                  <img
-                    key={i}
-                    src={src}
-                    alt={`${project.title} screenshot ${i + 2}`}
-                    className="absolute -bottom-6 -left-6 w-48 h-auto rounded-lg border border-white/20 bg-background shadow-xl"
-                    loading="lazy"
-                  />
-                ))}
-              </div>
-              <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background px-3 py-1 text-[10px] font-semibold tracking-wider text-muted-foreground">
-                {badgeYear}
+        <div className="flex-1 overflow-y-auto p-8 lg:p-12">
+          <div className="flex flex-wrap gap-2 mb-6">
+            {project.technologies.map((t) => (
+              <span
+                key={t}
+                className="rounded-md border border-border/40 bg-secondary/40 px-2.5 py-1 text-[10px] font-semibold tracking-wider text-secondary-foreground uppercase"
+              >
+                {t}
               </span>
-            </div>
+            ))}
+          </div>
 
-            <div className="lg:w-1/2 space-y-6">
-              <div className="flex flex-wrap gap-2 mb-2">
-                {project.technologies.map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-md border border-border/40 bg-secondary/40 px-2.5 py-1 text-[10px] font-semibold tracking-wider text-secondary-foreground uppercase"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
+          <h2 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground mb-2">
+            {project.title}
+          </h2>
+          <p className="text-lg leading-relaxed text-muted-foreground mb-8">
+            {project.description}
+          </p>
 
-              <h3 className="text-3xl font-bold tracking-tight text-foreground">
-                {project.title}
-              </h3>
-              <p className="text-lg leading-relaxed text-muted-foreground">
-                {project.description}
-              </p>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase tracking-wider mb-10">
+            <span className="flex items-center gap-1.5">
+              <LuGlobe className="h-3.5 w-3.5" aria-hidden="true" />
+              {project.period}
+            </span>
+            <span className="w-px h-4 bg-border" />
+            <span>{project.id}</span>
+          </div>
 
-              <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase tracking-wider">
-                <span className="flex items-center gap-1">
-                  <span className="w-px h-4 bg-border" />
-                  {project.period}
-                </span>
-              </div>
-
-              {detail.highlights && (
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  {detail.highlights.metrics.map((m) => (
-                    <div
-                      key={m.label}
-                      className="rounded-lg border border-border/40 bg-secondary/30 p-3"
-                    >
-                      <div className="text-xl font-bold text-foreground">
-                        {m.value}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                        {m.label}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-3 pt-2">
-                <p className="font-semibold text-foreground uppercase text-xs tracking-wider">
-                  The problem
-                </p>
-                <p className="text-muted-foreground leading-relaxed">
-                  {detail.problem}
-                </p>
-
-                <p className="font-semibold text-foreground uppercase text-xs tracking-wider">
-                  Outcome
-                </p>
-                <p className="text-muted-foreground leading-relaxed">
-                  {detail.outcome}
-                </p>
-              </div>
-
-              <div className="mt-4 flex gap-3">
-                <a
-                  href={project.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          {detail.highlights && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+              {detail.highlights.metrics.map((m) => (
+                <div
+                  key={m.label}
+                  className="rounded-lg border border-border/50 bg-secondary/30 p-4"
                 >
-                  View on GitHub
-                </a>
-              </div>
+                  <div className="text-2xl font-bold tracking-tight text-foreground">
+                    {m.value}
+                  </div>
+                  <div className="mt-1 text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">
+                    {m.label}
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+
+          <div className="space-y-6">
+            <SectionBlock title="The problem" Icon={LuShieldAlert}>
+              <p className="text-muted-foreground leading-relaxed">
+                {detail.problem}
+              </p>
+            </SectionBlock>
+
+            <SectionBlock title="Constraints" Icon={LuTarget}>
+              <ul className="space-y-2 text-muted-foreground leading-relaxed list-disc pl-5">
+                {detail.constraints.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </SectionBlock>
+
+            <SectionBlock title="Decisions" Icon={LuLayers}>
+              <ul className="space-y-2 text-muted-foreground leading-relaxed list-disc pl-5">
+                {detail.decisions.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </SectionBlock>
+
+            <SectionBlock title="Trade-offs" Icon={LuTarget}>
+              <ul className="space-y-2 text-muted-foreground leading-relaxed list-disc pl-5">
+                {detail.tradeoffs.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
+            </SectionBlock>
+
+            {detail.highlights ? null : (
+              <SectionBlock title="Metrics">
+                <ul className="space-y-2 text-muted-foreground leading-relaxed list-disc pl-5">
+                  {detail.metrics.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              </SectionBlock>
+            )}
+
+            <SectionBlock title="What I'd do differently">
+              <ul className="space-y-2 text-muted-foreground leading-relaxed list-disc pl-5">
+                {detail.whatIdoDifferently.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </SectionBlock>
+
+            <div className="rounded-xl border border-border/60 bg-secondary/30 p-6">
+              <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">
+                Outcome
+              </h4>
+              <p className="text-muted-foreground leading-relaxed">
+                {detail.outcome}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-10 pt-8 border-t border-border/40">
+            <a
+              href={project.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 w-full sm:w-auto rounded-xl border border-primary bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <LuArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              View on GitHub
+            </a>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SectionBlock({
+  title,
+  Icon,
+  children,
+}: {
+  title: string;
+  Icon?: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card p-5">
+      <div className="mb-3 flex items-center gap-2">
+        {Icon && (
+          <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        )}
+        <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+          {title}
+        </h4>
+      </div>
+      {children}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { portfolioData } from "@/data/portfolio";
 
 /**
- * Projects index — lists every project with a link to its detail page.
+ * Projects index — lists every project. Full case studies open in a modal
+ * from the home page instead of separate detail pages.
  * Server Component.
  */
 export default function ProjectsIndex() {
@@ -37,12 +38,6 @@ export default function ProjectsIndex() {
                 </li>
               ))}
             </ul>
-            <a
-              href={`/projects/${project.slug}`}
-              className="inline-flex items-center rounded-md border border-border/40 bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
-            >
-              Read case study
-            </a>
           </li>
         ))}
       </ul>
