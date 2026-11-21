@@ -47,6 +47,7 @@ export default function Projects() {
   const { projects } = portfolioData;
   const year = (period: string) => period.match(/\d{4}/)?.[0] ?? period;
   const listRef = useRef<HTMLUListElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(true);
   const [selected, setSelected] = useState<Project | null>(null);
@@ -75,7 +76,11 @@ export default function Projects() {
     return () => list.removeEventListener("scroll", updateScrollState);
   }, [updateScrollState]);
 
-  const closeModal = useCallback(() => setSelected(null), []);
+  const closeModal = useCallback(() => {
+    const trigger = triggerRef.current;
+    setSelected(null);
+    trigger?.focus({ preventScroll: true });
+  }, []);
 
   // Close on Escape
   useEffect(() => {
@@ -159,6 +164,7 @@ export default function Projects() {
                 onClick={(e: React.MouseEvent) => {
                   if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
                   e.preventDefault();
+                  triggerRef.current = e.currentTarget as HTMLElement;
                   setSelected(project);
                 }}
               />
