@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUpRight } from "lucide-react";
+import { LuMaximize2 } from "react-icons/lu";
 
 import { cn } from "@/lib/utils";
 
@@ -171,7 +171,7 @@ export function NotchedProjectCard({
             } as React.CSSProperties
           }
         >
-          <ArrowUpRight className="size-5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          <LuMaximize2 className="size-5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </span>
       </div>
 
