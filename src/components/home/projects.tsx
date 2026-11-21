@@ -168,7 +168,16 @@ export default function Projects() {
         </Reveal>
 
         {selected && (
-          <ProjectModal project={selected} onClose={closeModal} />
+          <ProjectModal
+            project={selected}
+            projects={projects}
+            onClose={closeModal}
+            onNavigate={(dir) => {
+              const i = projects.findIndex((p) => p.id === selected.id);
+              const next = (i + dir + projects.length) % projects.length;
+              setSelected(projects[next]);
+            }}
+          />
         )}
       </SectionRail>
     </section>
@@ -177,19 +186,26 @@ export default function Projects() {
 
 function ProjectModal({
   project,
+  projects,
   onClose,
+  onNavigate,
 }: {
   project: Project;
+  projects: Project[];
   onClose: () => void;
+  onNavigate: (dir: -1 | 1) => void;
 }) {
   const { detail } = project;
   const modalRef = useRef<HTMLDivElement>(null);
   const badgeYear = project.period.match(/\d{4}/)?.[0] ?? project.period;
+  const index = projects.findIndex((p) => p.id === project.id);
+  const hasPrev = index > 0;
+  const hasNext = index < projects.length - 1;
 
   useEffect(() => {
     const firstFocusable = modalRef.current?.querySelector('a[href], button');
     if (firstFocusable) (firstFocusable as HTMLElement).focus();
-  }, []);
+  }, [project]);
 
   // Trap focus inside the modal while open
   useEffect(() => {
@@ -203,7 +219,15 @@ function ProjectModal({
     if (!first || !last) return;
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
+      if (e.key === "ArrowLeft" && hasPrev) {
+        e.preventDefault();
+        onNavigate(-1);
+      } else if (e.key === "ArrowRight" && hasNext) {
+        e.preventDefault();
+        onNavigate(1);
+      } else if (e.key !== "Tab") {
+        return;
+      }
       if (e.shiftKey) {
         if (document.activeElement === first) {
           e.preventDefault();
@@ -216,7 +240,7 @@ function ProjectModal({
     };
     modal.addEventListener("keydown", onKey);
     return () => modal.removeEventListener("keydown", onKey);
-  }, []);
+  }, [project, hasPrev, hasNext, onNavigate]);
 
   return (
     <div
@@ -245,6 +269,27 @@ function ProjectModal({
         >
           <LuX className="size-5" aria-hidden="true" />
         </button>
+
+        {hasPrev && (
+          <button
+            type="button"
+            onClick={() => onNavigate(-1)}
+            aria-label="Previous case study"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 rounded-full bg-black/30 p-2 text-white hover:bg-black/50 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white opacity-70 hover:opacity-100"
+          >
+            <LuChevronLeft className="size-5" aria-hidden="true" />
+          </button>
+        )}
+        {hasNext && (
+          <button
+            type="button"
+            onClick={() => onNavigate(1)}
+            aria-label="Next case study"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 rounded-full bg-black/30 p-2 text-white hover:bg-black/50 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white opacity-70 hover:opacity-100"
+          >
+            <LuChevronRight className="size-5" aria-hidden="true" />
+          </button>
+        )}
 
         {/* Hero cover with faded detail screenshots behind it */}
         <div className="relative h-64 lg:h-80 w-full overflow-hidden bg-muted">
