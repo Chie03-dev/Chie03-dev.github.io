@@ -276,29 +276,8 @@ function ProjectModal({
           <LuX className="size-5" aria-hidden="true" />
         </button>
 
-        {hasPrev && (
-          <button
-            type="button"
-            onClick={() => onNavigate(-1)}
-            aria-label="Previous case study"
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 rounded-full bg-black/30 p-2 text-white hover:bg-black/50 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white opacity-70 hover:opacity-100"
-          >
-            <LuChevronLeft className="size-5" aria-hidden="true" />
-          </button>
-        )}
-        {hasNext && (
-          <button
-            type="button"
-            onClick={() => onNavigate(1)}
-            aria-label="Next case study"
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 rounded-full bg-black/30 p-2 text-white hover:bg-black/50 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white opacity-70 hover:opacity-100"
-          >
-            <LuChevronRight className="size-5" aria-hidden="true" />
-          </button>
-        )}
-
         {/* Hero cover with faded detail screenshots behind it */}
-        <div className="relative h-64 lg:h-80 w-full overflow-hidden bg-muted">
+        <div className="group relative h-64 lg:h-80 w-full overflow-hidden bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={project.image}
@@ -322,6 +301,26 @@ function ProjectModal({
               {badgeYear}
             </span>
           </div>
+          {hasPrev && (
+            <button
+              type="button"
+              onClick={() => onNavigate(-1)}
+              aria-label="Previous case study"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white opacity-0 group-hover:opacity-100"
+            >
+              <LuChevronLeft className="size-5" aria-hidden="true" />
+            </button>
+          )}
+          {hasNext && (
+            <button
+              type="button"
+              onClick={() => onNavigate(1)}
+              aria-label="Next case study"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full bg-black/40 p-2 text-white hover:bg-black/60 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white opacity-0 group-hover:opacity-100"
+            >
+              <LuChevronRight className="size-5" aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-8 lg:p-12">
