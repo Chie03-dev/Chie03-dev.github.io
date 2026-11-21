@@ -300,6 +300,9 @@ function ProjectModal({
             <span className="rounded-full border border-white/40 bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
               {badgeYear}
             </span>
+            <span className="rounded-full border border-white/40 bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
+              {index + 1} of {projects.length}
+            </span>
           </div>
           {hasPrev && (
             <button
