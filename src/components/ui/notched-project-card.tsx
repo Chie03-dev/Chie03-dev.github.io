@@ -26,10 +26,11 @@ import { cn } from "@/lib/utils";
  */
 
 export interface NotchedProjectCardProps {
-  href: string;
+  href?: string;
+  as?: "a" | "button";
   title: string;
   description?: string;
-  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  onClick?: (e: React.MouseEvent) => void;
   /** cover photograph */
   image: string;
   imageAlt?: string;
@@ -53,6 +54,7 @@ const DISC = 64; // the arrow disc, px
 
 export function NotchedProjectCard({
   href,
+  as = "a",
   title,
   description,
   image,
@@ -68,7 +70,7 @@ export function NotchedProjectCard({
   ariaLabel,
   onClick,
 }: NotchedProjectCardProps) {
-  // The covers are plain <img> on purpose. The site is a static export
+  // The covers are plain  on purpose. The site is a static export
   // (output: "export") with images.unoptimised, which is exactly the case where
   // next/image has nothing left to optimise and only adds a client runtime.
   /* eslint-disable @next/next/no-img-element */
@@ -76,9 +78,12 @@ export function NotchedProjectCard({
     ? "grayscale transition-[filter,scale] duration-500 group-hover:grayscale-0 group-focus-visible:grayscale-0"
     : "transition-[scale] duration-500";
 
+  const isButton = as === "button";
+  const Root = isButton ? "button" : "a";
+
   return (
-    <a
-      href={href}
+    <Root
+      {...(isButton ? { type: "button" } : { href })}
       aria-label={ariaLabel}
       onClick={onClick}
       className={cn(
@@ -190,7 +195,7 @@ export function NotchedProjectCard({
           ))}
         </ul>
       )}
-    </a>
+    </Root>
   );
 }
 

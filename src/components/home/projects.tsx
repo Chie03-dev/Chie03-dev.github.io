@@ -146,22 +146,22 @@ export default function Projects() {
                 key={project.id}
                 className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0"
               >
-                <NotchedProjectCard
-                  href="#"
-                  title={project.title}
-                  description={project.description}
-                  image={project.image}
-                  imageAlt={`${project.title} screenshot`}
-                  badge={year(project.period)}
-                  tags={project.technologies}
-                  monochrome
-                  ariaLabel={`View ${project.title} case study`}
-                  onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                    if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
-                    e.preventDefault();
-                    setSelected(project);
-                  }}
-                />
+              <NotchedProjectCard
+                as="button"
+                title={project.title}
+                description={project.description}
+                image={project.image}
+                imageAlt={`${project.title} screenshot`}
+                badge={year(project.period)}
+                tags={project.technologies}
+                monochrome
+                ariaLabel={`View ${project.title} case study`}
+                onClick={(e: React.MouseEvent) => {
+                  if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
+                  e.preventDefault();
+                  setSelected(project);
+                }}
+              />
               </li>
             ))}
           </ul>
