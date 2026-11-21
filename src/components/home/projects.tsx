@@ -304,7 +304,7 @@ function ProjectModal({
             src={project.image}
             alt={`${project.title} screenshot`}
             className="absolute inset-0 h-full w-full object-cover"
-            loading="lazy"
+            loading="eager"
           />
           {detail.screenshots.slice(1).map((src, i) => (
             // eslint-disable-next-line @next/next/no-img-element
