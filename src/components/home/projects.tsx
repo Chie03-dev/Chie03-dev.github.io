@@ -52,12 +52,14 @@ export default function Projects() {
   const [canScrollNext, setCanScrollNext] = useState(true);
   const [selected, setSelected] = useState<Project | null>(null);
 
-  // Lock body scroll when modal is open
+  // Lock html/body scroll when modal is open
   useEffect(() => {
     if (!selected) return;
-    document.body.style.overflow = "hidden";
+    document.documentElement.classList.add("no-scroll");
+    document.body.classList.add("no-scroll");
     return () => {
-      document.body.style.overflow = "";
+      document.documentElement.classList.remove("no-scroll");
+      document.body.classList.remove("no-scroll");
     };
   }, [selected]);
 
@@ -258,6 +260,8 @@ function ProjectModal({
       <div
         className="absolute inset-0 bg-black/55 backdrop-blur-md transition-opacity duration-300"
         onClick={onClose}
+        onWheel={(e) => e.preventDefault()}
+        onTouchMove={(e) => e.preventDefault()}
       />
       <div
         className={cn(
