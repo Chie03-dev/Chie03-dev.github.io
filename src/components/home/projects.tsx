@@ -325,7 +325,7 @@ function ProjectModal({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 lg:p-12">
+        <div className="flex-1 overflow-y-auto p-8 lg:p-12 overscroll-behavior-contain">
           <div className="flex flex-wrap gap-2 mb-6">
             {project.technologies.map((t) => (
               <span
