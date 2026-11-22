@@ -64,19 +64,12 @@ export default function Projects() {
     document.body.style.left = "0";
     document.body.style.width = "100%";
 
-    const blockScroll = (e: Event) => e.preventDefault();
-    const opts: AddEventListenerOptions = { passive: false };
-    window.addEventListener("wheel", blockScroll, opts);
-    window.addEventListener("touchmove", blockScroll, opts);
-
     return () => {
       document.documentElement.style.overflow = "";
       document.body.style.position = "";
       document.body.style.top = "";
       document.body.style.left = "";
       document.body.style.width = "";
-      window.removeEventListener("wheel", blockScroll, opts);
-      window.removeEventListener("touchmove", blockScroll, opts);
       window.scrollTo(0, scrollY);
     };
   }, [selected]);
