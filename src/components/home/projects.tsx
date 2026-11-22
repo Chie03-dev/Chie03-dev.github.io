@@ -52,14 +52,23 @@ export default function Projects() {
   const [canScrollNext, setCanScrollNext] = useState(true);
   const [selected, setSelected] = useState<Project | null>(null);
 
-  // Lock html/body scroll when modal is open
+  // Lock html/body scroll and intercept wheel/touch when modal is open
   useEffect(() => {
     if (!selected) return;
-    document.documentElement.classList.add("no-scroll");
-    document.body.classList.add("no-scroll");
+
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+
+    const blockScroll = (e: Event) => e.preventDefault();
+    const opts: AddEventListenerOptions = { passive: false };
+    window.addEventListener("wheel", blockScroll, opts);
+    window.addEventListener("touchmove", blockScroll, opts);
+
     return () => {
-      document.documentElement.classList.remove("no-scroll");
-      document.body.classList.remove("no-scroll");
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+      window.removeEventListener("wheel", blockScroll, opts);
+      window.removeEventListener("touchmove", blockScroll, opts);
     };
   }, [selected]);
 
