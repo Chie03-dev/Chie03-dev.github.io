@@ -52,12 +52,17 @@ export default function Projects() {
   const [canScrollNext, setCanScrollNext] = useState(true);
   const [selected, setSelected] = useState<Project | null>(null);
 
-  // Lock html/body scroll and intercept wheel/touch when modal is open
+  // Lock page scroll when modal is open: pin body at current scroll position
+  // so Lenis/smooth-scroll and any wheel events cannot move the page behind.
   useEffect(() => {
     if (!selected) return;
 
+    const scrollY = window.scrollY;
     document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.width = "100%";
 
     const blockScroll = (e: Event) => e.preventDefault();
     const opts: AddEventListenerOptions = { passive: false };
@@ -66,9 +71,13 @@ export default function Projects() {
 
     return () => {
       document.documentElement.style.overflow = "";
-      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.width = "";
       window.removeEventListener("wheel", blockScroll, opts);
       window.removeEventListener("touchmove", blockScroll, opts);
+      window.scrollTo(0, scrollY);
     };
   }, [selected]);
 
