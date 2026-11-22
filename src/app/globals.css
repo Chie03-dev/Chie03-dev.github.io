@@ -247,7 +247,7 @@
  *
  * Everything animates opacity and transform only, so the sequence stays on the
  * compositor and never triggers layout. The art holds at scale(1) through the
- * first 55% so the wolf stays fully in frame, then eases to 1.05 as it fades —
+ * first 55% so the wolf stays fully in frame, then eases to 1.05 as it fades -
  * a slight drift instead of a push that crops. The black strobe and red bloom
  * both finish inside the first quarter, leaving ~1.5s of unobstructed artwork.
  * The red layer is a radial bloom with a screen blend so it tints the artwork
@@ -255,7 +255,7 @@
  *
  * `forwards` pins the end state (opacity 0) so the overlay is inert once done;
  * it is also `pointer-events-none`, so the finished layer can never intercept a
- * click. The overlay itself still renders nothing until containment breaks —
+ * click. The overlay itself still renders nothing until containment breaks -
  * the only at-rest cost is the preloaded sting, so audio starts on the same
  * frame as the flash instead of waiting on a fetch.
  */
@@ -274,7 +274,7 @@
   }
 }
 
-/* Red bloom: snaps in, stutters like a flare catching, then bleeds off —
+/* Red bloom: snaps in, stutters like a flare catching, then bleeds off -
    all inside the first 38% so the artwork is left uncovered. */
 @keyframes unlock-flash-red {
   0% {

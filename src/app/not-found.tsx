@@ -4,7 +4,7 @@ import { SectionRail } from "@/components/ui/section-rail";
 
 /**
  * Branded 404. Next.js renders this for unmatched routes. Kept as a Server
- * Component — nothing interactive here, just a message and a way back.
+ * Component - nothing interactive here, just a message and a way back.
  */
 export default function NotFound() {
   return (

@@ -41,7 +41,7 @@ export const portfolioData: PortfolioData = {
       ],
       detail: {
         problem:
-          "Small retail stores need an affordable point-of-sale system, but most POS platforms charge monthly fees and require reliable internet — neither fits a corner store in an area with spotty connectivity.",
+          "Small retail stores need an affordable point-of-sale system, but most POS platforms charge monthly fees and require reliable internet - neither fits a corner store in an area with spotty connectivity.",
         constraints: [
           "Must work offline-first with no internet dependency.",
           "Runs on low-end Android devices.",
@@ -49,22 +49,22 @@ export const portfolioData: PortfolioData = {
           "Receipts must print as PDF without a cloud service.",
         ],
         decisions: [
-          "Room (SQLite) for local-first storage — data lives on the device.",
-          "CameraX + Google ML Kit for on-device barcode scanning — no server round-trip.",
-          "MPAndroidChart for sales analytics — renders charts entirely on-device.",
-          "iText for PDF receipt generation — printable receipts without a network printer.",
-          "MVVM architecture — keeps UI and business logic separate as the codebase grew.",
+          "Room (SQLite) for local-first storage - data lives on the device.",
+          "CameraX + Google ML Kit for on-device barcode scanning - no server round-trip.",
+          "MPAndroidChart for sales analytics - renders charts entirely on-device.",
+          "iText for PDF receipt generation - printable receipts without a network printer.",
+          "MVVM architecture - keeps UI and business logic separate as the codebase grew.",
         ],
         tradeoffs: [
-          "Local-only storage means no real-time multi-device sync — accepted because most stores run a single register.",
-          "Kotlin + Java mix — newer modules in Kotlin, legacy integration in Java.",
+          "Local-only storage means no real-time multi-device sync - accepted because most stores run a single register.",
+          "Kotlin + Java mix - newer modules in Kotlin, legacy integration in Java.",
         ],
         metrics: [
           "Barcode scans resolve in under 1 second on test hardware.",
           "PDF receipts generate in under 2 seconds including itemised totals.",
           "App installs under 25 MB on entry-level devices.",
         ],
-        role: "Sole developer — architecture, UI, database, barcode integration, PDF receipts, and deployment.",
+        role: "Sole developer - architecture, UI, database, barcode integration, PDF receipts, and deployment.",
         outcome: "A working offline POS that small stores can install and run without monthly fees or internet.",
         whatIdoDifferently: [
           "Add optional cloud sync for multi-location stores instead of keeping it strictly local.",
@@ -74,7 +74,7 @@ export const portfolioData: PortfolioData = {
         screenshots: ["/projects/mobilepos.webp"],
         highlights: {
           headline: "Offline-first POS for small retailers",
-          subtitle: "Thesis project — barcode checkout, sales analytics, and PDF receipts on low-end Android.",
+          subtitle: "Thesis project - barcode checkout, sales analytics, and PDF receipts on low-end Android.",
           metrics: [
             { label: "Barcode scan time", value: "< 1s" },
             { label: "Receipt generation", value: "< 2s" },
@@ -88,7 +88,7 @@ export const portfolioData: PortfolioData = {
       slug: "barangay-demo-portal",
       title: "Barangay Demo Portal",
       description:
-        "Resident-facing portal for barangay services — document requests, incident reporting, request tracking, and an officials directory — with route protection, dark mode, and deployment on Cloudflare Workers.",
+        "Resident-facing portal for barangay services - document requests, incident reporting, request tracking, and an officials directory - with route protection, dark mode, and deployment on Cloudflare Workers.",
       image: "/projects/barangay.webp",
       link: "https://github.com/Chie03-dev/Barangay",
       period: "07/2023 - Present",
@@ -102,26 +102,26 @@ export const portfolioData: PortfolioData = {
       ],
       detail: {
         problem:
-          "Residents had to visit the barangay hall in person for document requests, incident reports, and to look up officials — slow for citizens and a bottleneck for staff.",
+          "Residents had to visit the barangay hall in person for document requests, incident reports, and to look up officials - slow for citizens and a bottleneck for staff.",
         constraints: [
-          "Deploy on Cloudflare Workers — edge runtime, no long-running server processes.",
-          "Route protection — only authenticated users can submit or track requests.",
+          "Deploy on Cloudflare Workers - edge runtime, no long-running server processes.",
+          "Route protection - only authenticated users can submit or track requests.",
           "Dark mode required.",
         ],
         decisions: [
-          "Next.js 15 App Router — server components by default, edge-compatible.",
-          "Cloudflare Workers deployment — matches the edge constraint and keeps hosting near-free.",
-          "Framer Motion — page transitions and smooth UI feedback.",
+          "Next.js 15 App Router - server components by default, edge-compatible.",
+          "Cloudflare Workers deployment - matches the edge constraint and keeps hosting near-free.",
+          "Framer Motion - page transitions and smooth UI feedback.",
         ],
         tradeoffs: [
-          "Edge runtime limits — no long-running background jobs; scheduled tasks need external triggers.",
-          "Serverless cold starts — mitigated with lightweight pages and edge caching.",
+          "Edge runtime limits - no long-running background jobs; scheduled tasks need external triggers.",
+          "Serverless cold starts - mitigated with lightweight pages and edge caching.",
         ],
         metrics: [
           "Page loads under 800 ms on edge locations tested.",
           "Document request flow completed in under 3 clicks.",
         ],
-        role: "Full-stack developer — frontend, route protection, dark mode, Cloudflare Workers deployment.",
+        role: "Full-stack developer - frontend, route protection, dark mode, Cloudflare Workers deployment.",
         outcome:
           "A resident-facing portal that reduces in-person visits for routine barangay services.",
         whatIdoDifferently: [
@@ -161,29 +161,29 @@ export const portfolioData: PortfolioData = {
       ],
       detail: {
         problem:
-          "Teachers need to run classroom quizzes without internet, prevent cheating, and get instant results — paper quizzes are slow to grade and easy to compromise.",
+          "Teachers need to run classroom quizzes without internet, prevent cheating, and get instant results - paper quizzes are slow to grade and easy to compromise.",
         constraints: [
-          "No internet — LAN-only communication between instructor and students.",
-          "Integrity — students can't switch apps during the quiz (Lock Task Mode).",
-          "8 different question types — multiple choice, true/false, short answer, and more.",
+          "No internet - LAN-only communication between instructor and students.",
+          "Integrity - students can't switch apps during the quiz (Lock Task Mode).",
+          "8 different question types - multiple choice, true/false, short answer, and more.",
           "Students join via QR code or PIN without installing an app.",
         ],
         decisions: [
-          "Electron instructor app + local WebSocket server — instructor hosts, students connect on the LAN.",
-          "Android student app via QR code or PIN — zero install for quick classroom entry.",
-          "Lock Task Mode — pins the student device to the quiz app during the test.",
-          "PostgreSQL — stores quiz results and telemetry for later analysis.",
+          "Electron instructor app + local WebSocket server - instructor hosts, students connect on the LAN.",
+          "Android student app via QR code or PIN - zero install for quick classroom entry.",
+          "Lock Task Mode - pins the student device to the quiz app during the test.",
+          "PostgreSQL - stores quiz results and telemetry for later analysis.",
         ],
         tradeoffs: [
           "Electron bundle size is larger than a native desktop app, but cross-platform shipping was faster.",
-          "WebSockets need persistent connections — more complex than HTTP polling but real-time results are worth it.",
+          "WebSockets need persistent connections - more complex than HTTP polling but real-time results are worth it.",
         ],
         metrics: [
           "8 question types supported.",
           "Quiz results delivered in real time to the instructor dashboard.",
           "Telemetry tracks attempt duration, answer changes, and flagged events.",
         ],
-        role: "Full-stack developer — Electron desktop app, WebSocket server, Android student app, database schema.",
+        role: "Full-stack developer - Electron desktop app, WebSocket server, Android student app, database schema.",
         outcome:
           "An offline classroom quiz system where teachers run live quizzes and students join by QR code or PIN.",
         whatIdoDifferently: [
@@ -193,7 +193,7 @@ export const portfolioData: PortfolioData = {
         ],
         screenshots: ["/projects/Quiz.webp"],
         highlights: {
-          headline: "LAN Quiz System — Android + Desktop",
+          headline: "LAN Quiz System - Android + Desktop",
           subtitle: "Offline classroom quiz system where an Electron instructor app hosts a local WebSocket server and students join via QR code or PIN.",
           metrics: [
             { label: "Question types", value: "8" },
@@ -221,26 +221,26 @@ export const portfolioData: PortfolioData = {
       ],
       detail: {
         problem:
-          "Schools still manage enrolment, attendance, and grades on paper or spreadsheets — slow to report, hard to audit, and error-prone.",
+          "Schools still manage enrolment, attendance, and grades on paper or spreadsheets - slow to report, hard to audit, and error-prone.",
         constraints: [
-          "Multiple user roles — admin, teacher, parent, and student views with different permissions.",
-          "Per-program reporting — reports must aggregate by course and year level.",
-          "Demo-quality build — needs to look real without connecting to live school data.",
+          "Multiple user roles - admin, teacher, parent, and student views with different permissions.",
+          "Per-program reporting - reports must aggregate by course and year level.",
+          "Demo-quality build - needs to look real without connecting to live school data.",
         ],
         decisions: [
-          "Next.js + React + TypeScript — type-safe full-stack with server components.",
-          "Tailwind CSS — rapid UI development with a consistent design system.",
-          "PostgreSQL — relational data fits enrolment, attendance, and grade records well.",
+          "Next.js + React + TypeScript - type-safe full-stack with server components.",
+          "Tailwind CSS - rapid UI development with a consistent design system.",
+          "PostgreSQL - relational data fits enrolment, attendance, and grade records well.",
         ],
         tradeoffs: [
-          "Demo uses seed/mock data — real integration with a school's SIS would need API adapters.",
-          "Role-based access is simplified for the demo — production would need finer-grained permissions.",
+          "Demo uses seed/mock data - real integration with a school's SIS would need API adapters.",
+          "Role-based access is simplified for the demo - production would need finer-grained permissions.",
         ],
         metrics: [
           "Dashboard loads under 1 second with seed data.",
           "Reports generate on-demand with no page reloads.",
         ],
-        role: "Full-stack developer — dashboards, enrolment flow, attendance tracking, grade records, reporting.",
+        role: "Full-stack developer - dashboards, enrolment flow, attendance tracking, grade records, reporting.",
         outcome:
           "A school administration platform demo showing enrolment, attendance, grades, and per-program reporting.",
         whatIdoDifferently: [
@@ -265,7 +265,7 @@ export const portfolioData: PortfolioData = {
       slug: "dashboard-system",
       title: "Dashboard System",
       description:
-        "Personal dashboard that aggregates free game offers, software deals, developer news, weather, and AI-generated summaries — FastAPI backend with a vanilla HTML/JavaScript frontend, supporting SQLite and containerized PostgreSQL deployments.",
+        "Personal dashboard that aggregates free game offers, software deals, developer news, weather, and AI-generated summaries - FastAPI backend with a vanilla HTML/JavaScript frontend, supporting SQLite and containerized PostgreSQL deployments.",
       image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e2e8f0' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='sans-serif' font-size='16'%3EDashboard placeholder%3C/text%3E%3C/svg%3E",
       link: "https://github.com/Chie03-dev/dashboard",
       period: "2026",
@@ -282,12 +282,12 @@ export const portfolioData: PortfolioData = {
       ],
       detail: {
         problem:
-          "Free game offers, software deals, developer news, weather, and AI summaries are scattered across many sources — no single place to track them all.",
+          "Free game offers, software deals, developer news, weather, and AI summaries are scattered across many sources - no single place to track them all.",
         constraints: [
           "Single-user or small multi-tenant dashboard with JWT authentication and tenant isolation.",
           "Support both local SQLite and containerized PostgreSQL deployments.",
           "Background data synchronization without blocking the frontend.",
-          "No frontend framework — plain HTML/CSS/JavaScript.",
+          "No frontend framework - plain HTML/CSS/JavaScript.",
         ],
         decisions: [
           "FastAPI for the REST API and static frontend serving.",
@@ -306,7 +306,7 @@ export const portfolioData: PortfolioData = {
           "JWT authentication with tenant isolation for multi-tenant support.",
         ],
         role:
-          "Sole developer — FastAPI backend, REST APIs, static frontend, database layer, Celery tasks, observability, and deployment.",
+          "Sole developer - FastAPI backend, REST APIs, static frontend, database layer, Celery tasks, observability, and deployment.",
         outcome:
           "A self-hosted personal dashboard that aggregates games, deals, news, weather, and AI summaries with scheduled sync and observability.",
         whatIdoDifferently: [
@@ -318,7 +318,7 @@ export const portfolioData: PortfolioData = {
         highlights: {
           headline: "Personal dashboard aggregator",
           subtitle:
-            "FastAPI backend with vanilla frontend — games, deals, news, weather, and AI summaries with JWT auth and observability.",
+            "FastAPI backend with vanilla frontend - games, deals, news, weather, and AI summaries with JWT auth and observability.",
           metrics: [
             { label: "Data sources", value: "8+" },
             { label: "Deployment", value: "Docker + Kubernetes" },

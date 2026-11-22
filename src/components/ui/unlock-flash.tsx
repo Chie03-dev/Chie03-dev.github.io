@@ -17,7 +17,7 @@ import { useHeroLock } from "@/context/hero-lock-context";
  *    0 and only unlockHero() moves it), so a visitor who never unlocks ships no
  *    extra overlay DOM for this.
  *  - When it does fire, `key={flashId}` makes React remount the overlay, which
- *    restarts the CSS sequence from frame zero. No JS animation, no library —
+ *    restarts the CSS sequence from frame zero. No JS animation, no library -
  *    globals.css owns the timing, and only opacity/transform animate so the
  *    whole thing stays on the compositor.
  *
