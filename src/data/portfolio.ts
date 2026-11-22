@@ -266,7 +266,7 @@ export const portfolioData: PortfolioData = {
       title: "Dashboard System",
       description:
         "Personal dashboard that aggregates free game offers, software deals, developer news, weather, and AI-generated summaries — FastAPI backend with a vanilla HTML/JavaScript frontend, supporting SQLite and containerized PostgreSQL deployments.",
-      image: "/projects/inventory.svg",
+      image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e2e8f0' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='sans-serif' font-size='16'%3EDashboard placeholder%3C/text%3E%3C/svg%3E",
       link: "https://github.com/Chie03-dev/dashboard",
       period: "2026",
       technologies: [
@@ -314,7 +314,7 @@ export const portfolioData: PortfolioData = {
           "Add more data sources and fetchers beyond games, deals, news, weather, and GitHub.",
           "Add user-configurable dashboard widgets and layouts.",
         ],
-        screenshots: ["/projects/inventory.svg"],
+        screenshots: ["data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e2e8f0' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='sans-serif' font-size='16'%3EDashboard placeholder%3C/text%3E%3C/svg%3E"],
         highlights: {
           headline: "Personal dashboard aggregator",
           subtitle:
