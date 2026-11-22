@@ -32,7 +32,7 @@ export function PageRail({ children, className }: { children: ReactNode; classNa
       <span
         ref={fillRef}
         aria-hidden="true"
-        className="absolute top-0 bottom-0 left-[19px] w-[2px] origin-top rounded-full bg-gradient-to-t from-primary/10 via-primary to-primary"
+        className="absolute top-0 bottom-0 left-[19px] w-[2px] origin-top rounded-full bg-gradient-to-t from-accent/30 via-accent to-accent"
         style={{ transform: "scaleY(0)" }}
       />
       {children}
