@@ -147,7 +147,7 @@ export const portfolioData: PortfolioData = {
       title: "LAN Quiz System (Android and Desktop)",
       description:
         "Offline classroom quiz system where an Electron instructor app hosts a local WebSocket server and Android students join via QR code or PIN, with Lock Task Mode integrity, telemetry, and 8 question types.",
-      image: "/projects/Quiz.webp",
+      image: "/projects/quiz-dashboard.webp",
       link: "https://github.com/Chie03-dev/QuizStudent",
       period: "09/2026 - Present",
       technologies: [
@@ -191,7 +191,7 @@ export const portfolioData: PortfolioData = {
           "Add a review mode so students see which answers they missed after the quiz.",
           "Add randomised question ordering per student to further reduce collusion.",
         ],
-        screenshots: ["/projects/Quiz.webp"],
+        screenshots: ["/projects/quiz-dashboard.webp"],
         highlights: {
           headline: "LAN Quiz System — Android + Desktop",
           subtitle: "Offline classroom quiz system where an Electron instructor app hosts a local WebSocket server and students join via QR code or PIN.",
@@ -209,7 +209,7 @@ export const portfolioData: PortfolioData = {
       title: "School Systems Demo",
       description:
         "School administration platform demo with dashboards for enrolment, attendance tracking, grade records, and per-program reporting.",
-      image: "/projects/schoolsystems.svg",
+      image: "/projects/school-demo.webp",
       link: "https://github.com/Chie03-dev",
       period: "2026",
       technologies: [
@@ -248,7 +248,7 @@ export const portfolioData: PortfolioData = {
           "Add biometric or RFID attendance instead of manual entry.",
           "Add automated report card generation as PDF.",
         ],
-        screenshots: ["/projects/schoolsystems.svg"],
+        screenshots: ["/projects/school-demo.webp"],
         highlights: {
           headline: "School administration platform demo",
           subtitle: "Dashboards for enrolment, attendance tracking, grade records, and per-program reporting.",
