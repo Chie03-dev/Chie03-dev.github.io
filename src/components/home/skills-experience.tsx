@@ -40,9 +40,9 @@ export default function SkillsExperience() {
         <div className="grid gap-3 sm:grid-cols-2">
           {skillGroups.map((group, i) => (
             <Reveal key={group.category} delay={i * 50} className="h-full">
-              <article className="group h-full rounded-2xl border border-border/60 bg-card/40 dark:bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+              <article className="group h-full rounded-2xl border border-border/60 bg-card/40 dark:bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg hover:shadow-accent/5">
                 <div className="mb-3 flex items-center gap-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-accent/10 text-accent transition-colors group-hover:bg-accent/20">
                     <CategoryIcon category={group.category} className="size-4.5" />
                   </span>
                   <h4 className="text-sm font-semibold tracking-tight">
@@ -56,7 +56,7 @@ export default function SkillsExperience() {
                   {group.items.map((item) => (
                     <li
                       key={item}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
                     >
                       <SkillIcon
                         name={item}

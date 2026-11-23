@@ -476,14 +476,14 @@ function SectionBlock({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card p-5">
-      <div className="mb-3 flex items-center gap-2">
-        {Icon && (
-          <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        )}
-        <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-          {title}
-        </h4>
+      <div className="rounded-xl border border-accent/60 bg-card p-5">
+        <div className="mb-3 flex items-center gap-2">
+          {Icon && (
+            <Icon className="h-4 w-4 text-accent" aria-hidden="true" />
+          )}
+          <h4 className="text-sm font-semibold uppercase tracking-wider text-accent">
+            {title}
+          </h4>
       </div>
       {children}
     </div>

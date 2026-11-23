@@ -160,7 +160,7 @@ export function NotchedProjectCard({
             "absolute right-0 bottom-0 flex items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-[background-color,color,scale] duration-300 group-hover:scale-105",
             accent
               ? "group-hover:bg-[var(--card-accent)] group-hover:text-[var(--card-accent-fg)]"
-              : "group-hover:bg-primary group-hover:text-primary-foreground",
+              : "group-hover:bg-accent group-hover:text-accent-foreground",
           )}
           style={
             {
