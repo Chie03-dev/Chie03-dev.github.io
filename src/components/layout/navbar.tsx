@@ -5,24 +5,13 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLinks } from "@/components/layout/nav-links";
 import { site } from "@/lib/site";
 import type { NavItem } from "@/types";
+import { LuUser } from "react-icons/lu";
 
-// No "About": it lives under the hero portrait in the left column rather than
-// being a stop on the nav, and the left column is always on screen beside the
-// content.
 const NAV_ITEMS: NavItem[] = [
   { label: "Projects", href: "/#projects" },
   { label: "Skills", href: "/#skills" },
   { label: "Contact", href: "/#contact" },
 ];
-
-// Initials derived from the configured name (first letter of the first two
-// words), falling back to a single letter.
-const INITIALS = site.name
-  .split(" ")
-  .map((part) => part[0])
-  .filter(Boolean)
-  .slice(0, 2)
-  .join("");
 
 /**
  * Floating pill navigation. A Server Component that renders the centered,
@@ -43,8 +32,8 @@ export function Navbar() {
           href="/"
           className="flex items-center gap-2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold uppercase text-primary-foreground">
-            {INITIALS}
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card/90 border border-border/60 text-accent backdrop-blur">
+            <LuUser className="size-5" aria-hidden="true" />
           </span>
           <span className="hidden text-sm font-semibold tracking-tight lg:inline">
             {site.githubUsername}
