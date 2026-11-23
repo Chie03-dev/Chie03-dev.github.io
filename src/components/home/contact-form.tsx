@@ -67,7 +67,7 @@ export function ContactForm() {
             required
             name="name"
             type="text"
-            className="rounded-md border border-border/40 bg-background px-3 py-2"
+            className="rounded-md border border-accent/40 bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground/50 focus:border-accent focus:ring-1 focus:ring-accent"
           />
         </label>
         <label className="grid gap-1 text-sm">
@@ -76,7 +76,7 @@ export function ContactForm() {
             required
             name="email"
             type="email"
-            className="rounded-md border border-border/40 bg-background px-3 py-2"
+            className="rounded-md border border-accent/40 bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground/50 focus:border-accent focus:ring-1 focus:ring-accent"
           />
         </label>
         <label className="grid gap-1 text-sm">
@@ -85,7 +85,7 @@ export function ContactForm() {
             required
             name="message"
             rows={4}
-            className="rounded-md border border-border/40 bg-background px-3 py-2"
+            className="rounded-md border border-accent/40 bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground/50 focus:border-accent focus:ring-1 focus:ring-accent"
           />
         </label>
         <button
