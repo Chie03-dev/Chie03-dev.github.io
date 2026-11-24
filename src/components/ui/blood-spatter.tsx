@@ -10,14 +10,20 @@ export function BloodSpatter() {
 
   useEffect(() => {
     if (isLocked) return;
+    // Reduce blood animation intensity by ~75% in dark mode so it's less
+    // overwhelming against the dark background.
+    const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const instance = createBloodSpatter({
       darkMode: true,
       zIndex: 0,
-      maxParticles: 8,
+      maxParticles: dark ? 2 : 8,
       minMoveDistance: 30,
       drips: false,
-      spatterChance: 0.1,
+      spatterChance: dark ? 0.025 : 0.1,
       clickBurst: false,
+      splatLifeMs: dark ? 1000 : 4000,
+      woundLifeMs: dark ? 3500 : 14000,
+      clawCooldown: dark ? 2800 : 700,
     });
     return () => instance.destroy();
   }, [isLocked]);
