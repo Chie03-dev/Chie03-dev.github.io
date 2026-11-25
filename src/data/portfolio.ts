@@ -210,7 +210,7 @@ export const portfolioData: PortfolioData = {
       description:
         "School administration platform demo with dashboards for enrolment, attendance tracking, grade records, and per-program reporting.",
       image: "/projects/school.webp",
-      link: "https://github.com/Chie03-dev",
+      link: "https://github.com/Chie03-dev/SchoolSystem",
       period: "2026",
       technologies: [
         "Next.js",
