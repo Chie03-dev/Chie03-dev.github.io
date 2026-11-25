@@ -56,7 +56,7 @@ export function SectionRail({ children, className, inset = true, rail = true, ic
           {/* The fill: scaled from the top by the section's own progress. */}
           <span
             aria-hidden="true"
-            className="absolute top-0 bottom-0 left-[19px] w-[2px] origin-top rounded-full bg-gradient-to-t from-accent/30 via-accent to-accent"
+            className="absolute top-0 bottom-0 left-[19px] w-[2px] origin-top rounded-full bg-gradient-to-t from-accent/30 via-accent to-accent neon-glow"
             style={{ transform: "scaleY(var(--sr, 0))" }}
           />
         </>
