@@ -52,22 +52,22 @@
  * card from the page.
  */
 .dark {
-  --background: oklch(0.08 0.01 25);
-  --foreground: oklch(0.94 0.01 25);
+  --background: oklch(0.11 0.012 25);
+  --foreground: oklch(0.88 0.01 25);
   --card: oklch(0.16 0.018 24);
-  --card-foreground: oklch(0.94 0.01 25);
-  --popover: oklch(0.14 0.012 25);
-  --popover-foreground: oklch(0.94 0.01 25);
+  --card-foreground: oklch(0.88 0.01 25);
+  --popover: oklch(0.16 0.018 24);
+  --popover-foreground: oklch(0.88 0.01 25);
   --primary: oklch(0.45 0.18 20);
   --primary-foreground: oklch(0.98 0.02 25);
   --secondary: oklch(0.2 0.02 25);
-  --secondary-foreground: oklch(0.94 0.01 25);
-  --muted: oklch(0.18 0.014 25);
-  --muted-foreground: oklch(0.8 0.022 25);
-  --accent: oklch(0.8 0.2 70);
+  --secondary-foreground: oklch(0.88 0.01 25);
+  --muted: oklch(0.2 0.014 25);
+  --muted-foreground: oklch(0.7 0.022 25);
+  --accent: oklch(0.75 0.15 70);
   --accent-foreground: oklch(0.15 0.02 10);
   --destructive: oklch(0.65 0.2 25);
-  --border: oklch(0.3 0.02 25 / 28%);
+  --border: oklch(0.3 0.02 25 / 20%);
   --input: oklch(0.35 0.02 25 / 38%);
   --ring: oklch(0.45 0.18 20);
 }
