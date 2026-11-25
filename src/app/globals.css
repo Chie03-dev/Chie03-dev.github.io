@@ -24,7 +24,7 @@
   --secondary-foreground: oklch(0.94 0.01 90);
   --muted: oklch(0.22 0.04 230);
   --muted-foreground: oklch(0.84 0.03 220);
-  --accent: oklch(0.7 0.2 130);
+  --accent: oklch(0.75 0.15 70);
   --accent-foreground: oklch(0.15 0.02 10);
   --destructive: oklch(0.62 0.2 25);
   --border: oklch(0.9 0.02 200 / 22%);
@@ -64,7 +64,7 @@
   --secondary-foreground: oklch(0.88 0.01 25);
   --muted: oklch(0.2 0.014 25);
   --muted-foreground: oklch(0.7 0.022 25);
-  --accent: oklch(0.7 0.2 130);
+  --accent: oklch(0.75 0.15 70);
   --accent-foreground: oklch(0.15 0.02 10);
   --destructive: oklch(0.65 0.2 25);
   --border: oklch(0.3 0.02 25 / 20%);
@@ -469,8 +469,4 @@
 @media (prefers-reduced-motion: reduce) {
   @view-transition { navigation: none; }
   .page-transition { view-transition-name: none; }
-}
-
-.neon-glow {
-  box-shadow: 0 0 10px oklch(0.7 0.2 130 / 0.4), 0 0 20px oklch(0.7 0.2 130 / 0.25), 0 0 30px oklch(0.7 0.2 130 / 0.15);
 }
