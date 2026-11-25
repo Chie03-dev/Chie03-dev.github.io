@@ -74,7 +74,7 @@ export default function About() {
         {headline}
       </h3>
 
-      <div className="mt-6 flex items-center gap-2 rounded-xl border border-accent/80 bg-accent/25 px-3 py-2 text-xs font-medium text-accent uppercase tracking-wider neon-glow">
+      <div className="mt-6 flex items-center gap-2 rounded-xl border border-accent/80 bg-accent/25 px-3 py-2 text-xs font-medium text-accent uppercase tracking-wider">
         <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
         Open to entry-level software development roles &middot; Frontend, full-stack, or Android &middot; Glendale, AZ &middot; Remote or on-site
       </div>

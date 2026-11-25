@@ -171,7 +171,7 @@ export function NotchedProjectCard({
             } as React.CSSProperties
           }
         >
-          <LuMaximize2 className="size-5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 neon-glow" />
+          <LuMaximize2 className="size-5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </span>
       </div>
 
