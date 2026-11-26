@@ -216,11 +216,14 @@ function ProjectModal({
   onNavigate: (dir: -1 | 1) => void;
 }) {
   const { detail } = project;
+  const screenshots = detail.screenshots;
   const modalRef = useRef<HTMLDivElement>(null);
   const badgeYear = project.period.match(/\d{4}/)?.[0] ?? project.period;
   const index = projects.findIndex((p) => p.id === project.id);
   const hasPrev = index > 0;
   const hasNext = index < projects.length - 1;
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   useEffect(() => {
     const firstFocusable = modalRef.current?.querySelector('a[href], button');
@@ -239,6 +242,24 @@ function ProjectModal({
     if (!first || !last) return;
 
     const onKey = (e: KeyboardEvent) => {
+      if (galleryOpen) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setGalleryOpen(false);
+          return;
+        }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          setGalleryIndex((i) => Math.max(0, i - 1));
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          setGalleryIndex((i) => Math.min(screenshots.length - 1, i + 1));
+          return;
+        }
+        return;
+      }
       if (e.key === "ArrowLeft" && hasPrev) {
         e.preventDefault();
         onNavigate(-1);
@@ -260,7 +281,16 @@ function ProjectModal({
     };
     modal.addEventListener("keydown", onKey);
     return () => modal.removeEventListener("keydown", onKey);
-  }, [project, hasPrev, hasNext, onNavigate]);
+  }, [
+    project,
+    hasPrev,
+    hasNext,
+    onNavigate,
+    galleryOpen,
+    galleryIndex,
+    detail.screenshots,
+    screenshots.length,
+  ]);
 
   return (
     <div
@@ -302,14 +332,24 @@ function ProjectModal({
             loading="eager"
           />
           {detail.screenshots.slice(1).map((src, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <button
               key={i}
-              src={src}
-              alt={`${project.title} screenshot ${i + 2}`}
-              className="absolute -bottom-10 -left-8 w-[32%] h-auto object-cover rounded-2xl shadow-2xl shadow-black/40 border border-white/10 bg-background object-cover"
-              loading="lazy"
-            />
+              type="button"
+              onClick={() => {
+                setGalleryIndex(i + 1);
+                setGalleryOpen(true);
+              }}
+              aria-label={`View screenshot ${i + 2} fullscreen`}
+              className="absolute -bottom-10 -left-8 w-[32%] h-auto object-cover rounded-2xl shadow-2xl shadow-black/40 border border-white/10 bg-background object-cover hover:scale-105 transition-transform duration-200"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt={`${project.title} screenshot ${i + 2}`}
+                className="inset-0 h-full w-full object-cover"
+                loading="lazy"
+              />
+            </button>
           ))}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
           <div className="absolute bottom-6 left-6 z-10 flex items-center gap-2">
@@ -464,6 +504,62 @@ function ProjectModal({
           </div>
         </div>
       </div>
+
+      {galleryOpen && screenshots.length > 1 && (
+        <div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Screenshot gallery"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setGalleryOpen(false);
+          }}
+          onWheel={(e) => e.preventDefault()}
+          onTouchMove={(e) => e.preventDefault()}
+        >
+          <button
+            type="button"
+            onClick={() => setGalleryOpen(false)}
+            aria-label="Close gallery"
+            className="absolute top-4 right-4 z-10 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <LuX className="size-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setGalleryIndex((i) => Math.max(0, i - 1))}
+            aria-label="Previous image"
+            disabled={galleryIndex === 0}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/20 p-2 text-white disabled:opacity-30 hover:bg-white/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <LuChevronLeft className="size-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setGalleryIndex((i) => Math.min(screenshots.length - 1, i + 1))
+            }
+            aria-label="Next image"
+            disabled={galleryIndex === screenshots.length - 1}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/20 p-2 text-white disabled:opacity-30 hover:bg-white/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <LuChevronRight className="size-5" aria-hidden="true" />
+          </button>
+          <div className="relative flex items-center justify-center max-w-4xl max-h-[85vh]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={screenshots[galleryIndex]}
+              alt={`${project.title} screenshot ${galleryIndex + 1}`}
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl shadow-black/60 border border-white/10"
+              loading="eager"
+            />
+          </div>
+          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-xs text-white/80 tracking-wider uppercase">
+            {galleryIndex + 1} of {screenshots.length}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
