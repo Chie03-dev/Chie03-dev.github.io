@@ -162,25 +162,30 @@ export default function Projects() {
             {projects.map((project) => (
               <li
                 key={project.id}
-                className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0"
+                className="w-[76%] shrink-0 snap-start sm:w-[58%] lg:w-[38%] min-w-0 group relative"
               >
-              <NotchedProjectCard
-                as="button"
-                title={project.title}
-                description={project.description}
-                image={project.image}
-                imageAlt={`${project.title} screenshot`}
-                badge={year(project.period)}
-                tags={project.technologies}
-                monochrome
-                ariaLabel={`View ${project.title} case study`}
-                onClick={(e: React.MouseEvent) => {
-                  if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
-                  e.preventDefault();
-                  triggerRef.current = e.currentTarget as HTMLElement;
-                  setSelected(project);
-                }}
-              />
+                <NotchedProjectCard
+                  as="button"
+                  title={project.title}
+                  description={project.description}
+                  image={project.image}
+                  imageAlt={`${project.title} screenshot`}
+                  badge={year(project.period)}
+                  tags={project.technologies}
+                  monochrome
+                  ariaLabel={`View ${project.title} case study`}
+                  onClick={(e: React.MouseEvent) => {
+                    if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
+                    e.preventDefault();
+                    triggerRef.current = e.currentTarget as HTMLElement;
+                    setSelected(project);
+                  }}
+                />
+                <span
+                  className="absolute bottom-2 right-2 bg-black/50 px-2 py-0.5 rounded text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                >
+                  Open case study
+                </span>
               </li>
             ))}
           </ul>
