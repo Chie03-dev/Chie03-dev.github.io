@@ -448,6 +448,13 @@
   body {
     @apply bg-background text-foreground;
     margin: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, color-mix(in oklab, var(--accent) 7%, transparent) 0%, transparent 45%),
+      radial-gradient(circle at 80% 70%, color-mix(in oklab, var(--accent) 5%, transparent) 0%, transparent 45%),
+      radial-gradient(circle at 50% 10%, color-mix(in oklab, var(--accent) 4%, transparent) 0%, transparent 40%);
+    background-size: 220% 220%, 160% 160%, 300% 300%;
+    background-position: 0% 0%, 100% 100%, 50% 0%;
+    background-repeat: no-repeat;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
