@@ -378,6 +378,11 @@ function ProjectModal({
             <span className="rounded-full border border-white/40 bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
               {index + 1} of {projects.length}
             </span>
+            {projects.length > 1 && (
+              <span className="rounded-full border border-white/40 bg-black/40 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
+                ← → navigate
+              </span>
+            )}
           </div>
           {hasPrev && (
             <button
