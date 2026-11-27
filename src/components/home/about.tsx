@@ -60,11 +60,12 @@ export default function About() {
 
   return (
     <section id="about">
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex items-end gap-2">
         <span className="h-px w-8 bg-primary/60" aria-hidden="true" />
-        <h2 className="text-xs font-semibold tracking-[0.25em] text-primary uppercase">
+        <h2 className="text-xs font-semibold tracking-[0.25em] text-primary uppercase mb-0">
           About me
         </h2>
+        <span className="h-1 w-[40px] rounded-full bg-accent" />
       </div>
 
       <h1 className="text-2xl font-bold tracking-tight">{name}</h1>

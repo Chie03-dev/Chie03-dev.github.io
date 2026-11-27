@@ -31,9 +31,12 @@ export default function SkillsExperience() {
           timeline hang off the same spine, so the rail runs unbroken from the
           section heading down to the last role. */}
       <SectionRail rail={false} icon={<LuCode className="size-4" />}>
-        <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
-          SKILLS &amp; EXPERIENCE
-        </h2>
+        <div className="flex items-end gap-2">
+          <h2 className="text-3xl font-bold tracking-tight uppercase mb-0">
+            SKILLS &amp; EXPERIENCE
+          </h2>
+          <span className="h-1 w-[40px] rounded-full bg-accent" />
+        </div>
 
         {/* ---- Skills ---- */}
         <h3 className="mb-4 text-xl font-semibold">Skills</h3>

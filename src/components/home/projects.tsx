@@ -116,9 +116,12 @@ export default function Projects() {
     <section id="projects">
       <SectionRail rail={false} icon={<LuFolder className="size-4" />}>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-          <h2 className="text-3xl font-bold tracking-tight uppercase">
-            RECENT PROJECTS
-          </h2>
+          <div className="flex items-end gap-2">
+            <h2 className="text-3xl font-bold tracking-tight uppercase mb-0">
+              RECENT PROJECTS
+            </h2>
+            <span className="h-1 w-[40px] rounded-full bg-accent" />
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"

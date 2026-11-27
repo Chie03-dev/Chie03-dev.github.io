@@ -153,9 +153,12 @@ export default function Contact() {
   return (
     <section id="contact">
       <SectionRail rail={false} icon={<LuMail className="size-4" />}>
-        <h2 className="mb-6 text-3xl font-bold tracking-tight uppercase">
-          CONTACT ME
-        </h2>
+        <div className="flex items-end gap-2">
+          <h2 className="text-3xl font-bold tracking-tight uppercase mb-0">
+            CONTACT ME
+          </h2>
+          <span className="h-1 w-[40px] rounded-full bg-accent" />
+        </div>
 
         <p className="mb-8 text-lg leading-relaxed text-muted-foreground">
           {contact.description}
