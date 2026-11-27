@@ -55,7 +55,7 @@ export function NavLinks({ items }: NavLinksProps) {
             className={cn(
               "rounded-full px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isActive
-                ? "bg-primary/10 font-medium text-primary"
+                ? "bg-primary font-medium text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
             )}
           >

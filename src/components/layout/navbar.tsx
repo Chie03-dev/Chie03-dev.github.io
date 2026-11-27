@@ -34,7 +34,7 @@ const INITIALS = site.name
 export function Navbar() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
-      <header className="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/80 px-3 py-2 shadow-lg shadow-black/5 backdrop-blur-md sm:gap-2 sm:px-4">
+      <header className="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/70 px-3 py-2 shadow-2xl shadow-black/10 backdrop-blur-lg sm:gap-2 sm:px-4">
         {/* Brand + availability dot */}
         <Link
           href="/"
@@ -64,7 +64,7 @@ export function Navbar() {
               to static files. */}
           <a
             href={site.resumeUrl}
-            className="hidden items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"
+            className="hidden items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"
           >
             Resume
           </a>
