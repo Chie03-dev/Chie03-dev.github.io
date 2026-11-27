@@ -171,7 +171,7 @@ export default function Contact() {
               href={link.href}
               target={link.external ? "_blank" : undefined}
               rel={link.external ? "noopener noreferrer" : undefined}
-              className="group flex min-w-0 items-center gap-4 rounded-xl border border-border/20 p-4 transition-all hover:-translate-y-1 hover:border-primary/20 dark:bg-card"
+              className="group flex min-w-0 items-center gap-4 rounded-xl border border-border/20 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-accent/60 hover:bg-accent/5 hover:shadow-lg hover:shadow-accent/10 dark:bg-card dark:hover:bg-card/80"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/40 text-accent transition-colors group-hover:bg-accent/10">
                 {link.icon}
