@@ -29,6 +29,7 @@ export const portfolioData: PortfolioData = {
       image: "/projects/mobilepos.webp",
       link: "https://github.com/Chie03-dev/BizPalm-Mobile",
       period: "01/2025 - 04/2026",
+      status: "shipped",
       technologies: [
         "Kotlin",
         "Java",
@@ -92,6 +93,7 @@ export const portfolioData: PortfolioData = {
       image: "/projects/barangay.webp",
       link: "https://github.com/Chie03-dev/Barangay",
       period: "07/2023 - Present",
+      status: "in-progress",
       technologies: [
         "Next.js 15",
         "React 19",
@@ -150,6 +152,7 @@ export const portfolioData: PortfolioData = {
       image: "/projects/Quiz.webp",
       link: "https://github.com/Chie03-dev/QuizStudent",
       period: "09/2026 - Present",
+      status: "in-progress",
       technologies: [
         "Kotlin",
         "Jetpack Compose",
@@ -212,6 +215,7 @@ export const portfolioData: PortfolioData = {
       image: "/projects/school.webp",
       link: "https://github.com/Chie03-dev/SchoolSystem",
       period: "2026",
+      status: "concept",
       technologies: [
         "Next.js",
         "React",
@@ -269,6 +273,7 @@ export const portfolioData: PortfolioData = {
       image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e2e8f0' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='sans-serif' font-size='16'%3EDashboard placeholder%3C/text%3E%3C/svg%3E",
       link: "https://github.com/Chie03-dev/dashboard",
       period: "2026",
+      status: "in-progress",
       technologies: [
         "Python",
         "FastAPI",
@@ -456,6 +461,7 @@ export interface Project {
   period: string;
   technologies: string[];
   detail: ProjectDetail;
+  status?: "concept" | "in-progress" | "shipped";
 }
 
 export interface Experience {

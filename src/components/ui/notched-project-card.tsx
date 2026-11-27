@@ -36,6 +36,8 @@ export interface NotchedProjectCardProps {
   imageAlt?: string;
   /** a pill at the top of the cover, e.g. the year */
   badge?: string;
+  /** project status: concept / in-progress / shipped */
+  status?: "concept" | "in-progress" | "shipped";
   tags?: string[];
   /** a product screen over the photo (transparent PNG/WebP works best) */
   screen?: { src: string; alt: string; className?: string };
@@ -60,6 +62,7 @@ export function NotchedProjectCard({
   image,
   imageAlt = "",
   badge,
+  status,
   tags = [],
   screen,
   dim = screen ? 0.45 : 0,
@@ -146,6 +149,13 @@ export function NotchedProjectCard({
                 {badge}
               </span>
             </div>
+          )}
+          {status && (
+            <span className="pointer-events-none absolute bottom-4 left-4 z-10">
+              <span className="rounded-full border border-white/40 bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white uppercase tracking-wider backdrop-blur-md">
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </span>
+            </span>
           )}
         </div>
 

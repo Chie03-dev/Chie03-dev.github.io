@@ -174,6 +174,7 @@ export default function Projects() {
                   image={project.image}
                   imageAlt={`${project.title} screenshot`}
                   badge={year(project.period)}
+                  status={project.status}
                   tags={project.technologies}
                   monochrome
                   ariaLabel={`View ${project.title} case study`}
