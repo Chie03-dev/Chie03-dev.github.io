@@ -519,15 +519,28 @@ function ProjectModal({
           </div>
 
           <div className="mt-10 pt-8 border-t border-border/40">
-            <a
-              href={project.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 w-full sm:w-auto rounded-xl border border-primary bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <LuArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              View on GitHub
-            </a>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <a
+                href={project.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-1 sm:flex-1 sm:justify-center"
+              >
+                <LuArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                View on GitHub
+              </a>
+              {project.demo && (
+                <a
+                  href={project.demo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground hover:bg-accent/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-1 sm:flex-1 sm:justify-center"
+                >
+                  <LuArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  Live Demo
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>

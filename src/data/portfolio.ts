@@ -483,6 +483,7 @@ export interface Project {
   description: string;
   image: string;
   link: string;
+  demo?: string;
   period: string;
   technologies: string[];
   detail: ProjectDetail;
