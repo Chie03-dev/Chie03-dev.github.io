@@ -1,6 +1,7 @@
 import Hero from "@/components/home/hero";
 import About from "@/components/home/about";
 import Projects from "@/components/home/projects";
+import Testimonials from "@/components/home/testimonials";
 import SkillsExperience from "@/components/home/skills-experience";
 import Education from "@/components/home/education";
 import Contact from "@/components/home/contact";
@@ -31,6 +32,7 @@ export default function Home() {
               the exact same vertical rhythm. */}
           <PageRail className="min-w-0">
             <Projects />
+            <Testimonials />
             <SkillsExperience />
             <Education />
             <Contact />

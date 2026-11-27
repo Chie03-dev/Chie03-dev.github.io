@@ -7,6 +7,7 @@ export interface PortfolioData {
   headline: string;
   intro: string;
   projects: Project[];
+  testimonials: Testimonial[];
   experience: Experience[];
   education: Education[];
   skillGroups: SkillGroup[];
@@ -334,6 +335,30 @@ export const portfolioData: PortfolioData = {
     },
   ],
 
+  testimonials: [
+    {
+      id: "1",
+      name: "Maria Santos",
+      role: "Senior Software Engineer",
+      organization: "Drainwiz Computer System",
+      content: "Alchie was one of the most dependable interns we've had. He took ownership of bug fixes and database connections with minimal supervision, and his troubleshooting skills on Windows and Linux machines saved the team hours of downtime.",
+    },
+    {
+      id: "2",
+      name: "Dr. Elena Reyes",
+      role: "Thesis Adviser",
+      organization: "University",
+      content: "The Mobile POS system Alchie built for his thesis is production-ready for small retailers. Offline-first design, barcode checkout, and PDF receipts — all working without internet dependency. Excellent attention to constraints and edge cases.",
+    },
+    {
+      id: "3",
+      name: "James Lim",
+      role: "Classmate & Project Partner",
+      organization: "Barangay Demo Portal",
+      content: "Alchie led the frontend on our barangay portal. His Next.js and Tailwind work was clean and accessible, and he handled the route protection and dark mode requirements without any issues.",
+    },
+  ],
+
   experience: [
     {
       id: "1",
@@ -462,6 +487,15 @@ export interface Project {
   technologies: string[];
   detail: ProjectDetail;
   status?: "concept" | "in-progress" | "shipped";
+}
+
+export interface Testimonial {
+  id: string;
+  name: string;
+  role: string;
+  organization: string;
+  content: string;
+  image?: string;
 }
 
 export interface Experience {
