@@ -231,6 +231,16 @@ function ProjectModal({
   const index = projects.findIndex((p) => p.id === project.id);
   const hasPrev = index > 0;
   const hasNext = index < projects.length - 1;
+  const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length;
+  const readingTime = Math.max(1, Math.ceil(
+    wordCount(detail.role) +
+    wordCount(detail.problem) +
+    detail.constraints.reduce((sum, c) => sum + wordCount(c), 0) +
+    detail.decisions.reduce((sum, d) => sum + wordCount(d), 0) +
+    detail.tradeoffs.reduce((sum, t) => sum + wordCount(t), 0) +
+    wordCount(detail.outcome) +
+    detail.whatIdoDifferently.reduce((sum, w) => sum + wordCount(w), 0)
+  ) / 200);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
@@ -409,19 +419,22 @@ function ProjectModal({
           <p className="text-lg leading-relaxed text-muted-foreground mb-8">
             {project.description}
           </p>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase tracking-wider mb-10">
+            <span className="flex items-center gap-1.5">
+              <LuGlobe className="h-3.5 w-3.5" aria-hidden="true" />
+              {project.period}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+              ~{readingTime} min read
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground mb-10">
             <span className="font-semibold text-foreground uppercase text-[10px] tracking-wider mr-2">
               Role
             </span>
             {detail.role}
           </p>
-
-          <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase tracking-wider mb-10">
-            <span className="flex items-center gap-1.5">
-              <LuGlobe className="h-3.5 w-3.5" aria-hidden="true" />
-              {project.period}
-            </span>
-          </div>
 
           {detail.highlights && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
