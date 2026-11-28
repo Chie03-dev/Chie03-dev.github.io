@@ -6,7 +6,6 @@ import { useEffect, useRef } from "react";
 import { ChainsOverlay } from "@/components/ui/chains-overlay";
 import { useHeroLock } from "@/context/hero-lock-context";
 import { getScrollEngine } from "@/lib/scroll-engine";
-import { site } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -105,17 +104,6 @@ export default function Hero() {
               className="h-auto w-full [mask-image:linear-gradient(to_bottom,black_75%,transparent_100%)] object-cover"
             />
             <ChainsOverlay isLocked={isLocked} />
-          </div>
-
-          {/* Hero copy overlay - sits at the bottom of the hero panel with a
-              translucent backdrop so it reads over any portrait composition. */}
-          <div className="absolute bottom-0 left-0 w-full px-6 py-4 backdrop-blur-md bg-gradient-to-t from-black/60 via-transparent to-transparent">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              {site.name}
-            </h2>
-            <p className="mt-1 text-sm font-medium tracking-wider uppercase text-accent">
-              {site.role}
-            </p>
           </div>
         </div>
       </div>
